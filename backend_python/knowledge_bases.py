@@ -1,0 +1,15 @@
+ROLE_KNOWLEDGE = "role_knowledge"
+QUESTION_BANK = "question_bank"
+CANDIDATE_MEMORY = "candidate_memory"
+
+VALID_KNOWLEDGE_BASES = {
+    ROLE_KNOWLEDGE,
+    QUESTION_BANK,
+    CANDIDATE_MEMORY,
+}
+
+KNOWLEDGE_BASE_LABELS = {
+    ROLE_KNOWLEDGE: "岗位知识库",
+    QUESTION_BANK: "题库",
+    CANDIDATE_MEMORY: "候选人画像",
+}

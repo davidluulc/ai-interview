@@ -1,0 +1,794 @@
+[
+  {
+    "id": "ai_app_project_001",
+    "role": "AI 应用开发实习生",
+    "category": "项目深挖",
+    "title": "AI 模拟面试系统项目深挖",
+    "keywords": ["AI", "模拟面试", "FastAPI", "项目", "大模型", "Qwen", "DashScope", "prompt", "上线"],
+    "content": "候选人如果做过 AI 应用项目，面试官应追问业务目标、目标用户、核心流程、模型调用链路、prompt 设计、异常兜底、成本控制、日志记录和上线方式。",
+    "follow_up_questions": [
+      "这个项目解决了用户的哪个具体痛点？",
+      "模型回答失败或返回格式不稳定时，你怎么兜底？",
+      "你怎么证明 AI 面试官的问题质量比固定题库更好？"
+    ],
+    "scoring_points": [
+      "能说清真实业务场景和用户价值",
+      "能讲清前端、后端、模型调用的完整链路",
+      "能说明异常处理、日志和成本控制",
+      "能用具体指标或用户反馈评价项目效果"
+    ],
+    "risk_signals": [
+      "只说调用了大模型，但讲不清输入输出结构",
+      "无法解释 API key 为什么必须放在后端",
+      "没有考虑模型失败、超时或 JSON 解析失败"
+    ]
+  },
+  {
+    "id": "ai_app_llm_001",
+    "role": "AI 应用开发实习生",
+    "category": "模型调用",
+    "title": "大模型 API 调用与参数调优",
+    "keywords": ["模型调用", "API", "temperature", "JSON", "response_format", "提示词", "重试", "超时"],
+    "content": "大模型调用需要关注 API key 保护、请求结构、temperature、输出格式约束、超时处理、错误兜底、成本控制和不同任务的参数差异。",
+    "follow_up_questions": [
+      "为什么生成问题和生成报告的 temperature 不一样？",
+      "如果模型没有返回合法 JSON，你会怎么处理？",
+      "为什么前端不能直接调用大模型 API？"
+    ],
+    "scoring_points": [
+      "理解 temperature 对稳定性和创造性的影响",
+      "知道用 JSON schema 或 response_format 约束输出",
+      "能解释后端代理保护 API key 的原因",
+      "能设计超时、重试和降级策略"
+    ],
+    "risk_signals": [
+      "把 API key 写在前端代码里",
+      "把 prompt 调参理解成只改一句话",
+      "不知道模型输出需要被程序校验"
+    ]
+  },
+  {
+    "id": "rag_basic_001",
+    "role": "AI 应用开发实习生",
+    "category": "RAG",
+    "title": "RAG 基础链路",
+    "keywords": ["RAG", "知识库", "检索", "BM25", "关键词", "embedding", "向量数据库", "召回", "重排", "prompt"],
+    "content": "RAG 的核心链路是资料收集、文档切片、建立索引、根据用户问题检索相关资料、必要时重排、把命中资料放进 prompt，再让模型基于资料回答或追问。",
+    "follow_up_questions": [
+      "你的系统里 RAG 检索 query 是怎么构造的？",
+      "为什么第一版可以先用关键词或 BM25，而不是直接上向量数据库？",
+      "如何判断一次 RAG 命中的资料是有用的？"
+    ],
+    "scoring_points": [
+      "能说清 RAG 解决模型缺少外部知识和上下文漂移的问题",
+      "能解释 query、召回、重排、prompt 拼接的关系",
+      "能说明关键词检索和向量检索的优缺点",
+      "能用调试面板观察命中资料和提问质量"
+    ],
+    "risk_signals": [
+      "只会说 RAG 是检索增强生成",
+      "讲不清检索结果怎么进入 prompt",
+      "不知道召回错误会影响模型问题质量"
+    ]
+  },
+  {
+    "id": "rag_interview_001",
+    "role": "AI 应用开发实习生",
+    "category": "RAG",
+    "title": "面试系统里的双 RAG 设计",
+    "keywords": ["双 RAG", "岗位知识库", "候选人画像", "简历", "JD", "历史回答", "弱点", "记忆"],
+    "content": "AI 模拟面试系统可以设计两个 RAG：岗位知识库 RAG 提供 JD、技术栈、题库、评分点；候选人画像 RAG 提供简历、历史回答、风险点和训练建议。",
+    "follow_up_questions": [
+      "岗位知识库和候选人画像为什么要分开？",
+      "候选人历史弱点如何影响下一轮追问？",
+      "如果历史记忆和当前 JD 冲突，应该优先相信谁？"
+    ],
+    "scoring_points": [
+      "能区分岗位资料和候选人资料的职责边界",
+      "能解释历史面试记录如何形成长期训练记忆",
+      "能说明当前 JD 和当前回答应优先于旧记忆",
+      "能设计可解释的 RAG 调试信息"
+    ],
+    "risk_signals": [
+      "把所有资料混在一个 prompt 里，不区分来源",
+      "让模型无条件相信历史记忆",
+      "没有展示检索依据，无法排查提问跑偏"
+    ]
+  },
+  {
+    "id": "backend_fastapi_001",
+    "role": "后端开发实习生",
+    "category": "后端接口",
+    "title": "FastAPI 后端模块化",
+    "keywords": ["后端", "FastAPI", "接口", "REST", "Pydantic", "路由", "模块化", "高内聚", "低耦合"],
+    "content": "FastAPI 项目通常会把配置、数据模型、数据库、业务路由、外部服务调用拆成不同模块。这样每个文件职责清楚，后续扩展 RAG、登录、报告、部署时不容易混乱。",
+    "follow_up_questions": [
+      "main.py、routes、schemas、database 分别负责什么？",
+      "为什么请求体要用 Pydantic model 定义？",
+      "什么叫高内聚、低耦合？在这个项目里怎么体现？"
+    ],
+    "scoring_points": [
+      "能讲清 FastAPI 请求从路由进入业务逻辑的流程",
+      "理解 Pydantic 用于数据校验和接口文档",
+      "知道数据库会话、模型调用不应该堆在 main.py",
+      "能说明模块化带来的可维护性"
+    ],
+    "risk_signals": [
+      "所有代码都写在一个文件里",
+      "接口入参没有结构化校验",
+      "说不清路由层和服务层边界"
+    ]
+  },
+  {
+    "id": "backend_db_001",
+    "role": "后端开发实习生",
+    "category": "数据库",
+    "title": "面试历史记录与持久化",
+    "keywords": ["数据库", "SQLite", "PostgreSQL", "SQLAlchemy", "历史记录", "持久化", "报告", "localStorage"],
+    "content": "localStorage 适合做前端兜底，但正式产品需要把面试记录、报告、分数、风险点保存到后端数据库，方便跨设备访问、统计分析、用户体系和长期记忆。",
+    "follow_up_questions": [
+      "为什么不能只用 localStorage 保存面试报告？",
+      "SQLite 和 PostgreSQL 分别适合什么阶段？",
+      "历史记录如何反过来服务候选人画像 RAG？"
+    ],
+    "scoring_points": [
+      "理解浏览器存储和后端数据库的区别",
+      "能解释开发阶段 SQLite、上线阶段 PostgreSQL 的取舍",
+      "能说明 ORM 的作用",
+      "能把历史报告用于后续个性化训练"
+    ],
+    "risk_signals": [
+      "认为 localStorage 等同于正式数据库",
+      "不知道用户换设备后数据会丢失",
+      "没有考虑数据隐私和删除能力"
+    ]
+  },
+  {
+    "id": "general_behavior_001",
+    "role": "通用",
+    "category": "行为面试",
+    "title": "STAR 回答结构",
+    "keywords": ["STAR", "行为面试", "协作", "压力", "冲突", "复盘", "沟通"],
+    "content": "行为面试建议使用 STAR 结构：Situation 背景、Task 任务、Action 行动、Result 结果。回答要有具体例子、个人贡献、量化结果和复盘改进。",
+    "follow_up_questions": [
+      "这件事里你个人负责的部分是什么？",
+      "如果重新做一次，你会改进哪里？",
+      "结果有没有可以量化的指标？"
+    ],
+    "scoring_points": [
+      "有真实具体的场景",
+      "能说清个人行动而不是团队泛称",
+      "结果可验证或可量化",
+      "有复盘和改进意识"
+    ],
+    "risk_signals": [
+      "只讲团队做了什么，没有个人贡献",
+      "没有结果数据",
+      "回答停留在态度表态"
+    ]
+  },
+  {
+    "id": "py_backend_v2_python_async",
+    "role": "Python 后端开发实习生",
+    "category": "Python 基础",
+    "title": "Python async/await 与后端 I/O",
+    "keywords": ["Python", "async", "await", "I/O", "并发", "FastAPI", "协程"],
+    "content": "Python 的 async/await 用来编写协程代码，适合数据库访问、HTTP 调用、大模型 API 调用等 I/O 密集场景。FastAPI 支持 async 路由，能够在等待外部服务返回时释放事件循环处理其他请求。本项目中模型调用、RAG 检索和数据库访问都属于可能出现等待的环节，理解 async 有助于解释为什么单线程也能处理较多并发 I/O 请求。",
+    "follow_up_questions": [
+      "async/await 适合 CPU 密集任务还是 I/O 密集任务？",
+      "FastAPI 中 async 路由和普通 def 路由有什么区别？",
+      "大模型 API 调用为什么适合用异步方式处理？"
+    ],
+    "scoring_points": [
+      "能区分 I/O 密集和 CPU 密集任务",
+      "能说明 await 等待外部 I/O 时不会阻塞整个事件循环",
+      "能结合 FastAPI 或大模型 API 调用举例",
+      "知道 async 不是自动提升所有代码性能"
+    ],
+    "risk_signals": [
+      "把 async 理解成多线程",
+      "认为所有函数加 async 都会变快",
+      "说不清 await 等待的是什么"
+    ]
+  },
+  {
+    "id": "py_backend_v2_http_status",
+    "role": "Python 后端开发实习生",
+    "category": "Web 后端基础",
+    "title": "HTTP 请求响应与状态码",
+    "keywords": ["HTTP", "状态码", "请求", "响应", "422", "JSON", "Authorization"],
+    "content": "后端接口通过 HTTP 接收请求并返回响应，请求通常包含 method、URL、headers 和 body，响应包含状态码和响应体。FastAPI 中 422 常见于请求参数不符合 Pydantic schema，401 表示未认证，403 表示无权限，500 表示服务端异常。本项目排查前端请求失败时，需要同时看浏览器 Network、请求体、Authorization header 和后端日志。",
+    "follow_up_questions": [
+      "422 和 500 的区别是什么？",
+      "Authorization: Bearer token 一般放在哪里？",
+      "你会怎么排查前端点击按钮后接口失败？"
+    ],
+    "scoring_points": [
+      "能讲清 HTTP 请求和响应的组成",
+      "知道 422 通常是参数校验失败",
+      "能区分 401、403、500 的含义",
+      "能结合浏览器 Network 和后端日志排查问题"
+    ],
+    "risk_signals": [
+      "看到 422 就以为是服务器崩了",
+      "分不清认证失败和权限不足",
+      "不会查看请求体和响应体"
+    ]
+  },
+  {
+    "id": "py_backend_v2_fastapi_depends",
+    "role": "Python 后端开发实习生",
+    "category": "FastAPI",
+    "title": "FastAPI Depends 依赖注入",
+    "keywords": ["FastAPI", "Depends", "依赖注入", "get_db", "get_current_user", "数据库会话", "鉴权"],
+    "content": "FastAPI 的 Depends 用来把公共能力注入到路由函数中，例如数据库会话、当前登录用户、公共参数和权限校验。本项目中 Depends(get_db) 负责提供 SQLAlchemy Session，Depends(get_current_user) 负责解析 token 并拿到当前用户。这样接口函数不用手动创建数据库连接，也能保证受保护接口具备鉴权能力。",
+    "follow_up_questions": [
+      "Depends(get_db) 和 Depends(get_current_user) 分别解决什么问题？",
+      "为什么数据库会话不应该在每个接口里手动创建？",
+      "如果一个接口忘记加 get_current_user，会带来什么风险？"
+    ],
+    "scoring_points": [
+      "能说明 Depends 是依赖注入机制",
+      "能结合 get_db 解释数据库会话注入",
+      "能结合 get_current_user 解释鉴权注入",
+      "能说明依赖注入对复用和测试的价值"
+    ],
+    "risk_signals": [
+      "只会说 Depends 是传参",
+      "分不清数据库会话和用户鉴权",
+      "不知道缺少鉴权依赖会导致越权访问"
+    ]
+  },
+  {
+    "id": "py_backend_v2_pydantic_schema",
+    "role": "Python 后端开发实习生",
+    "category": "FastAPI",
+    "title": "Pydantic Schema 与接口校验",
+    "keywords": ["Pydantic", "schema", "校验", "422", "请求体", "响应模型"],
+    "content": "Pydantic schema 用来定义接口请求和响应的数据形状，FastAPI 会根据 schema 自动校验字段类型、必填项和默认值，并生成 Swagger 文档。如果前端传入字段缺失或类型不对，FastAPI 通常返回 422。本项目的面试请求、登录请求、RAG 文档请求都需要 schema 约束，避免模型链路拿到不稳定的数据结构。",
+    "follow_up_questions": [
+      "为什么请求体要用 Pydantic schema 定义？",
+      "422 Unprocessable Content 通常说明什么？",
+      "response model 对前后端协作有什么价值？"
+    ],
+    "scoring_points": [
+      "能说明 schema 负责数据结构和类型校验",
+      "知道 FastAPI 会自动生成接口文档",
+      "能解释 422 与参数错误的关系",
+      "能说明 schema 对前后端协作和测试的价值"
+    ],
+    "risk_signals": [
+      "把 schema 当成数据库表",
+      "不知道 422 和 Pydantic 校验有关",
+      "接口入参随意使用 dict 导致结构不稳定"
+    ]
+  },
+  {
+    "id": "py_backend_v2_sqlalchemy_relationship",
+    "role": "Python 后端开发实习生",
+    "category": "数据库",
+    "title": "SQLAlchemy 外键与 relationship",
+    "keywords": ["SQLAlchemy", "ForeignKey", "relationship", "user_id", "一对多", "ORM"],
+    "content": "SQLAlchemy 中 ForeignKey 表示数据库表之间的引用关系，例如 interview_records.user_id 引用 users.id，说明一条面试记录属于某个用户。relationship 则是 Python 对象层面的导航能力，让代码可以通过 record.user 或 user.interview_records 访问关联对象。本项目依靠外键表达数据归属，再通过当前登录用户过滤查询，避免跨用户读取面试记录。",
+    "follow_up_questions": [
+      "ForeignKey 和 relationship 分别解决什么问题？",
+      "interview_records.user_id 为什么能表示记录属于哪个用户？",
+      "如何避免用户 A 查到用户 B 的历史面试记录？"
+    ],
+    "scoring_points": [
+      "能区分数据库层外键和 ORM 层 relationship",
+      "能用用户和面试记录举例说明一对多",
+      "能说明用户隔离依赖 current_user.id 过滤",
+      "知道外键保证关系合法但不自动完成权限控制"
+    ],
+    "risk_signals": [
+      "认为 relationship 就是数据库字段",
+      "不知道 user_id 需要由当前登录用户写入",
+      "只靠前端传 userId 做权限判断"
+    ]
+  },
+  {
+    "id": "py_backend_v2_transaction_alembic",
+    "role": "Python 后端开发实习生",
+    "category": "数据库",
+    "title": "数据库事务与 Alembic 迁移",
+    "keywords": ["数据库", "事务", "commit", "rollback", "Alembic", "迁移", "表结构"],
+    "content": "数据库事务用于保证一组写入操作要么全部成功，要么失败时回滚，避免数据只保存一半。SQLAlchemy Session 中 commit 会提交事务，rollback 会撤销未提交修改。Alembic 用来管理数据库表结构版本，可以理解为数据库 schema 的版本管理工具。本项目新增用户表、refresh token 表、投递档案表和 RAG 日志表时，都适合通过 Alembic 迁移记录结构变化。",
+    "follow_up_questions": [
+      "commit 和 rollback 分别在什么时候用？",
+      "Alembic 和 Base.metadata.create_all 有什么区别？",
+      "为什么上线后不能随便手动改数据库表？"
+    ],
+    "scoring_points": [
+      "能说明事务保证数据一致性",
+      "能解释 commit 和 rollback 的作用",
+      "能把 Alembic 类比为数据库表结构版本管理",
+      "知道上线环境需要可追踪迁移脚本"
+    ],
+    "risk_signals": [
+      "写入失败后不知道 rollback",
+      "把 Alembic 当成普通数据库连接工具",
+      "生产环境直接手动改表且没有迁移记录"
+    ]
+  },
+  {
+    "id": "py_backend_v2_jwt_refresh_token",
+    "role": "Python 后端开发实习生",
+    "category": "鉴权",
+    "title": "JWT 双 token 认证方案",
+    "keywords": ["JWT", "access token", "refresh token", "退出登录", "哈希", "续期"],
+    "content": "双 token 方案通常使用短期 access token 访问受保护接口，使用长期 refresh token 换取新的 access token。access token 适合放在 Authorization header 中，refresh token 应在后端保存哈希，退出登录时撤销 refresh token。本项目当前使用 JWT access token 和数据库 refresh token，后续可以用 Redis 黑名单增强强制下线能力。",
+    "follow_up_questions": [
+      "access token 和 refresh token 分别负责什么？",
+      "为什么 refresh token 入库时只保存哈希？",
+      "退出登录撤销 refresh token 和 Redis 黑名单有什么区别？"
+    ],
+    "scoring_points": [
+      "能讲清短 token 访问和长 token 续期",
+      "知道 refresh token 需要可撤销",
+      "理解 token 哈希保存的安全意义",
+      "能说明 Redis 黑名单是后续增强点"
+    ],
+    "risk_signals": [
+      "把密码或 token 明文长期保存",
+      "不知道 access token 过期后如何续期",
+      "认为退出登录只能清空前端 localStorage"
+    ]
+  },
+  {
+    "id": "py_backend_v2_user_data_isolation",
+    "role": "Python 后端开发实习生",
+    "category": "鉴权",
+    "title": "用户数据隔离与权限边界",
+    "keywords": ["current_user", "user_id", "权限", "隔离", "鉴权", "越权访问"],
+    "content": "用户数据隔离的核心是后端不能相信前端随便传来的 userId，而应该通过 token 解析出 current_user，再用 current_user.id 写入和查询数据。本项目中面试记录、投递档案、候选人画像 RAG 都应按当前用户过滤。外键保证记录属于某个真实用户，鉴权依赖和查询条件保证用户只能访问自己的数据。",
+    "follow_up_questions": [
+      "为什么不能让前端传 userId 来决定查谁的数据？",
+      "保存面试记录时 user_id 应该从哪里来？",
+      "候选人画像 RAG 为什么必须做用户隔离？"
+    ],
+    "scoring_points": [
+      "能说明 current_user 来自 token 鉴权",
+      "能说明写入和查询都要按 current_user.id 处理",
+      "能区分外键合法性和权限控制",
+      "能意识到候选人画像包含敏感历史数据"
+    ],
+    "risk_signals": [
+      "接口允许任意传 userId 查询历史记录",
+      "只在前端隐藏按钮而后端不校验",
+      "RAG 召回时没有按用户过滤"
+    ]
+  },
+  {
+    "id": "py_backend_v2_logging_testing",
+    "role": "Python 后端开发实习生",
+    "category": "工程化",
+    "title": "后端日志与 pytest 测试",
+    "keywords": ["日志", "pytest", "统一错误", "测试", "中间件", "可观测"],
+    "content": "后端工程化不只是把接口跑通，还要能排查问题和防止回归。请求日志中间件可以记录路径、状态码、耗时和错误，统一错误响应能让前端稳定处理异常，pytest 可以覆盖鉴权、RAG 检索、Agent 决策和接口参数校验。本项目通过日志定位 422、检索失败和模型异常，通过测试保证新增功能不会破坏主链路。",
+    "follow_up_questions": [
+      "请求日志中间件应该记录哪些信息？",
+      "为什么 AI 应用更需要记录 RAG 和 Agent 日志？",
+      "pytest 在这个项目里主要保护哪些核心链路？"
+    ],
+    "scoring_points": [
+      "能说明日志用于可观测和排查问题",
+      "能说明统一错误响应对前端联调的价值",
+      "能结合 pytest 讲接口和业务回归测试",
+      "能意识到 AI 调用也需要日志而不是黑箱"
+    ],
+    "risk_signals": [
+      "只靠 print 调试线上问题",
+      "没有测试就大量改核心链路",
+      "模型或 RAG 出错时没有任何日志"
+    ]
+  },
+  {
+    "id": "py_backend_v2_uvicorn_nginx_deploy",
+    "role": "Python 后端开发实习生",
+    "category": "部署",
+    "title": "Uvicorn、Nginx 与云服务器部署关系",
+    "keywords": ["Uvicorn", "Nginx", "反向代理", "云服务器", "Linux", "HTTPS"],
+    "content": "云服务器是运行项目的机器，Linux 是服务器操作系统，FastAPI 是 Python Web 框架，Uvicorn 是运行 FastAPI 的 ASGI 服务器。Nginx 通常作为公网入口，负责 HTTPS、静态资源和反向代理，把外部请求转发给后端 Uvicorn。本项目当前在本地用 Uvicorn 启动，后续上线阶段会用 Nginx 代理前端和后端 API，并配合 PostgreSQL、Redis 和 Docker Compose。",
+    "follow_up_questions": [
+      "Uvicorn 和云服务器是不是同一个东西？",
+      "Nginx 反向代理在部署中起什么作用？",
+      "为什么本地开发和生产部署的启动方式不完全一样？"
+    ],
+    "scoring_points": [
+      "能区分机器、操作系统、Web 框架和应用服务器",
+      "能说明 Uvicorn 负责运行 FastAPI",
+      "能说明 Nginx 负责公网入口和反向代理",
+      "能讲出后续 Docker Compose 部署方向"
+    ],
+    "risk_signals": [
+      "把 Uvicorn 当成云服务器",
+      "不知道 Nginx 为什么在 Uvicorn 前面",
+      "不了解 HTTPS 和公网入口的基本概念"
+    ]
+  },
+  {
+    "id": "ai_app_v2_llm_api_params",
+    "role": "AI 应用开发实习生",
+    "category": "模型调用",
+    "title": "大模型 API 调用与参数调优",
+    "keywords": ["大模型", "API", "temperature", "JSON", "超时", "重试", "usage"],
+    "content": "大模型 API 调用需要关注 API key 保护、请求消息结构、temperature、输出格式、超时、重试、错误分类和 usage 成本统计。生成面试问题可以适当保留自然度，生成评分报告则应更低 temperature 保证稳定。模型输出不能直接信任，后端要校验 JSON 结构并准备 fallback，避免非法输出导致接口崩溃。",
+    "follow_up_questions": [
+      "为什么问题生成和报告生成的 temperature 可以不同？",
+      "模型返回非法 JSON 时系统应该怎么处理？",
+      "为什么 API key 不能写在前端代码里？"
+    ],
+    "scoring_points": [
+      "理解 temperature 对随机性和稳定性的影响",
+      "知道模型输出需要结构化校验",
+      "能设计超时、重试和 fallback",
+      "能说明 usage 统计和成本控制的重要性"
+    ],
+    "risk_signals": [
+      "直接把模型输出当成可信 JSON",
+      "把 API key 暴露在浏览器前端",
+      "不知道模型超时会影响用户主流程"
+    ]
+  },
+  {
+    "id": "ai_app_v2_prompt_template",
+    "role": "AI 应用开发实习生",
+    "category": "Prompt 工程",
+    "title": "Prompt 模板化与结构化输出",
+    "keywords": ["prompt", "模板", "结构化输出", "few-shot", "JSON", "变量"],
+    "content": "Prompt 工程不是随手写一句提示词，而是把角色、任务、输入变量、约束条件和输出格式模板化。AI 面试系统中，生成问题、生成报告、Agent 决策应使用不同 prompt，并明确要求输出 JSON 或固定字段。few-shot 示例可以帮助模型学习期望格式，但后端仍要做结构校验，避免 prompt 约束失效。",
+    "follow_up_questions": [
+      "为什么不同任务要拆成不同 prompt？",
+      "结构化输出对后端处理有什么价值？",
+      "few-shot 示例能解决所有格式问题吗？"
+    ],
+    "scoring_points": [
+      "能说明 prompt 模板包含角色、任务、变量和输出格式",
+      "能解释结构化输出便于程序处理",
+      "知道 prompt 约束需要后端校验兜底",
+      "能结合面试问题和报告生成举例"
+    ],
+    "risk_signals": [
+      "认为 prompt 调优只是改一句自然语言",
+      "没有区分问题生成和报告生成任务",
+      "缺少输出格式校验"
+    ]
+  },
+  {
+    "id": "ai_app_v2_rag_pipeline",
+    "role": "AI 应用开发实习生",
+    "category": "RAG",
+    "title": "RAG 从文档到 prompt 的完整链路",
+    "keywords": ["RAG", "query", "chunk", "metadata", "prompt", "召回", "知识库"],
+    "content": "RAG 的完整链路包括资料收集、文本解析、清洗、chunk 切分、metadata 标注、建立索引、根据 query 召回相关内容，再把命中内容格式化放入 prompt。AI 面试系统中，岗位知识、题库和候选人画像都通过 RAG 给模型提供依据。只有能解释 query、chunk、metadata 和 prompt 的关系，才能排查问题问偏的原因。",
+    "follow_up_questions": [
+      "RAG query 在你的系统里是怎么构造的？",
+      "chunk 和 metadata 分别解决什么问题？",
+      "召回结果进入 prompt 前为什么要格式化？"
+    ],
+    "scoring_points": [
+      "能讲清文档到 prompt 的完整链路",
+      "能说明 query 决定召回方向",
+      "能解释 chunk 和 metadata 的作用",
+      "知道召回错误会影响模型生成质量"
+    ],
+    "risk_signals": [
+      "只会说 RAG 是检索增强生成",
+      "讲不清资料怎么进入 prompt",
+      "没有 metadata 和来源意识"
+    ]
+  },
+  {
+    "id": "ai_app_v2_bm25_vector_hybrid",
+    "role": "AI 应用开发实习生",
+    "category": "RAG",
+    "title": "BM25、向量检索与 Hybrid Search",
+    "keywords": ["BM25", "embedding", "vector", "hybrid", "关键词", "语义检索"],
+    "content": "BM25 更擅长关键词精确匹配，适合查 FastAPI、JWT、RAG 日志字段这类明确术语；向量检索更擅长语义相似，适合用户表达不完全一致的场景。Hybrid Search 会融合 BM25 和 vector 两路召回结果，通常需要分数归一化和去重。本项目先用 BM25 建立可解释基线，再逐步评估向量和 hybrid 是否真正提升召回质量。",
+    "follow_up_questions": [
+      "BM25 和向量检索各自适合什么场景？",
+      "为什么 hybrid search 需要去重和分数归一化？",
+      "为什么不应该一开始就盲目上向量数据库？"
+    ],
+    "scoring_points": [
+      "能区分关键词匹配和语义匹配",
+      "能说明 hybrid search 的融合思路",
+      "知道检索策略要用评估指标验证",
+      "能解释当前先做可解释基线的原因"
+    ],
+    "risk_signals": [
+      "认为向量检索一定比 BM25 好",
+      "不知道 hybrid 结果需要融合排序",
+      "没有评估就宣称检索效果提升"
+    ]
+  },
+  {
+    "id": "ai_app_v2_rerank_eval",
+    "role": "AI 应用开发实习生",
+    "category": "RAG 评估",
+    "title": "Rerank 与 RAG 质量评估",
+    "keywords": ["rerank", "Hit@K", "MRR", "关键词覆盖率", "评估", "metadataMatch"],
+    "content": "Rerank 通常放在初步召回之后，用更强模型或打分器重新排序候选 chunk，让最相关内容排到前面。但是否变好不能凭感觉判断，需要用评估集计算 Hit@K、MRR、关键词覆盖率、metadataMatch 和 emptyRecall。本项目通过固定评估 case 验证不同检索策略，避免 RAG 优化只停留在主观体验。",
+    "follow_up_questions": [
+      "Rerank 放在 RAG 链路的哪个位置？",
+      "Hit@K 和 MRR 分别衡量什么？",
+      "如果 rerank 模型失败，系统应该怎么降级？"
+    ],
+    "scoring_points": [
+      "能说明 rerank 是对候选结果重新排序",
+      "能解释 Hit@K、MRR 和关键词覆盖率",
+      "知道评估 case 是比较检索策略的基线",
+      "能考虑 rerank 失败时的降级策略"
+    ],
+    "risk_signals": [
+      "只说用了 rerank 但没有评估",
+      "分不清召回和重排",
+      "rerank 失败会中断主流程"
+    ]
+  },
+  {
+    "id": "ai_app_v2_three_rags_boundary",
+    "role": "AI 应用开发实习生",
+    "category": "RAG 架构",
+    "title": "三类 RAG 的职责边界",
+    "keywords": ["岗位知识库", "题库", "候选人画像", "权限隔离", "metadata", "三类 RAG"],
+    "content": "本项目把 RAG 拆成岗位知识库、题库和候选人画像三类。岗位知识库提供岗位标准、技术栈和评分点；题库提供参考问题和答题要点；候选人画像保存用户历史回答、薄弱点和训练建议。这样设计有利于权限隔离、metadata 过滤和召回质量排查，比把所有资料混进一个知识库更清晰。",
+    "follow_up_questions": [
+      "为什么不把岗位资料、题库和用户历史都放进一个 RAG？",
+      "候选人画像 RAG 为什么必须做用户隔离？",
+      "三类 RAG 分别如何影响下一题生成？"
+    ],
+    "scoring_points": [
+      "能讲清三类 RAG 的职责边界",
+      "能说明候选人画像涉及隐私和权限",
+      "能解释 metadata 过滤的价值",
+      "能把 RAG 结果和 Agent 决策联系起来"
+    ],
+    "risk_signals": [
+      "把所有资料混在一个 prompt",
+      "候选人历史不做用户隔离",
+      "说不清题库 RAG 和岗位知识库 RAG 区别"
+    ]
+  },
+  {
+    "id": "ai_app_v2_agent_state_decision",
+    "role": "AI 应用开发实习生",
+    "category": "Agent",
+    "title": "Agent State 与 Agent Decision",
+    "keywords": ["Agent State", "Agent Decision", "状态", "决策", "Orchestrator", "多轮对话"],
+    "content": "Agent State 是当前一轮决策所需的状态快照，包含用户档案、历史问答、上一轮回答、剩余轮次、RAG 命中质量和模式。Agent Decision 是基于 State 得出的下一步动作，例如深挖、降难度、切换话题或结束面试。最终问题不是直接由 Decision 展示，而是由 Decision、RAG context、历史记录和 prompt 一起约束模型生成。",
+    "follow_up_questions": [
+      "Agent State 里应该包含哪些信息？",
+      "Agent Decision 和最终问题生成是什么关系？",
+      "为什么普通 LLM 调用不等于 Agent？"
+    ],
+    "scoring_points": [
+      "能区分状态快照和动作决策",
+      "能说明 RAG 命中质量会进入 State",
+      "能讲清 Decision 约束后续问题生成",
+      "能结合多轮面试说明 Agent 的价值"
+    ],
+    "risk_signals": [
+      "把 Agent State 当成数据库表",
+      "认为 Agent Decision 就是最终问题文本",
+      "说不清 Agent 和普通聊天调用区别"
+    ]
+  },
+  {
+    "id": "ai_app_v2_toolcalls_trace",
+    "role": "AI 应用开发实习生",
+    "category": "Agent 工程化",
+    "title": "ToolCalls、nodeTrace 与可观测性",
+    "keywords": ["ToolCalls", "nodeTrace", "日志", "可观测", "工具调用", "trace"],
+    "content": "ToolCalls 记录本轮 Agent 调用了哪些工具、输入摘要、输出摘要、是否成功和耗时；nodeTrace 记录 Agent 节点执行路径，例如 retrieve_context、analyze_answer、select_action。它们不是为了展示炫技，而是为了让 AI 决策可观测。当面试官问题重复或跑偏时，可以查看 ToolCalls、RAG 命中日志和 Agent Decision 判断问题出在哪一层。",
+    "follow_up_questions": [
+      "ToolCalls 是工具本身还是工具调用记录？",
+      "nodeTrace 在调试 Agent 时有什么价值？",
+      "如果面试官一直追问同一点，你会看哪些日志？"
+    ],
+    "scoring_points": [
+      "能说明 ToolCalls 是调用记录",
+      "能说明 nodeTrace 记录节点路径",
+      "能把日志和 AI 可观测性联系起来",
+      "能按 Agent、RAG、Prompt 链路排查问题"
+    ],
+    "risk_signals": [
+      "只说模型自己决定，无法解释过程",
+      "把 ToolCalls 当成真实外部 SDK 调用协议",
+      "没有日志就无法排查重复追问"
+    ]
+  },
+  {
+    "id": "ai_app_v2_guardrails_fallback",
+    "role": "AI 应用开发实习生",
+    "category": "Agent 兜底",
+    "title": "Guardrails、normalize 与 fallback",
+    "keywords": ["guardrails", "normalize", "fallback", "JSON 校验", "兜底", "模型输出"],
+    "content": "AI 应用不能完全相信模型输出。Guardrails 可以理解为对模型行为和输出的约束，normalize 用来校验并修正模型返回的结构化决策，fallback 则是在模型输出不合法、超时或策略不稳定时使用规则兜底。本项目中 Agent Decision 会检查 nextAction、difficulty、tools 等字段，非法值会被替换，保证前端和后续问题生成流程稳定。",
+    "follow_up_questions": [
+      "normalize 和 fallback 分别解决什么问题？",
+      "模型输出非法 JSON 时为什么不能直接返回给前端？",
+      "Guardrails 在 AI 应用工程化里有什么意义？"
+    ],
+    "scoring_points": [
+      "能说明模型输出需要校验",
+      "能区分 normalize 修正和 fallback 兜底",
+      "能结合 Agent Decision 字段举例",
+      "能说明兜底保证主流程稳定"
+    ],
+    "risk_signals": [
+      "完全相信模型返回结构",
+      "字段非法时让接口直接报错",
+      "没有任何降级策略"
+    ]
+  },
+  {
+    "id": "ai_app_v2_frontier_langgraph_mcp",
+    "role": "AI 应用开发实习生",
+    "category": "前沿方向",
+    "title": "LangGraph、MCP 与 Agents SDK 前沿方向",
+    "keywords": ["LangGraph", "MCP", "Agents SDK", "tools", "checkpoint", "human-in-the-loop"],
+    "content": "LangGraph 适合把 Agent 流程建模成状态图，并通过 checkpoint 支持暂停恢复和容错；MCP 提供模型连接外部 tools、resources、prompts 的协议思路；Agents SDK 类工具强调 agent、tools、handoffs、guardrails 和 tracing。本项目当前不直接引入这些依赖，而是先把 Agent State、ToolCalls、nodeTrace 和 RAG 工具边界设计清楚，为后续迁移预留结构。",
+    "follow_up_questions": [
+      "为什么当前阶段不直接上 LangGraph？",
+      "MCP 中 tools 和 resources 的概念可以怎样映射到本项目？",
+      "checkpoint 对多轮面试系统有什么价值？"
+    ],
+    "scoring_points": [
+      "能说明 LangGraph 更适合稳定工作流",
+      "能理解 MCP 连接工具和资源的思想",
+      "能把当前自研 Agent 节点映射到未来框架",
+      "知道前沿框架应服务业务而不是为了堆技术"
+    ],
+    "risk_signals": [
+      "只会背框架名词",
+      "没想清现有 Agent 如何迁移",
+      "为了显得高级盲目引入复杂依赖"
+    ]
+  },
+  {
+    "id": "predeploy_rag_query_rewrite",
+    "role": "AI 应用开发实习生",
+    "category": "RAG 工程化",
+    "title": "RAG Query Rewrite 与多路召回",
+    "keywords": ["RAG", "query rewrite", "多路召回", "BM25", "向量检索", "metadata", "召回质量"],
+    "content": "RAG query rewrite 是把用户很短、很口语化的问题改写成更适合检索的查询。真实项目里可以根据岗位、面试阶段、简历关键词和上一轮回答扩展 query，再分别走 BM25、向量检索和 metadata filter。多路召回不是为了堆技术，而是为了降低单一路径漏召回的风险，并让后续 rerank 或质量评估有更好的候选集合。",
+    "follow_up_questions": [
+      "如果用户只说“这个不会”，你会怎样构造 RAG query？",
+      "为什么 query rewrite 不能把用户原意改偏？",
+      "BM25 和向量检索的召回结果冲突时你怎么处理？"
+    ],
+    "scoring_points": [
+      "能说明 query rewrite 解决短 query 和语义不完整问题",
+      "能结合岗位、阶段、简历和历史回答构造检索 query",
+      "能区分 BM25、向量检索和 metadata filter 的作用",
+      "能说明多路召回后仍需要去重、排序和质量评估"
+    ],
+    "risk_signals": [
+      "把 query rewrite 理解成随便扩写关键词",
+      "不考虑 metadata 导致跨岗位或跨用户资料混入",
+      "无法说明多路召回后的去重和排序策略"
+    ]
+  },
+  {
+    "id": "predeploy_rag_chunk_metadata",
+    "role": "AI 应用开发实习生",
+    "category": "RAG 工程化",
+    "title": "Chunk 切分与 Metadata 设计",
+    "keywords": ["chunk", "metadata", "文档切分", "页码", "章节", "权限", "时间戳", "版本"],
+    "content": "RAG chunk 切分不是简单按固定长度切文本。更稳的做法是结合标题层级、段落边界、Markdown 结构和语义完整性，让每个 chunk 能独立表达一个知识点。metadata 用来记录文档名、页码、章节、岗位标签、用户权限、时间戳和版本信息，后续可以支持 filter、引用出处、权限隔离和问题排查。",
+    "follow_up_questions": [
+      "为什么 chunk 太长或太短都会影响召回质量？",
+      "metadata filter 在用户私有知识库里有什么价值？",
+      "如果删除旧文档，chunk 和 metadata 应该怎么处理？"
+    ],
+    "scoring_points": [
+      "能说明 chunk 切分要保证语义完整",
+      "能解释 metadata 对权限、引用和过滤的价值",
+      "能说出文档名、页码、章节、用户权限、时间戳等字段",
+      "能把 chunk 和检索质量、前端引用展示联系起来"
+    ],
+    "risk_signals": [
+      "只知道固定长度切分",
+      "不知道 metadata 和权限隔离的关系",
+      "无法解释为什么需要保留来源和版本"
+    ]
+  },
+  {
+    "id": "predeploy_rag_quality_dashboard",
+    "role": "AI 应用开发实习生",
+    "category": "RAG 评估",
+    "title": "RAG 质量评估与可观测面板",
+    "keywords": ["Hit@K", "MRR", "关键词覆盖率", "emptyRecall", "metadataMatch", "调试面板", "可观测性"],
+    "content": "RAG 质量不能只靠肉眼看一次回答。工程化项目应准备固定 evaluation case，用 Hit@K 判断前 K 条是否命中预期资料，用 MRR 判断正确资料排得靠不靠前，用关键词覆盖率判断内容是否覆盖预期评分点。emptyRecall 用来发现空召回，metadataMatch 用来确认知识库、岗位标签和阶段是否匹配。前端调试面板应展示这些摘要，帮助定位召回问题。",
+    "follow_up_questions": [
+      "Hit@K 和 MRR 分别解决什么问题？",
+      "关键词覆盖率高就一定代表回答好吗？",
+      "为什么 RAG 质量指标需要展示到调试面板？"
+    ],
+    "scoring_points": [
+      "能解释 Hit@K、MRR 和关键词覆盖率的含义",
+      "能说明 emptyRecall 和 metadataMatch 的排查价值",
+      "能区分检索质量和最终生成质量",
+      "能说明前端可观测面板如何帮助调试"
+    ],
+    "risk_signals": [
+      "只会说命中率，不知道 MRR",
+      "把关键词覆盖率当作唯一质量指标",
+      "没有固定 evaluation case，无法复现评估"
+    ]
+  },
+  {
+    "id": "predeploy_agent_rag_collaboration",
+    "role": "AI 应用开发实习生",
+    "category": "Agent 工程化",
+    "title": "Agent 与三类 RAG 协作",
+    "keywords": ["Agent State", "ToolCalls", "岗位知识库", "题库", "候选人画像", "决策", "Orchestrator"],
+    "content": "AI 模拟面试系统里的 Agent 不是单次 LLM 调用。Agent 会先观察当前状态，包括简历、JD、历史问答、上一轮回答、剩余轮次和三类 RAG 命中质量。岗位知识库提供岗位标准和技术栈，题库提供参考问题和评分点，候选人画像提供长期弱点和训练记录。Agent 再根据这些工具结果决定继续深挖、降低难度、切换话题或结束面试。",
+    "follow_up_questions": [
+      "为什么三个 RAG 可以看作 Agent 的工具？",
+      "如果候选人画像和当前 JD 冲突，Agent 应该优先看什么？",
+      "Agent Decision 如何影响下一题生成？"
+    ],
+    "scoring_points": [
+      "能区分 Agent State、ToolCalls 和 Agent Decision",
+      "能说明三类 RAG 的职责边界",
+      "能解释 Agent 如何根据检索质量调整策略",
+      "能说明日志和 nodeTrace 对排查 Agent 决策的价值"
+    ],
+    "risk_signals": [
+      "把 Agent 说成普通聊天 prompt",
+      "讲不清三类 RAG 的不同作用",
+      "无法解释为什么系统会切换话题或降难度"
+    ]
+  },
+  {
+    "id": "predeploy_backend_error_logging",
+    "role": "Python 后端开发实习生",
+    "category": "后端工程化",
+    "title": "FastAPI 错误处理与请求日志",
+    "keywords": ["FastAPI", "HTTPException", "中间件", "请求日志", "状态码", "trace", "错误处理"],
+    "content": "上线前的 FastAPI 项目需要统一错误处理和请求日志。接口层可以用 HTTPException 返回明确状态码和 detail，中间件记录请求方法、路径、状态码、耗时和异常。对于 RAG、Agent 和模型调用这类链路，日志还应记录关键上下文摘要，避免线上只看到 500 错误却不知道是哪一步失败。",
+    "follow_up_questions": [
+      "FastAPI 422、401、500 分别常见于什么场景？",
+      "请求日志里为什么要记录耗时和状态码？",
+      "模型调用失败时日志应该记录哪些内容？"
+    ],
+    "scoring_points": [
+      "能说明 HTTPException 和统一错误响应的作用",
+      "能解释请求日志如何帮助线上排查",
+      "能区分用户可见错误和开发者日志",
+      "能结合 RAG/Agent 链路说明关键上下文记录"
+    ],
+    "risk_signals": [
+      "只在前端 alert 错误，不看后端日志",
+      "把异常堆栈直接返回给用户",
+      "线上错误没有 request path、状态码和耗时"
+    ]
+  },
+  {
+    "id": "predeploy_deployment_readiness",
+    "role": "Python 后端开发实习生",
+    "category": "上线准备",
+    "title": "上线前工程化准备",
+    "keywords": ["Uvicorn", "Nginx", "Redis", "环境变量", "数据库", "日志", "备份", "部署"],
+    "content": "上线前不应只关注代码能不能在本地跑。FastAPI 应用由 Uvicorn 运行，Nginx 作为公网入口处理 HTTPS、静态资源和反向代理，数据库需要从本地 SQLite 规划到生产数据库，Redis 可用于缓存、token 黑名单、限流或任务队列。环境变量用于保存 API key 和数据库连接，日志和备份用于故障排查和数据恢复。",
+    "follow_up_questions": [
+      "Uvicorn 和云服务器是不是一回事？",
+      "Nginx 反向代理在部署链路里解决什么问题？",
+      "Redis 在这个项目里可以先承担哪些职责？"
+    ],
+    "scoring_points": [
+      "能区分应用服务器、反向代理和云服务器",
+      "能说明环境变量保护 API key 的原因",
+      "能讲出生产数据库、日志和备份的重要性",
+      "能合理规划 Redis 的缓存、黑名单或限流用途"
+    ],
+    "risk_signals": [
+      "把 Uvicorn 当成云服务器",
+      "API key 写死在代码或前端",
+      "没有生产数据库、日志和备份意识"
+    ]
+  }
+]

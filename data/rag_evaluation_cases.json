@@ -1,0 +1,382 @@
+[
+  {
+    "id": "rag_log_fields",
+    "query": "RAG 命中日志应该记录哪些字段？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "",
+    "expectedStage": "",
+    "expectedTitle": "RAG 日志工程化",
+    "expectedKeywords": ["query_text", "retriever_name", "hit_count", "quality"]
+  },
+  {
+    "id": "fastapi_module_split",
+    "query": "FastAPI 后端模块化一般怎么拆分？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "",
+    "expectedStage": "",
+    "expectedTitle": "FastAPI 模块化",
+    "expectedKeywords": ["APIRouter", "routes", "service"]
+  },
+  {
+    "id": "hybrid_search_reason",
+    "query": "为什么 RAG 要做 BM25 和向量检索的混合召回？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "",
+    "expectedStage": "",
+    "expectedTitle": "Hybrid Search",
+    "expectedKeywords": ["BM25", "vector", "归一化", "去重"]
+  },
+  {
+    "id": "rerank_fallback",
+    "query": "Rerank 模型失败时系统应该怎么处理？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "",
+    "expectedStage": "",
+    "expectedTitle": "Rerank 重排",
+    "expectedKeywords": ["降级", "Hybrid", "rerankScore"]
+  },
+  {
+    "id": "interview_follow_up",
+    "query": "AI 面试官如何根据候选人回答继续追问？",
+    "knowledgeBase": "question_bank",
+    "expectedKnowledgeBase": "question_bank",
+    "expectedPositionTag": "",
+    "expectedStage": "",
+    "expectedTitle": "面试追问策略",
+    "expectedKeywords": ["追问", "回答", "项目细节"]
+  },
+  {
+    "id": "project_deep_dive",
+    "query": "项目深挖题应该追问哪些方向？",
+    "knowledgeBase": "question_bank",
+    "expectedKnowledgeBase": "question_bank",
+    "expectedPositionTag": "",
+    "expectedStage": "项目追问",
+    "expectedTitle": "项目深挖题",
+    "expectedKeywords": ["个人职责", "技术难点", "方案取舍"]
+  },
+  {
+    "id": "backend_dependency_question",
+    "query": "FastAPI Depends 是什么？",
+    "knowledgeBase": "question_bank",
+    "expectedKnowledgeBase": "question_bank",
+    "expectedPositionTag": "",
+    "expectedStage": "技术基础",
+    "expectedTitle": "FastAPI 依赖注入题",
+    "expectedKeywords": ["Depends", "依赖注入", "数据库会话"]
+  },
+  {
+    "id": "rag_quality_question",
+    "query": "RAG 质量评估可以问哪些指标？",
+    "knowledgeBase": "question_bank",
+    "expectedKnowledgeBase": "question_bank",
+    "expectedPositionTag": "",
+    "expectedStage": "技术追问",
+    "expectedTitle": "RAG 质量评估题",
+    "expectedKeywords": ["Hit@K", "MRR", "关键词覆盖率"]
+  },
+  {
+    "id": "candidate_weak_rag",
+    "query": "候选人历史里 RAG 哪些地方薄弱？",
+    "knowledgeBase": "candidate_memory",
+    "expectedKnowledgeBase": "candidate_memory",
+    "expectedPositionTag": "",
+    "expectedStage": "技术追问",
+    "expectedTitle": "候选人 RAG 薄弱点",
+    "expectedKeywords": ["query", "chunk", "召回质量"]
+  },
+  {
+    "id": "candidate_backend_weakness",
+    "query": "候选人对 FastAPI 后端结构哪里解释不清？",
+    "knowledgeBase": "candidate_memory",
+    "expectedKnowledgeBase": "candidate_memory",
+    "expectedPositionTag": "",
+    "expectedStage": "后端追问",
+    "expectedTitle": "候选人后端模块薄弱点",
+    "expectedKeywords": ["路由", "schema", "Depends"]
+  },
+  {
+    "id": "candidate_project_expression",
+    "query": "候选人应该如何训练项目表达？",
+    "knowledgeBase": "candidate_memory",
+    "expectedKnowledgeBase": "candidate_memory",
+    "expectedPositionTag": "",
+    "expectedStage": "项目追问",
+    "expectedTitle": "候选人项目表达训练建议",
+    "expectedKeywords": ["背景", "职责", "复盘"]
+  },
+  {
+    "id": "candidate_agent_learning",
+    "query": "候选人 Agent 学习到什么程度？",
+    "knowledgeBase": "candidate_memory",
+    "expectedKnowledgeBase": "candidate_memory",
+    "expectedPositionTag": "",
+    "expectedStage": "Agent 追问",
+    "expectedTitle": "候选人 Agent 学习记录",
+    "expectedKeywords": ["Agent State", "ToolCalls", "Orchestrator"]
+  },
+  {
+    "id": "eval_py_backend_v2_001",
+    "query": "Python async/await 为什么适合后端高并发 I/O？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "python_backend_intern",
+    "expectedStage": "技术基础",
+    "expectedTitle": "Python async/await 与后端 I/O",
+    "expectedKeywords": ["async", "await", "I/O", "FastAPI"]
+  },
+  {
+    "id": "eval_py_backend_v2_002",
+    "query": "FastAPI 422 状态码通常说明什么？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "python_backend_intern",
+    "expectedStage": "技术基础",
+    "expectedTitle": "HTTP 请求响应与状态码",
+    "expectedKeywords": ["HTTP", "状态码", "422", "请求"]
+  },
+  {
+    "id": "eval_py_backend_v2_003",
+    "query": "FastAPI Depends(get_db) 和 Depends(get_current_user) 分别是什么？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "python_backend_intern",
+    "expectedStage": "技术基础",
+    "expectedTitle": "FastAPI Depends 依赖注入",
+    "expectedKeywords": ["Depends", "依赖注入", "get_db", "get_current_user"]
+  },
+  {
+    "id": "eval_py_backend_v2_004",
+    "query": "Pydantic schema 在接口校验中有什么作用？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "python_backend_intern",
+    "expectedStage": "技术基础",
+    "expectedTitle": "Pydantic Schema 与接口校验",
+    "expectedKeywords": ["Pydantic", "schema", "校验", "422"]
+  },
+  {
+    "id": "eval_py_backend_v2_005",
+    "query": "SQLAlchemy ForeignKey 和 relationship 怎么理解？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "python_backend_intern",
+    "expectedStage": "数据库追问",
+    "expectedTitle": "SQLAlchemy 外键与 relationship",
+    "expectedKeywords": ["ForeignKey", "relationship", "user_id", "一对多"]
+  },
+  {
+    "id": "eval_py_backend_v2_006",
+    "query": "数据库事务、commit、rollback 和 Alembic 迁移分别是什么？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "python_backend_intern",
+    "expectedStage": "数据库追问",
+    "expectedTitle": "数据库事务与 Alembic 迁移",
+    "expectedKeywords": ["事务", "commit", "rollback", "Alembic"]
+  },
+  {
+    "id": "eval_py_backend_v2_007",
+    "query": "JWT access token 和 refresh token 登录续期流程怎么设计？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "python_backend_intern",
+    "expectedStage": "鉴权追问",
+    "expectedTitle": "JWT 双 token 认证方案",
+    "expectedKeywords": ["JWT", "access token", "refresh token", "退出登录"]
+  },
+  {
+    "id": "eval_py_backend_v2_008",
+    "query": "后端如何避免用户 A 查到用户 B 的面试记录？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "python_backend_intern",
+    "expectedStage": "鉴权追问",
+    "expectedTitle": "用户数据隔离与权限边界",
+    "expectedKeywords": ["current_user", "user_id", "权限", "隔离"]
+  },
+  {
+    "id": "eval_py_backend_v2_009",
+    "query": "后端日志和 pytest 测试在项目工程化里有什么作用？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "python_backend_intern",
+    "expectedStage": "工程化追问",
+    "expectedTitle": "后端日志与 pytest 测试",
+    "expectedKeywords": ["日志", "pytest", "统一错误", "测试"]
+  },
+  {
+    "id": "eval_py_backend_v2_010",
+    "query": "Uvicorn、Nginx、反向代理和云服务器是什么关系？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "python_backend_intern",
+    "expectedStage": "部署追问",
+    "expectedTitle": "Uvicorn、Nginx 与云服务器部署关系",
+    "expectedKeywords": ["Uvicorn", "Nginx", "反向代理", "云服务器"]
+  },
+  {
+    "id": "eval_ai_app_v2_001",
+    "query": "大模型 API 调用 temperature JSON 超时重试应该怎么设计？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "模型调用",
+    "expectedTitle": "大模型 API 调用与参数调优",
+    "expectedKeywords": ["temperature", "JSON", "超时", "重试"]
+  },
+  {
+    "id": "eval_ai_app_v2_002",
+    "query": "Prompt 模板化和结构化输出有什么价值？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "Prompt 追问",
+    "expectedTitle": "Prompt 模板化与结构化输出",
+    "expectedKeywords": ["prompt", "模板", "结构化输出", "few-shot"]
+  },
+  {
+    "id": "eval_ai_app_v2_003",
+    "query": "RAG 从 query chunk metadata 到 prompt 的完整链路是什么？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "RAG 追问",
+    "expectedTitle": "RAG 从文档到 prompt 的完整链路",
+    "expectedKeywords": ["query", "chunk", "metadata", "prompt"]
+  },
+  {
+    "id": "eval_ai_app_v2_004",
+    "query": "BM25 向量检索和 Hybrid Search 有什么区别？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "RAG 追问",
+    "expectedTitle": "BM25、向量检索与 Hybrid Search",
+    "expectedKeywords": ["BM25", "embedding", "vector", "hybrid"]
+  },
+  {
+    "id": "eval_ai_app_v2_005",
+    "query": "Rerank 和 RAG 质量评估 Hit@K MRR 关键词覆盖率怎么理解？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "RAG 评估",
+    "expectedTitle": "Rerank 与 RAG 质量评估",
+    "expectedKeywords": ["rerank", "Hit@K", "MRR", "关键词覆盖率"]
+  },
+  {
+    "id": "eval_ai_app_v2_006",
+    "query": "为什么 AI 模拟面试系统要设计岗位知识库题库候选人画像三类 RAG？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "RAG 架构",
+    "expectedTitle": "三类 RAG 的职责边界",
+    "expectedKeywords": ["岗位知识库", "题库", "候选人画像", "权限隔离"]
+  },
+  {
+    "id": "eval_ai_app_v2_007",
+    "query": "Agent State 和 Agent Decision 在多轮面试里起什么作用？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "Agent 追问",
+    "expectedTitle": "Agent State 与 Agent Decision",
+    "expectedKeywords": ["Agent State", "Agent Decision", "状态", "决策"]
+  },
+  {
+    "id": "eval_ai_app_v2_008",
+    "query": "ToolCalls 和 nodeTrace 如何提升 Agent 可观测性？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "Agent 工程化",
+    "expectedTitle": "ToolCalls、nodeTrace 与可观测性",
+    "expectedKeywords": ["ToolCalls", "nodeTrace", "日志", "可观测"]
+  },
+  {
+    "id": "eval_ai_app_v2_009",
+    "query": "Agent 模型输出非法时 guardrails normalize fallback 怎么兜底？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "Agent 兜底",
+    "expectedTitle": "Guardrails、normalize 与 fallback",
+    "expectedKeywords": ["guardrails", "normalize", "fallback", "JSON 校验"]
+  },
+  {
+    "id": "eval_ai_app_v2_010",
+    "query": "LangGraph MCP Agents SDK tools checkpoint 和当前项目有什么关系？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "前沿方向",
+    "expectedTitle": "LangGraph、MCP 与 Agents SDK 前沿方向",
+    "expectedKeywords": ["LangGraph", "MCP", "tools", "checkpoint"]
+  },
+  {
+    "id": "eval_predeploy_rag_query_rewrite",
+    "query": "RAG query rewrite 和多路召回如何提升检索质量？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "RAG 追问",
+    "expectedTitle": "RAG Query Rewrite 与多路召回",
+    "expectedKeywords": ["query rewrite", "多路召回", "BM25", "向量检索"]
+  },
+  {
+    "id": "eval_predeploy_rag_chunk_metadata",
+    "query": "RAG chunk metadata 为什么要记录章节、页码和权限？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "RAG 追问",
+    "expectedTitle": "Chunk 切分与 Metadata 设计",
+    "expectedKeywords": ["chunk", "metadata", "章节", "权限"]
+  },
+  {
+    "id": "eval_predeploy_rag_quality_dashboard",
+    "query": "如何用 Hit@K、MRR 和关键词覆盖率做 RAG 质量评估？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "RAG 评估",
+    "expectedTitle": "RAG 质量评估与可观测面板",
+    "expectedKeywords": ["Hit@K", "MRR", "关键词覆盖率", "调试面板"]
+  },
+  {
+    "id": "eval_predeploy_agent_rag_collaboration",
+    "query": "Agent 如何结合岗位知识库、题库和候选人画像做下一步决策？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "ai_app_intern",
+    "expectedStage": "Agent 追问",
+    "expectedTitle": "Agent 与三类 RAG 协作",
+    "expectedKeywords": ["Agent State", "ToolCalls", "岗位知识库", "候选人画像"]
+  },
+  {
+    "id": "eval_predeploy_backend_error_logging",
+    "query": "FastAPI 请求日志和统一错误处理如何帮助线上排查？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "python_backend_intern",
+    "expectedStage": "工程化追问",
+    "expectedTitle": "FastAPI 错误处理与请求日志",
+    "expectedKeywords": ["FastAPI", "HTTPException", "请求日志", "状态码"]
+  },
+  {
+    "id": "eval_predeploy_deployment_readiness",
+    "query": "上线前为什么要规划 Uvicorn、Nginx、Redis、环境变量和数据库？",
+    "knowledgeBase": "role_knowledge",
+    "expectedKnowledgeBase": "role_knowledge",
+    "expectedPositionTag": "python_backend_intern",
+    "expectedStage": "部署追问",
+    "expectedTitle": "上线前工程化准备",
+    "expectedKeywords": ["Uvicorn", "Nginx", "Redis", "环境变量"]
+  }
+]

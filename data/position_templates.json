@@ -1,0 +1,50 @@
+[
+  {
+    "position_tag": "ai_app_intern",
+    "title": "AI 应用开发实习生",
+    "category": "ai",
+    "level": "intern",
+    "core_skills": ["Python", "FastAPI", "大模型 API", "Prompt", "RAG", "JSON 输出", "接口设计"],
+    "nice_to_have_skills": ["SQLAlchemy", "Docker", "Nginx", "向量数据库", "前端基础"],
+    "project_keywords": ["AI 模拟面试", "智能问答", "简历解析", "Agent", "知识库", "模型调用"],
+    "focus_topics": ["模型调用链路", "RAG 检索链路", "Prompt 设计", "异常兜底", "项目落地"],
+    "recommended_query_keywords": ["AI", "FastAPI", "大模型", "RAG", "Agent", "Prompt"],
+    "recommended_difficulty": "medium"
+  },
+  {
+    "position_tag": "python_backend_intern",
+    "title": "Python 后端开发实习生",
+    "category": "backend",
+    "level": "intern",
+    "core_skills": ["Python", "FastAPI", "HTTP", "REST API", "SQL", "数据库", "异步编程"],
+    "nice_to_have_skills": ["Redis", "Docker", "Linux", "Nginx", "消息队列"],
+    "project_keywords": ["后台管理", "接口开发", "数据持久化", "用户系统", "日志", "权限"],
+    "focus_topics": ["接口设计", "数据库建模", "错误处理", "模块化", "部署基础"],
+    "recommended_query_keywords": ["Python", "FastAPI", "SQLAlchemy", "数据库", "接口", "异步"],
+    "recommended_difficulty": "medium"
+  },
+  {
+    "position_tag": "java_backend_intern",
+    "title": "Java 后端开发实习生",
+    "category": "backend",
+    "level": "intern",
+    "core_skills": ["Java", "Spring Boot", "MySQL", "Redis", "REST API", "JVM 基础"],
+    "nice_to_have_skills": ["MyBatis", "Spring Cloud", "消息队列", "Docker", "Linux"],
+    "project_keywords": ["订单系统", "用户系统", "缓存", "权限", "接口联调", "后台管理"],
+    "focus_topics": ["Java 基础", "Spring Boot 项目结构", "数据库事务", "缓存一致性", "接口设计"],
+    "recommended_query_keywords": ["Java", "Spring", "MySQL", "Redis", "接口", "事务"],
+    "recommended_difficulty": "medium"
+  },
+  {
+    "position_tag": "frontend_intern",
+    "title": "前端开发实习生",
+    "category": "frontend",
+    "level": "intern",
+    "core_skills": ["HTML", "CSS", "JavaScript", "Vue", "React", "接口联调", "组件化"],
+    "nice_to_have_skills": ["TypeScript", "Vite", "状态管理", "性能优化", "可视化"],
+    "project_keywords": ["管理后台", "表单", "组件", "响应式布局", "数据展示", "用户体验"],
+    "focus_topics": ["组件拆分", "状态管理", "接口联调", "浏览器基础", "页面性能"],
+    "recommended_query_keywords": ["前端", "Vue", "React", "JavaScript", "组件", "接口"],
+    "recommended_difficulty": "medium"
+  }
+]

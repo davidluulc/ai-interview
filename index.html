@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 模拟面试系统 MVP</title>
+    <link rel="stylesheet" href="/styles.css?v=20260609-workbench-ui-v1" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">AI Mock Interview</p>
+          <h1>AI 模拟面试系统</h1>
+        </div>
+        <div class="topbar-right">
+          <div class="topbar-stats" aria-label="产品能力">
+            <span>简历解析</span>
+            <span>动态追问</span>
+            <span>面试复盘</span>
+            <button id="adminNavButton" class="admin-nav-button hidden" type="button">后台</button>
+          </div>
+          <div class="auth-card" aria-label="账号登录">
+            <div id="authSummary" class="auth-summary">
+              <span class="auth-state-pill muted">未登录</span>
+              <strong>账号中心</strong>
+              <small>登录后保存云端面试记录</small>
+            </div>
+            <div class="auth-tabs">
+              <button id="loginTabButton" class="auth-tab active" type="button">登录</button>
+              <button id="registerTabButton" class="auth-tab" type="button">注册</button>
+            </div>
+            <form id="authForm" class="auth-form">
+              <input id="authEmailInput" type="email" placeholder="邮箱" autocomplete="email" />
+              <input id="authUsernameInput" class="hidden" type="text" placeholder="用户名" autocomplete="username" />
+              <input id="authPasswordInput" type="password" placeholder="密码" autocomplete="current-password" />
+              <button id="authSubmitButton" class="secondary-button" type="submit">登录</button>
+            </form>
+            <button id="logoutButton" class="secondary-button hidden" type="button">退出登录</button>
+            <p id="authStatus" class="helper-text">登录后可保存和查看自己的面试记录。</p>
+          </div>
+        </div>
+      </header>
+
+      <nav id="productNav" class="product-nav" aria-label="产品功能导航">
+        <button class="product-nav-item" type="button" data-section-target="account-profile">账号与档案</button>
+        <button class="product-nav-item is-active" type="button" data-section-target="interview-workbench">面试工作台</button>
+        <button class="product-nav-item" type="button" data-section-target="training-center">训练中心</button>
+        <button class="product-nav-item" type="button" data-section-target="rag-knowledge">知识库与 RAG</button>
+        <button class="product-nav-item" type="button" data-section-target="admin-dashboard">管理员后台</button>
+      </nav>
+
+      <section class="workspace product-section is-active" data-product-section="interview-workbench">
+        <aside class="setup-panel" aria-label="面试配置">
+          <div class="brand-block">
+            <p class="eyebrow">Application</p>
+            <h2>建立投递档案</h2>
+            <p class="intro">上传或填写简历信息，系统会结合岗位要求生成追问。</p>
+          </div>
+
+          <form id="setupForm" class="setup-form">
+            <div class="form-section">
+              <p class="section-title">简历投递入口</p>
+              <label>
+                <span>候选人姓名</span>
+                <input id="candidateNameInput" type="text" placeholder="例如：张同学" />
+              </label>
+
+              <label>
+                <span>目标岗位</span>
+                <input id="targetRoleInput" type="text" placeholder="例如：AI 应用开发实习生" />
+              </label>
+
+              <div class="agent-box">
+                <div>
+                  <p class="section-title">岗位匹配 Agent</p>
+                  <p class="helper-text">根据简历、JD 和期望方向推荐更适合的面试岗位。</p>
+                </div>
+                <button id="matchPositionButton" class="secondary-button" type="button">推荐岗位</button>
+                <div id="positionAgentResult" class="agent-result"></div>
+              </div>
+
+              <label>
+                <span>求职类型</span>
+                <select id="applicationTypeInput">
+                  <option value="实习投递">实习投递</option>
+                  <option value="校招投递">校招投递</option>
+                  <option value="社招投递">社招投递</option>
+                  <option value="转行求职">转行求职</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="form-section">
+              <p class="section-title">面试材料</p>
+              <label>
+                <span>上传简历</span>
+                <input id="resumeFileInput" type="file" accept=".pdf,image/png,image/jpeg,image/jpg,image/webp,application/pdf" />
+              </label>
+              <div class="upload-row">
+                <button id="parseResumeButton" class="secondary-button" type="button">解析简历</button>
+                <p id="resumeParseStatus" class="helper-text">支持 PDF、PNG、JPG、JPEG、WebP。解析后会自动填入简历亮点。</p>
+              </div>
+
+              <label>
+                <span>简历解析结果 / 简历亮点</span>
+                <textarea id="resumeInput" rows="8" placeholder="可以上传 PDF/图片简历解析，也可以手动输入：例如 Java 后端，做过校园二手交易平台，负责 Redis 缓存、订单模块和接口联调。"></textarea>
+              </label>
+
+              <label>
+                <span>目标岗位 JD</span>
+                <textarea id="jdInput" rows="8" placeholder="例如：实习 Java 开发，熟悉 Spring Boot、MySQL、Redis，了解接口设计和项目协作。"></textarea>
+              </label>
+
+              <label>
+                <span>公司/岗位要求</span>
+                <textarea id="companyInput" rows="4" placeholder="例如：希望候选人基础扎实，能说明项目细节，有较强学习能力。"></textarea>
+              </label>
+
+              <label>
+                <span>面试类型</span>
+                <select id="modeInput">
+                  <option value="综合面试">综合面试</option>
+                  <option value="技术一面">技术一面</option>
+                  <option value="HR 面">HR 面</option>
+                  <option value="项目深挖">项目深挖</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Agent 模式</span>
+                <select id="agentModeInput">
+                  <option value="coach">学习辅导模式</option>
+                  <option value="interview">真实面试模式</option>
+                </select>
+              </label>
+
+              <label>
+                <span>面试强度</span>
+                <select id="depthInput">
+                  <option value="standard">标准训练 · 8 题</option>
+                  <option value="quick">快速体验 · 5 题</option>
+                  <option value="deep">深度模拟 · 12 题</option>
+                </select>
+              </label>
+            </div>
+
+            <button class="primary-button full-button" type="submit">开始模拟面试</button>
+          </form>
+        </aside>
+
+        <section class="interview-panel workbench-panel" aria-label="模拟面试">
+          <header class="interview-header workbench-header">
+            <div>
+              <p class="eyebrow">Session</p>
+              <h2 id="sessionTitle">等待开始</h2>
+            </div>
+            <div class="progress-card">
+              <span id="progressText">0 / 8</span>
+              <small>当前进度</small>
+            </div>
+            <div class="progress-card">
+              <span id="sourceBadge">未开始</span>
+              <small>生成来源</small>
+            </div>
+          </header>
+
+          <div id="emptyState" class="empty-state">
+            <div class="empty-card">
+              <h3>等待投递信息</h3>
+              <p>填写左侧信息后，AI 面试官会从自我介绍开始，并根据你的回答继续追问。</p>
+              <div class="stage-preview" aria-label="面试阶段预览">
+                <span>自我介绍</span>
+                <span>项目背景</span>
+                <span>项目职责</span>
+                <span>技术基础</span>
+                <span>技术追问</span>
+                <span>场景问题</span>
+                <span>行为面试</span>
+                <span>薪资规划</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="interviewState" class="interview-state hidden">
+            <nav id="stageStepper" class="stage-stepper" aria-label="面试阶段进度"></nav>
+
+            <div id="conversationList" class="conversation-list" aria-label="面试对话记录"></div>
+
+            <div class="question-card">
+              <div class="question-meta">
+                <span id="stageLabel">开场</span>
+                <span id="stabilityLabel">自然表达</span>
+              </div>
+              <p id="questionText"></p>
+              <div id="agentDecisionPanel" class="agent-decision-panel hidden"></div>
+            </div>
+
+            <label class="answer-box answer-composer">
+              <span>你的回答</span>
+              <textarea id="answerInput" rows="6" placeholder="请输入你的回答。可以先讲结论，再补项目例子和实现细节。"></textarea>
+              <small id="answerStatus" class="answer-status"></small>
+            </label>
+
+            <div class="actions">
+              <button id="nextButton" class="primary-button" type="button">提交回答，进入下一题</button>
+              <button id="reportButton" class="secondary-button" type="button">直接生成报告</button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="reportPanel" class="report-panel hidden product-section is-active" data-product-section="interview-workbench" aria-label="面试报告">
+        <header class="report-header">
+          <div>
+            <p class="eyebrow">Report</p>
+            <h2>面试反馈报告</h2>
+          </div>
+          <div class="save-status">
+            <span id="reportSaveStatus">尚未生成</span>
+            <button id="retrySaveButton" class="secondary-button hidden" type="button">重新保存</button>
+          </div>
+        </header>
+        <div id="reportContent" class="report-grid"></div>
+      </section>
+
+      <section class="user-center-panel product-section" data-product-section="account-profile" aria-label="用户中心">
+        <header class="history-header">
+          <div>
+            <p class="eyebrow">User Center</p>
+            <h2>用户中心与投递档案</h2>
+          </div>
+          <button id="saveProfileButton" class="secondary-button" type="button">保存当前档案</button>
+        </header>
+        <div id="userCenterSummary" class="user-center-summary"></div>
+        <div id="profileStatus" class="profile-status"></div>
+        <div id="profileList" class="profile-list"></div>
+      </section>
+
+      <section class="training-center-panel product-section" data-product-section="training-center" aria-label="薄弱点训练中心">
+        <header class="history-header">
+          <div>
+            <p class="eyebrow">Training Center</p>
+            <h2>薄弱点训练</h2>
+          </div>
+          <button id="trainingRefreshButton" class="secondary-button" type="button">刷新训练任务</button>
+        </header>
+        <p class="helper-text">把面试报告里的薄弱点沉淀成可跟踪任务，记录优先级、掌握度和训练次数。</p>
+        <div class="training-center-layout">
+          <div id="trainingTaskList" class="training-task-list"></div>
+          <div id="trainingTaskDetail" class="training-task-detail"></div>
+        </div>
+      </section>
+
+      <section class="history-panel product-section" data-product-section="training-center" aria-label="历史面试记录">
+        <header class="history-header">
+          <div>
+            <p class="eyebrow">History</p>
+            <h2>历史面试复盘</h2>
+          </div>
+          <button id="clearHistoryButton" class="secondary-button" type="button">清空记录</button>
+        </header>
+        <div id="historyStats" class="stats-grid"></div>
+        <div id="historyList" class="history-list"></div>
+        <div id="reviewPanel" class="review-panel hidden"></div>
+      </section>
+
+      <section id="adminDashboardPanel" class="admin-dashboard-panel hidden product-section" data-product-section="admin-dashboard" aria-label="后台管理">
+        <header class="history-header">
+          <div>
+            <p class="eyebrow">Admin</p>
+            <h2>后台管理</h2>
+          </div>
+          <button id="adminRefreshButton" class="secondary-button" type="button">刷新后台</button>
+        </header>
+        <p class="helper-text">管理员只读查看用户、RAG 文档、RAG 日志和 Agent 决策日志，第一版不做删除、封禁和复杂 RBAC。</p>
+        <div id="adminDashboardContent" class="admin-dashboard-content"></div>
+      </section>
+
+      <section class="rag-doc-panel product-section" data-product-section="rag-knowledge" aria-label="RAG 知识库管理">
+        <header class="history-header">
+          <div>
+            <p class="eyebrow">RAG Knowledge</p>
+            <h2>RAG 知识库管理</h2>
+          </div>
+          <button id="ragDocumentRefreshButton" class="secondary-button" type="button">刷新知识库</button>
+        </header>
+        <p class="helper-text">手动录入岗位知识或题库内容，系统会自动切片并参与后续 RAG 检索。</p>
+
+        <div class="rag-doc-layout">
+          <form id="ragDocumentForm" class="rag-doc-form">
+            <div class="form-grid compact">
+              <label>
+                <span>文档标题</span>
+                <input id="ragDocumentTitleInput" type="text" placeholder="例如：FastAPI RAG 项目追问" />
+              </label>
+              <label>
+                <span>知识库类型</span>
+                <select id="ragKnowledgeBaseInput">
+                  <option value="role_knowledge">岗位知识库</option>
+                  <option value="question_bank">题库 RAG</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              <span>文档内容</span>
+              <textarea
+                id="ragDocumentContentInput"
+                rows="8"
+                placeholder="每个空行会被视为一个切片边界。可以录入岗位要求、项目追问点、题库问题或参考答案。"
+              ></textarea>
+            </label>
+            <label>
+              <span>元数据 JSON（可选）</span>
+              <textarea
+                id="ragDocumentMetadataInput"
+                rows="4"
+                placeholder='{"positionTag":"ai_app_intern","category":"technical","difficulty":"medium"}'
+              ></textarea>
+            </label>
+            <div class="actions">
+              <button id="ragDocumentSubmitButton" class="primary-button" type="submit">保存到知识库</button>
+              <span id="ragDocumentStatus" class="inline-status">等待录入</span>
+            </div>
+          </form>
+
+          <div class="rag-doc-browser">
+            <div id="ragDocumentList" class="rag-doc-list"></div>
+            <div id="ragDocumentDetail" class="rag-doc-detail"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="debug-panel product-section" data-product-section="rag-knowledge" aria-label="RAG 调试面板">
+        <header class="history-header">
+          <div>
+            <p class="eyebrow">RAG Debug</p>
+            <h2>RAG 检索调试</h2>
+          </div>
+          <div class="debug-actions">
+            <button id="ragLogButton" class="secondary-button" type="button">查看最近命中日志</button>
+            <button id="ragDebugButton" class="secondary-button" type="button">查看当前检索上下文</button>
+          </div>
+        </header>
+        <p class="helper-text">这个区域用于学习和调试：查看系统会把哪些岗位知识、候选人历史画像放进 prompt。</p>
+        <div id="ragLogContent" class="rag-log-list"></div>
+        <div id="ragDebugContent" class="debug-grid"></div>
+      </section>
+
+      <section class="agent-debug-panel product-section" data-product-section="rag-knowledge" aria-label="Agent 决策观察面板">
+        <header class="history-header">
+          <div>
+            <p class="eyebrow">Agent Debug</p>
+            <h2>Agent 决策观察</h2>
+          </div>
+          <button id="agentLogButton" class="secondary-button" type="button">查看 Agent 决策日志</button>
+        </header>
+        <p class="helper-text">查看面试流程调度 Agent 每一轮为什么追问、降难度、换话题或结束面试。</p>
+        <div id="agentLogContent" class="agent-log-list"></div>
+      </section>
+    </main>
+
+    <script src="/app.js?v=20260609-workbench-ui-v1"></script>
+  </body>
+</html>
