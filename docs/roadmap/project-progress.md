@@ -1607,3 +1607,136 @@ python -m pytest tests/test_langgraph_agent_state.py tests/test_langgraph_agent_
 - `useRealRag=true` 时接入现有 RAG adapter。
 - `useRealDecision=true` 时接入现有 Agent decision adapter 和 `call_model`。
 - checkpoint 使用 `MemorySaver` + 进程内 summary，尚不是生产级持久化。
+
+## 阶段 25：Docker + Nginx + VPS 上线 V1 - Spec 设计
+
+状态：已完成 spec，等待 implementation plan。
+
+本阶段用户希望先不继续大范围重构 RAG / Agent / Vue3，而是把项目推向“可以上线展示”的工程化闭环。项目已经推送到 GitHub 私有仓库：
+
+```text
+https://github.com/davidluulc/ai-interview.git
+```
+
+已完成内容：
+
+- 新增 active spec：
+  - `docs/specs/active/docker-nginx-vps-deployment-v1-design.md`
+- 更新路线入口：
+  - `docs/specs/README.md`
+  - `docs/roadmap/current-state.md`
+  - `docs/roadmap/project-progress.md`
+
+本阶段设计结论：
+
+```text
+采用香港或海外 VPS + Cloudflare DNS/SSL 的轻量上线展示路线。
+本地开发继续保留 SQLite。
+上线 V1 推荐用 Docker Compose 编排 app、PostgreSQL、Redis、Celery worker、Nginx。
+Nginx 作为公网统一入口和反向代理。
+本阶段不做 Vue3、不重构 RAG/Agent、不做 Kubernetes、不做复杂 CI/CD、不做大陆服务器备案。
+```
+
+下一步：
+
+```text
+根据 docs/specs/active/docker-nginx-vps-deployment-v1-design.md
+编写 docs/plans/active/docker-nginx-vps-deployment-v1.md
+然后按 TDD/文档驱动执行：
+部署配置测试 -> Dockerfile/.dockerignore -> compose -> Nginx -> 部署文档 -> 学习文档 -> 全量验证。
+```
+
+阶段 25 实现进度：
+
+- 已新增 active plan：
+  - `docs/plans/active/docker-nginx-vps-deployment-v1.md`
+- 已新增部署配置测试：
+  - `tests/test_deployment_config.py`
+- 已新增部署配置骨架：
+  - `.env.production.example`
+  - `.dockerignore`
+  - `Dockerfile`
+  - `docker-compose.yml`
+  - `deploy/README.md`
+  - `deploy/nginx/ai-interview.conf`
+- 已新增部署文档：
+  - `docs/deployment/README.md`
+  - `docs/deployment/vps-deploy-v1.md`
+  - `docs/deployment/nginx-cloudflare-https.md`
+  - `docs/deployment/troubleshooting.md`
+  - `docs/deployment/backup-and-rollback.md`
+- 已新增学习文档：
+  - `docs/learning/12-Docker-Nginx-VPS上线链路怎么理解.md`
+
+局部验证：
+
+```text
+python -m pytest tests/test_deployment_config.py -q
+结果：5 passed in 0.03s
+```
+
+待验证：
+
+- `python -m pytest -q`
+- 全部前端 `.mjs` 测试
+- `docker --version`
+- `docker compose version`
+- `docker build -t ai-interview-app:local .`
+- `docker compose --env-file .env.production.example config`
+
+阶段 25 当前验证结果：
+
+```text
+python -m pytest tests/test_deployment_config.py -q
+结果：5 passed in 0.03s
+
+python -m pytest -q
+结果：274 passed, 1 warning in 34.07s
+
+Get-ChildItem tests -Filter "*.mjs" | ForEach-Object { node $_.FullName; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }
+结果：全部前端 .mjs 测试通过，无失败输出。
+
+docker --version
+结果：Docker version 29.3.1
+
+docker compose version
+结果：Docker Compose version v5.1.1
+
+docker compose -p ai-interview --env-file .env.production.example config
+结果：通过，Compose 配置可解析。
+
+docker build -t ai-interview-app:local .
+结果：通过。第一次失败原因是 Docker Desktop Linux engine 未启动；第二次失败原因是 Debian apt 镜像临时 502。移除 Dockerfile 中非必要的 apt 安装后，镜像构建成功。
+
+docker compose -p ai-interview --env-file .env.production.example up -d --no-build
+结果：通过。app、db、redis、worker、nginx 均启动。
+
+docker compose -p ai-interview --env-file .env.production.example exec app alembic upgrade head
+结果：通过。干净 PostgreSQL 数据卷从空库迁移到 20260606_0008 head。
+
+Invoke-WebRequest http://127.0.0.1:8080/api/health
+结果：通过，Redis 状态为 ok。
+
+Invoke-WebRequest http://127.0.0.1:8080/docs
+结果：HTTP 200。
+
+docker compose -p ai-interview exec worker celery -A backend_python.celery_app.celery_app inspect registered
+结果：通过，已注册：
+- backend_python.tasks.health.ping_task
+- backend_python.tasks.rag_evaluation.run_rag_evaluation_task
+```
+
+补充结论：
+
+```text
+由于项目目录名包含中文，直接执行 docker compose --env-file .env.production.example config 会触发 project name must not be empty。
+已将文档中的 compose 命令统一改为显式指定项目名：docker compose -p ai-interview ...
+
+由于 Windows 中文路径下 docker compose up --build 可能触发 BuildKit gRPC 异常，本地验证采用：
+docker build -t ai-interview-app:local .
+docker compose -p ai-interview --env-file .env.production.example up -d --no-build
+
+由于生产环境不能让 FastAPI 自动 create_all 建表，已新增 AUTO_INIT_DB 开关：
+本地 SQLite 默认 AUTO_INIT_DB=true。
+生产 PostgreSQL 模板和 Compose 使用 AUTO_INIT_DB=false，并通过 Alembic upgrade head 管理表结构。
+```

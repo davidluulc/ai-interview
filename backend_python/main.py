@@ -7,7 +7,7 @@ from .config import ROOT_DIR
 from .core.errors import register_exception_handlers
 from .core.logging import setup_logging
 from .core.middleware import request_log_middleware
-from .database import init_db
+from .database import init_db, should_auto_init_db
 from .redis_client import get_redis_health
 from .routes import (
     admin,
@@ -51,7 +51,8 @@ app.include_router(rag_documents.router)
 app.include_router(memory.router)
 app.include_router(position_agent.router)
 app.include_router(training.router)
-init_db()
+if should_auto_init_db():
+    init_db()
 
 app.mount("/static", StaticFiles(directory=ROOT_DIR), name="static")
 

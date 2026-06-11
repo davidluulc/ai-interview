@@ -2,6 +2,32 @@
 
 更新时间：2026-06-11
 
+## 0. 当前执行焦点
+
+当前下一阶段已经确定为：
+
+```text
+Docker + Nginx + VPS 上线 V1
+```
+
+当前 active spec：
+
+```text
+docs/specs/active/docker-nginx-vps-deployment-v1-design.md
+```
+
+阶段目标：
+
+```text
+把项目从“本地可运行、功能较完整”推进到“具备云服务器上线展示能力”。本阶段优先补齐 Dockerfile、docker-compose、Nginx 反向代理、部署环境变量模板、VPS 部署文档、日志排查、备份回滚和上线验收清单。
+```
+
+本阶段不做：
+
+```text
+不做 Vue3 前端重构，不重构 RAG / Agent，不替换 LangGraph 主流程，不做 Kubernetes，不做复杂 CI/CD，不处理大陆服务器备案。
+```
+
 本文档是当前项目的唯一可信路线入口。判断项目进度时，优先看本文档，再看 `project-progress.md` 的历史执行记录。旧 spec、旧 plan、旧学习手册只作为背景资料，不再直接决定下一步开发路线。
 
 ## 1. 判断原则
@@ -552,13 +578,13 @@ LangGraph V1 POC 已经证明 StateGraph 节点链路可以跑通。LangGraph V2
 
 ## 5. 当前推荐路线
 
-由于用户当前希望把面试体验增强和 LangGraph 深化合并推进，当前推荐路线更新为：
+由于用户当前已经完成 Agent / RAG / 后端生产化等阶段性能力，并且希望继续把项目推向可上线展示版本，当前推荐路线更新为：
 
 ```text
 第一步：面试体验增强 V3 + LangGraph 深化（已完成阶段性版本）
 第二步：后端生产化 V1：数据库适配 + Redis + Celery（已完成阶段性版本）
-第三步：Vue3 前端重构评估或实验版
-第四步：Docker + Nginx + 云服务器上线验证
+第三步：Docker + Nginx + VPS 上线 V1（当前准备执行）
+第四步：实机上线验证或 Vue3 前端重构评估
 第五步：最终项目讲解、简历表达和面试训练
 ```
 
@@ -570,11 +596,50 @@ LangGraph V1 POC 已经证明 StateGraph 节点链路可以跑通。LangGraph V2
 - 用户目标岗位是 AI 应用开发岗，继续做 LangGraph 深化有价值；用户同时希望面试体验更自然，因此本阶段采用合并 spec。
 - 部署工程化仍然重要，但现在先归档暂缓，不删除。
 - 用户目标更偏 Python 后端岗 / AI 应用开发岗，因此后端生产化能力优先级高于 Vue3 重构。
-- 后端生产化 V1 已完成阶段性版本，下一步可以重新评估 Vue3 前端重构、Docker/Nginx 上线，或进入项目讲解与简历表达。
+- 后端生产化 V1 已完成阶段性版本，Redis / Celery 基础设施已经具备，适合进入 Docker/Nginx/VPS 上线链路。
+- 前端仍有后续 Vue3 重构空间，但当前项目更需要先完成一次可讲清楚的上线闭环。
 
 ## 6. 当前 spec / plan 状态
 
-当前 `docs/specs/active/` 和 `docs/plans/active/` 应保持为空，避免误判历史任务为下一步任务。
+当前 `docs/specs/active/` 应包含：
+
+```text
+docs/specs/active/docker-nginx-vps-deployment-v1-design.md
+```
+
+当前 `docs/plans/active/` 仍应为空，等待根据 active spec 编写 implementation plan。
+
+当前 `docs/plans/active/` 已新增：
+
+```text
+docs/plans/active/docker-nginx-vps-deployment-v1.md
+```
+
+当前已落地的部署 V1 骨架：
+
+- `.env.production.example`
+- `.dockerignore`
+- `Dockerfile`
+- `docker-compose.yml`
+- `deploy/nginx/ai-interview.conf`
+- `docs/deployment/`
+- `docs/learning/12-Docker-Nginx-VPS上线链路怎么理解.md`
+- `tests/test_deployment_config.py`
+
+当前已完成的部署 V1 验证：
+
+- `python -m pytest tests/test_deployment_config.py -q` 通过。
+- `python -m pytest -q` 通过。
+- 全部前端 `.mjs` 测试通过。
+- `docker build -t ai-interview-app:local .` 通过。
+- `docker compose -p ai-interview --env-file .env.production.example config` 通过。
+- `docker compose -p ai-interview --env-file .env.production.example up -d --no-build` 通过。
+- PostgreSQL 干净数据卷下 `alembic upgrade head` 通过。
+- Nginx 入口 `http://127.0.0.1:8080/api/health` 通过。
+- FastAPI docs 入口 `http://127.0.0.1:8080/docs` 通过。
+- Celery worker 已注册 health 和 RAG evaluation 任务。
+
+下一步需要决定是否购买/准备 VPS 和域名，进入真实云服务器部署；或先把本阶段改动提交并推送 GitHub。
 
 后端生产化 V1 已完成并归档到：
 

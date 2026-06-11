@@ -3,7 +3,7 @@ from collections.abc import Generator
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from .config import DATABASE_URL
+from .config import AUTO_INIT_DB, DATABASE_URL
 
 
 def build_connect_args(database_url: str) -> dict:
@@ -26,6 +26,10 @@ def describe_database_url(database_url: str) -> dict:
         "isLocalSqlite": is_local_sqlite,
         "usesExternalService": not is_local_sqlite,
     }
+
+
+def should_auto_init_db(*, auto_init: bool = AUTO_INIT_DB, database_url: str = DATABASE_URL) -> bool:
+    return bool(auto_init) and str(database_url or "").startswith("sqlite")
 
 
 connect_args = build_connect_args(DATABASE_URL)

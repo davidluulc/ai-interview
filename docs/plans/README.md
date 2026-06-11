@@ -10,7 +10,17 @@
 
 ## 当前状态
 
-当前 `active/` 暂时为空。
+当前 `active/` 有一个准备执行的 implementation plan：
+
+```text
+docs/plans/active/docker-nginx-vps-deployment-v1.md
+```
+
+主题：
+
+```text
+Docker + Nginx + VPS 上线 V1：按部署配置测试、环境变量模板、Dockerfile、docker-compose、Nginx、部署文档、学习文档和全量验证的顺序推进。
+```
 
 上一阶段后端生产化 V1 plan 已完成并移动到：
 
