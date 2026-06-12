@@ -35,12 +35,14 @@
   margin-bottom: 20px;
   font-size: 18px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .sidebar a {
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   padding: 10px 12px;
+  white-space: nowrap;
 }
 
 .sidebar a.router-link-active {
@@ -63,7 +65,13 @@
     top: 0;
     z-index: 2;
     flex-direction: row;
+    align-items: center;
     overflow-x: auto;
+    padding: 16px 18px;
+  }
+
+  .brand {
+    margin-bottom: 0;
   }
 }
 </style>
