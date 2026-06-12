@@ -1,33 +1,97 @@
 <template>
   <AuthLayout>
-    <p class="eyebrow">AI Interview</p>
-    <h1>欢迎回来</h1>
-    <p class="muted">登录页将在 V1 的下一步接入真实认证。</p>
+    <div class="auth-copy">
+      <p class="eyebrow">AI Interview</p>
+      <h1>欢迎回来</h1>
+      <p>进入你的面试训练工作台。</p>
+    </div>
+
+    <form class="auth-form" @submit.prevent="submit">
+      <TextField
+        v-model="email"
+        autocomplete="email"
+        label="邮箱"
+        name="email"
+        placeholder="student@example.com"
+        required
+        type="email"
+      />
+      <TextField
+        v-model="password"
+        autocomplete="current-password"
+        label="密码"
+        name="password"
+        placeholder="输入密码"
+        required
+        type="password"
+      />
+      <p v-if="auth.error" class="error">{{ auth.error }}</p>
+      <PrimaryButton :disabled="auth.loading">{{ auth.loading ? "登录中" : "登录" }}</PrimaryButton>
+    </form>
+
+    <RouterLink class="switch-link" to="/vue/auth/register">还没有账号？去注册</RouterLink>
   </AuthLayout>
 </template>
 
 <script setup lang="ts">
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import PrimaryButton from "@/components/common/PrimaryButton.vue";
+import TextField from "@/components/common/TextField.vue";
 import AuthLayout from "@/layouts/AuthLayout.vue";
+import { useAuthStore } from "@/stores/auth";
+
+const router = useRouter();
+const auth = useAuthStore();
+const email = ref("");
+const password = ref("");
+
+async function submit(): Promise<void> {
+  await auth.login(email.value, password.value);
+  await router.push("/vue/app/interview");
+}
 </script>
 
 <style scoped>
+.auth-copy {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+
 .eyebrow {
   color: var(--color-accent);
   font-size: 13px;
   font-weight: 700;
-  margin: 0 0 8px;
-  text-align: center;
+  margin: 0;
 }
 
 h1 {
   font-size: 34px;
   margin: 0;
-  text-align: center;
 }
 
-.muted {
+p {
   color: var(--color-text-muted);
-  margin: 12px 0 0;
+  margin: 0;
+}
+
+.auth-form {
+  display: grid;
+  gap: 16px;
+}
+
+.error {
+  color: #b42318;
+  font-size: 14px;
+}
+
+.switch-link {
+  display: block;
+  margin-top: 18px;
   text-align: center;
+  color: var(--color-accent);
+  font-size: 14px;
 }
 </style>
