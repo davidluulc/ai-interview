@@ -1,31 +1,31 @@
 # AI 模拟面试系统当前状态与下一阶段路线
 
-更新时间：2026-06-11
+更新时间：2026-06-12
 
 ## 0. 当前执行焦点
 
 当前下一阶段已经确定为：
 
 ```text
-Docker + Nginx + VPS 上线 V1
+Vue3 前端重构 V1
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/docker-nginx-vps-deployment-v1-design.md
+docs/specs/active/vue3-frontend-rebuild-v1-design.md
 ```
 
 阶段目标：
 
 ```text
-把项目从“本地可运行、功能较完整”推进到“具备云服务器上线展示能力”。本阶段优先补齐 Dockerfile、docker-compose、Nginx 反向代理、部署环境变量模板、VPS 部署文档、日志排查、备份回滚和上线验收清单。
+在保留旧原生 HTML/CSS/JS 页面作为兜底入口的前提下，新建 Vue3 + Vite + TypeScript 前端工程，优先完成产品壳、登录态、投递档案和面试训练主流程，让项目从“功能堆叠型单页 MVP”升级为“结构清晰、视觉高级、可继续演进的前后端分离产品前端”。
 ```
 
 本阶段不做：
 
 ```text
-不做 Vue3 前端重构，不重构 RAG / Agent，不替换 LangGraph 主流程，不做 Kubernetes，不做复杂 CI/CD，不处理大陆服务器备案。
+不重构后端 API，不重构 RAG / Agent，不替换 LangGraph 主流程，不删除旧前端，不做 Kubernetes，不做复杂 CI/CD，不处理大陆服务器备案。
 ```
 
 本文档是当前项目的唯一可信路线入口。判断项目进度时，优先看本文档，再看 `project-progress.md` 的历史执行记录。旧 spec、旧 plan、旧学习手册只作为背景资料，不再直接决定下一步开发路线。
@@ -392,6 +392,15 @@ LangGraph V1 POC 已经证明 StateGraph 节点链路可以跑通。LangGraph V2
 - 本地启动脚本。
 - 部署技术选型文档。
 - 上线前检查清单。
+- `.env.production.example`。
+- `.dockerignore`。
+- `Dockerfile`。
+- `docker-compose.yml`。
+- Nginx 反向代理配置。
+- PostgreSQL / Redis / Celery worker / Nginx 的 Docker Compose 编排。
+- Docker + Nginx + VPS 上线 V1 文档。
+- 故障排查、备份回滚、Cloudflare/HTTPS 文档。
+- 部署配置测试。
 
 主要证据：
 
@@ -401,22 +410,23 @@ LangGraph V1 POC 已经证明 StateGraph 节点链路可以跑通。LangGraph V2
 - `start-python-server.cmd`
 - `docs/roadmap/deployment-tech-selection.md`
 - `docs/roadmap/deployment-preflight-checklist.md`
+- `.env.production.example`
+- `.dockerignore`
+- `Dockerfile`
+- `docker-compose.yml`
+- `deploy/nginx/ai-interview.conf`
+- `docs/deployment/`
+- `tests/test_deployment_config.py`
 
 尚未落地：
 
-- Dockerfile。
-- docker-compose.yml。
-- Nginx 配置。
 - 真实云服务器部署。
 - HTTPS。
-- PostgreSQL / MySQL 真实切换验证。
-- Redis。
 - 对象存储。
 - 日志轮转。
-- 备份策略。
 - 生产环境监控。
 
-这些是下一阶段候选主线之一。
+Docker + Nginx + VPS 上线 V1 已完成本地容器化演练和 GitHub 合并；真实 VPS、域名、HTTPS 实机部署仍属于后续可选阶段。
 
 ## 3. 不要重复执行的旧路线
 
@@ -442,19 +452,18 @@ LangGraph V1 POC 已经证明 StateGraph 节点链路可以跑通。LangGraph V2
 
 ## 4. 真正待开发的大方向
 
-### 方向 A：前端产品化重构
+### 方向 A：Vue3 前端重构
 
 目标：
 
 ```text
-把当前单页应用整理成更像真实产品的训练工作台。
+把当前原生 HTML/CSS/JS 单页应用，渐进式重构为 Vue3 + Vite + TypeScript 的前后端分离产品前端。
 ```
 
 当前状态：
 
 ```text
-前端产品化 V2 已经完成阶段性版本，不再作为下一阶段主线重复执行。
-后续只在部署或验收过程中做必要的小修补。
+前端产品化 V2 已经完成阶段性版本，但仍然是原生单页堆叠结构。当前新主线是 Vue3 前端重构 V1，采用新旧前端并行方式，先保留旧页面作为兜底入口。
 ```
 
 适合解决的问题：
@@ -466,20 +475,22 @@ LangGraph V1 POC 已经证明 StateGraph 节点链路可以跑通。LangGraph V2
 
 建议范围：
 
-- 保持原生 HTML / CSS / JS。
-- 不引入 React / Vue / Next.js。
-- 将前端 JS 拆成模块。
-- 设计用户端信息架构。
-- 设计管理员后台信息架构。
+- 新建 `frontend/` Vue3 工程。
+- 使用 Vite + TypeScript。
+- 使用 Vue Router 拆分页面。
+- 使用 Pinia 管理登录态和核心业务状态。
+- 封装 API client。
+- 设计用户端信息架构和极简视觉系统。
+- 保留旧页面作为兜底入口。
 - 保持现有后端 API 兼容。
 - 补前端测试和浏览器验证。
 
-推荐程度：已阶段性完成。
+推荐程度：当前主线。
 
 原因：
 
 ```text
-产品导航、Agent 解释、RAG 解释、训练中心和管理员质量面板已经完成一轮产品化。
+项目功能已经较多，继续堆在原生单页里会增加维护成本。Vue3 重构既能提升展示效果，也能体现前端工程化能力，并为后续知识库、训练中心、管理后台迁移提供更清晰的页面边界。
 ```
 
 ### 方向 B：部署工程化实战
@@ -492,9 +503,9 @@ LangGraph V1 POC 已经证明 StateGraph 节点链路可以跑通。LangGraph V2
 
 适合解决的问题：
 
-- 项目还没有真实 Docker / Nginx / 云服务器部署。
-- 数据库仍以 SQLite 为主。
-- Redis、日志轮转、备份、HTTPS 还没落地。
+- 项目已经有 Docker / Nginx / Compose 本地演练，但还没有真实 VPS 部署。
+- 域名、HTTPS、Cloudflare 和真实公网访问还没落地。
+- 生产环境日志轮转和监控还可以继续增强。
 
 建议范围：
 
@@ -506,12 +517,12 @@ LangGraph V1 POC 已经证明 StateGraph 节点链路可以跑通。LangGraph V2
 - 日志目录和日志轮转方案。
 - 部署文档。
 
-推荐程度：暂缓。
+推荐程度：已完成 V1 本地演练，真实 VPS 部署暂缓。
 
 原因：
 
 ```text
-用户当前希望先继续打磨项目核心竞争力，暂不进入上线部署准备。部署工程化 V1 spec 已归档保留，后续可恢复执行。
+Docker + Nginx + VPS 上线 V1 已经完成本地容器化基线和文档闭环，并已合并到 main。用户当前希望转向 Vue3 前端重构，真实 VPS 部署后续再做。
 ```
 
 ### 方向 C：LangGraph 深化
@@ -578,13 +589,13 @@ LangGraph V1 POC 已经证明 StateGraph 节点链路可以跑通。LangGraph V2
 
 ## 5. 当前推荐路线
 
-由于用户当前已经完成 Agent / RAG / 后端生产化等阶段性能力，并且希望继续把项目推向可上线展示版本，当前推荐路线更新为：
+由于用户当前已经完成 Agent / RAG / 后端生产化 / Docker + Nginx 部署基线等阶段性能力，并且希望让项目页面更像正式产品，当前推荐路线更新为：
 
 ```text
 第一步：面试体验增强 V3 + LangGraph 深化（已完成阶段性版本）
 第二步：后端生产化 V1：数据库适配 + Redis + Celery（已完成阶段性版本）
-第三步：Docker + Nginx + VPS 上线 V1（当前准备执行）
-第四步：实机上线验证或 Vue3 前端重构评估
+第三步：Docker + Nginx + VPS 上线 V1（已完成本地容器化演练并合并 main）
+第四步：Vue3 前端重构 V1（当前准备执行）
 第五步：最终项目讲解、简历表达和面试训练
 ```
 
@@ -594,25 +605,23 @@ LangGraph V1 POC 已经证明 StateGraph 节点链路可以跑通。LangGraph V2
 - 前端产品化 V2 已经完成阶段性版本。
 - LangGraph V1 POC 和 V2 旁路工作流已经完成，下一步不应重复做 V1/V2。
 - 用户目标岗位是 AI 应用开发岗，继续做 LangGraph 深化有价值；用户同时希望面试体验更自然，因此本阶段采用合并 spec。
-- 部署工程化仍然重要，但现在先归档暂缓，不删除。
-- 用户目标更偏 Python 后端岗 / AI 应用开发岗，因此后端生产化能力优先级高于 Vue3 重构。
-- 后端生产化 V1 已完成阶段性版本，Redis / Celery 基础设施已经具备，适合进入 Docker/Nginx/VPS 上线链路。
-- 前端仍有后续 Vue3 重构空间，但当前项目更需要先完成一次可讲清楚的上线闭环。
+- 部署工程化 V1 已经完成本地容器化演练和 GitHub 合并，真实 VPS 可作为后续独立阶段。
+- 当前前端仍是原生单页堆叠结构，继续扩展会让维护和展示压力增加。
+- Vue3 重构能同时服务三件事：视觉展示、前端工程化学习、产品体验提升。
+- 重构采用新旧前端并行策略，先保留旧页面作为兜底入口，降低迁移风险。
 
 ## 6. 当前 spec / plan 状态
 
 当前 `docs/specs/active/` 应包含：
 
 ```text
-docs/specs/active/docker-nginx-vps-deployment-v1-design.md
+docs/specs/active/vue3-frontend-rebuild-v1-design.md
 ```
 
-当前 `docs/plans/active/` 仍应为空，等待根据 active spec 编写 implementation plan。
-
-当前 `docs/plans/active/` 已新增：
+当前 `docs/plans/active/` 应为空，等待用户 review Vue3 spec 后再编写 implementation plan。
 
 ```text
-docs/plans/active/docker-nginx-vps-deployment-v1.md
+docs/plans/active/
 ```
 
 当前已落地的部署 V1 骨架：
@@ -639,7 +648,14 @@ docs/plans/active/docker-nginx-vps-deployment-v1.md
 - FastAPI docs 入口 `http://127.0.0.1:8080/docs` 通过。
 - Celery worker 已注册 health 和 RAG evaluation 任务。
 
-下一步需要决定是否购买/准备 VPS 和域名，进入真实云服务器部署；或先把本阶段改动提交并推送 GitHub。
+Docker + Nginx + VPS 上线 V1 已完成并归档到：
+
+```text
+docs/specs/completed/docker-nginx-vps-deployment-v1-design.md
+docs/plans/completed/docker-nginx-vps-deployment-v1.md
+```
+
+下一步是 review Vue3 前端重构 V1 spec，确认后编写 implementation plan。
 
 后端生产化 V1 已完成并归档到：
 
