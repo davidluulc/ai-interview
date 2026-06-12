@@ -1,0 +1,16 @@
+:root {
+  color-scheme: light;
+  --color-bg: #f5f5f7;
+  --color-surface: #ffffff;
+  --color-surface-muted: #fbfbfd;
+  --color-text: #1d1d1f;
+  --color-text-muted: #6e6e73;
+  --color-border: rgba(0, 0, 0, 0.1);
+  --color-accent: #0071e3;
+  --color-accent-hover: #0077ed;
+  --shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.08);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+}
