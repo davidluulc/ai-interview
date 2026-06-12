@@ -1,4 +1,4 @@
-from backend_python.database import build_connect_args, build_engine_options, describe_database_url
+from backend_python.database import build_connect_args, build_engine_options, describe_database_url, should_auto_init_db
 
 
 def test_sqlite_database_url_uses_check_same_thread_false() -> None:
@@ -28,3 +28,9 @@ def test_mysql_database_url_is_described_as_external_service() -> None:
     assert description["dialect"] == "mysql+pymysql"
     assert description["isLocalSqlite"] is False
     assert description["usesExternalService"] is True
+
+
+def test_auto_init_db_defaults_to_local_sqlite_only() -> None:
+    assert should_auto_init_db(auto_init=True, database_url="sqlite:///data/app.db") is True
+    assert should_auto_init_db(auto_init=True, database_url="postgresql+psycopg://user:pass@db:5432/app") is False
+    assert should_auto_init_db(auto_init=False, database_url="sqlite:///data/app.db") is False

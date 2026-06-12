@@ -15,4 +15,9 @@ celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
+    imports=(
+        "backend_python.tasks.health",
+        "backend_python.tasks.rag_evaluation",
+    ),
+    broker_connection_retry_on_startup=True,
 )

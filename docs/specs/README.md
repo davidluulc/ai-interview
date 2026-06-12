@@ -10,7 +10,17 @@
 
 ## 当前状态
 
-当前 `active/` 暂时为空。
+当前 `active/` 有一个准备执行的 spec：
+
+```text
+docs/specs/active/docker-nginx-vps-deployment-v1-design.md
+```
+
+主题：
+
+```text
+Docker + Nginx + VPS 上线 V1：把当前 AI 模拟面试系统从本地可运行推进到具备云服务器上线展示能力，补齐 Dockerfile、docker-compose、Nginx、部署环境变量、VPS 部署手册、日志、备份、回滚和验收文档。
+```
 
 上一阶段后端生产化 V1 spec 已完成并移动到：
 
@@ -59,13 +69,13 @@ docs/specs/completed/
 - `interview-experience-v3-langgraph-deepening-design.md`
 - `backend-production-v1-postgres-redis-celery-design.md`
 
-暂缓执行的 spec 在：
+历史暂缓执行的 spec 在：
 
 ```text
 docs/specs/archive/2026-06-11-deployment-engineering-v1-design.md
 ```
 
-原因：当前用户希望先继续打磨项目核心竞争力，暂不进入上线部署准备。
+原因：当时用户希望先继续打磨项目核心竞争力，暂不进入上线部署准备。当前路线已经重新进入上线展示 V1，因此以 `active/docker-nginx-vps-deployment-v1-design.md` 为准。
 
 ## 下一步怎么看
 

@@ -5,6 +5,8 @@ from backend_python.tasks.health import ping_task
 def test_celery_app_uses_eager_mode_for_tests() -> None:
     assert celery_app.conf.task_always_eager is True
     assert celery_app.conf.task_eager_propagates is True
+    assert "backend_python.tasks.health" in celery_app.conf.imports
+    assert "backend_python.tasks.rag_evaluation" in celery_app.conf.imports
 
 
 def test_ping_task_returns_json_serializable_payload() -> None:
