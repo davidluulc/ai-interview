@@ -9,31 +9,31 @@
 当前 active plan：
 
 ```text
-docs/plans/active/langgraph-agent-workflow-v6.md
+暂无
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/langgraph-agent-workflow-v6-design.md
+暂无
 ```
 
 当前阶段状态：
 
 ```text
-正在准备执行 LangGraph / Agent 工作流深化 V6：围绕节点契约、执行回放、人工复核队列和 runtime report 深化 LangGraph 工作流治理。
+LangGraph / Agent 工作流深化 V6 已完成并归档。下一阶段建议先讨论是否继续扩大 LangGraph 主链路迁移，或进入生产级 RAG V3，再写新的 active plan。
 ```
 
 最近完成并归档的 plan：
 
 ```text
-docs/plans/completed/interview-training-loop-v3.md
+docs/plans/completed/langgraph-agent-workflow-v6.md
 ```
 
 阶段主题：
 
 ```text
-面试训练闭环增强 V3：训练任务练习材料、用户作答、自评、掌握度更新和训练中心前端体验。
+LangGraph / Agent 工作流深化 V6：节点契约、执行回放、人工复核队列、runtime report 和管理员后台可读诊断。
 ```
 
 ## 追求目标模式建议

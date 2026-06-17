@@ -131,6 +131,38 @@ export interface AdminRuntimeAudit {
   requiresHumanReview?: boolean;
 }
 
+export interface AdminRuntimeReplayStep {
+  step: number;
+  node: string;
+  title: string;
+  detail: string;
+}
+
+export interface AdminRuntimeReplaySummary {
+  threadId?: string;
+  exists?: boolean;
+  status?: string;
+  summary?: string;
+  timeline?: AdminRuntimeReplayStep[];
+  risks?: string[];
+  nextActions?: string[];
+}
+
+export interface AdminRuntimeReportReason {
+  reason: string;
+  count: number;
+}
+
+export interface AdminRuntimeReport {
+  threadId?: string;
+  totalRuns?: number;
+  statusCounts?: Record<string, number>;
+  fallbackCount?: number;
+  humanReviewCount?: number;
+  topQualityGateReasons?: AdminRuntimeReportReason[];
+  summary?: string;
+}
+
 export interface AdminAiDebugLangGraph {
   exists?: boolean;
   runtime?: string;
@@ -146,6 +178,8 @@ export interface AdminAiDebugLangGraph {
   qualityGate?: AdminRuntimeQualityGate;
   comparisonSummary?: AdminRuntimeComparisonSummary;
   runtimeAudit?: AdminRuntimeAudit;
+  replaySummary?: AdminRuntimeReplaySummary;
+  runtimeReport?: AdminRuntimeReport;
   explanation?: string;
 }
 

@@ -92,3 +92,12 @@ def list_checkpoint_summaries(db: Session, thread_id: str, *, limit: int = 20) -
         .all()
     )
     return [serialize_checkpoint_summary(row) for row in rows]
+
+
+def list_latest_checkpoint_summaries(db: Session, *, limit: int = 50) -> list[dict[str, Any]]:
+    rows = db.query(LangGraphCheckpointSummary).order_by(LangGraphCheckpointSummary.id.desc()).limit(limit).all()
+    latest_by_thread: dict[str, LangGraphCheckpointSummary] = {}
+    for row in rows:
+        if row.thread_id not in latest_by_thread:
+            latest_by_thread[row.thread_id] = row
+    return [serialize_checkpoint_summary(row) for row in latest_by_thread.values()]

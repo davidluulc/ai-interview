@@ -12,10 +12,14 @@ from backend_python.langgraph_agent.checkpoint import record_checkpoint_summary,
 from backend_python.langgraph_agent.checkpoint_persistence import (
     get_latest_checkpoint_summary,
     list_checkpoint_summaries,
+    list_latest_checkpoint_summaries,
     save_checkpoint_summary,
 )
 from backend_python.langgraph_agent.checkpoint_store import checkpoint_summary_store
 from backend_python.langgraph_agent.graph import run_interview_graph_poc
+from backend_python.langgraph_agent.replay import build_runtime_replay
+from backend_python.langgraph_agent.review_queue import build_review_queue, validate_review_decision
+from backend_python.langgraph_agent.runtime_report import build_runtime_report
 from backend_python.langgraph_agent.service import run_langgraph_agent_v2
 from backend_python.llm_client import call_model
 from backend_python.question_rag import retrieve_questions
@@ -50,6 +54,11 @@ class LangGraphRuntimeRunRequest(BaseModel):
 
 class LangGraphRuntimeResumeRequest(BaseModel):
     threadId: str
+    decision: str
+    comment: str = ""
+
+
+class LangGraphReviewResolveRequest(BaseModel):
     decision: str
     comment: str = ""
 
@@ -250,6 +259,54 @@ async def runtime_runs(thread_id: str, db: Session = Depends(get_db)) -> dict[st
     return {
         "threadId": thread_id,
         "items": list_checkpoint_summaries(db, thread_id),
+    }
+
+
+@router.get("/runtime/replay/{thread_id}")
+async def runtime_replay(thread_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    persisted = get_latest_checkpoint_summary(db, thread_id)
+    return build_runtime_replay(persisted)
+
+
+@router.get("/runtime/report/{thread_id}")
+async def runtime_report(thread_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    return build_runtime_report(thread_id, list_checkpoint_summaries(db, thread_id))
+
+
+@router.get("/runtime/reviews")
+async def runtime_reviews(db: Session = Depends(get_db)) -> dict[str, Any]:
+    return {"items": build_review_queue(list_latest_checkpoint_summaries(db))}
+
+
+@router.post("/runtime/reviews/{thread_id}/resolve")
+async def runtime_review_resolve(
+    thread_id: str,
+    payload: LangGraphReviewResolveRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    try:
+        decision = validate_review_decision(payload.decision)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    checkpoint = summarize_checkpoint(thread_id)
+    if not checkpoint.get("exists"):
+        raise HTTPException(status_code=404, detail="LangGraph runtime thread not found")
+    if checkpoint.get("status") != "interrupted" and not checkpoint.get("requiresHumanReview"):
+        raise HTTPException(status_code=400, detail="LangGraph runtime thread does not require human review")
+
+    resumed = checkpoint_summary_store.mark_resumed(thread_id, resume_decision=decision)
+    resumed["requiresHumanReview"] = False
+    resumed["currentNode"] = "generate_question" if decision != "end_interview" else "end_interview"
+    resumed["interrupt"] = None
+    persisted_checkpoint = save_checkpoint_summary(db, resumed)
+    return {
+        "threadId": thread_id,
+        "runtime": persisted_checkpoint.get("runtime") or "langgraph",
+        "status": persisted_checkpoint.get("status") or "resumed",
+        "resumeDecision": decision,
+        "comment": payload.comment,
+        "checkpointSummary": persisted_checkpoint,
     }
 
 

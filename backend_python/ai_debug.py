@@ -2,6 +2,8 @@ import json
 from typing import Any
 
 from .db_models import AgentDecisionLog, RagRetrievalLog
+from .langgraph_agent.replay import build_runtime_replay
+from .langgraph_agent.runtime_report import build_runtime_report
 from .rag_logging import serialize_rag_log
 
 
@@ -188,7 +190,7 @@ def serialize_agent_trace(log: AgentDecisionLog) -> dict[str, Any]:
 
 def normalize_checkpoint(checkpoint: dict[str, Any], thread_id: str) -> dict[str, Any]:
     exists = bool(checkpoint.get("exists"))
-    return {
+    normalized = {
         "enabled": bool(checkpoint.get("enabled", True)),
         "exists": exists,
         "threadId": checkpoint.get("threadId") or thread_id,
@@ -226,6 +228,9 @@ def normalize_checkpoint(checkpoint: dict[str, Any], thread_id: str) -> dict[str
         if exists
         else "本次请求未启用 LangGraph 旁路。当前主流程仍由 classic Agent 执行。",
     }
+    replay_source = {**checkpoint, "threadId": normalized["threadId"], "exists": exists, "status": normalized["status"]}
+    normalized["replaySummary"] = build_runtime_replay(replay_source)
+    return normalized
 
 
 def build_ai_debug_recent_item(
@@ -261,12 +266,15 @@ def build_ai_debug_detail(
     log: AgentDecisionLog,
     rag_logs: list[RagRetrievalLog],
     checkpoint: dict[str, Any],
+    checkpoint_runs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     agent = serialize_agent_trace(log)
     state = agent["state"] if isinstance(agent.get("state"), dict) else {}
     decision = agent["decision"] if isinstance(agent.get("decision"), dict) else {}
     thread_id = extract_thread_id(state, decision, f"agent-log-{log.id}")
     langgraph = normalize_checkpoint(checkpoint, thread_id)
+    report_items = checkpoint_runs if checkpoint_runs is not None else ([checkpoint] if checkpoint.get("exists") else [])
+    langgraph["runtimeReport"] = build_runtime_report(thread_id, report_items)
     rag_items = [serialize_rag_trace_item(rag_log) for rag_log in rag_logs]
     diagnostics = build_ai_debug_diagnostics(agent=agent, rag_items=rag_items, langgraph=langgraph)
     return {

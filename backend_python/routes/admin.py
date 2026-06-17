@@ -12,7 +12,7 @@ from ..config import DASHSCOPE_EMBEDDING_MODEL, DASHSCOPE_RERANK_MODEL, QWEN_MOD
 from ..database import DATABASE_URL, get_db
 from ..db_models import AgentDecisionLog, InterviewRecord, RagDocument, RagRetrievalLog, User
 from ..langgraph_agent.checkpoint import summarize_checkpoint
-from ..langgraph_agent.checkpoint_persistence import get_latest_checkpoint_summary
+from ..langgraph_agent.checkpoint_persistence import get_latest_checkpoint_summary, list_checkpoint_summaries
 from ..rag_logging import serialize_rag_log
 from ..rag_store import serialize_document
 
@@ -248,6 +248,7 @@ async def admin_ai_debug_detail(
         log,
         list_rag_logs_for_agent_log(db, log),
         checkpoint_for_agent_log(log, db),
+        list_checkpoint_summaries(db, thread_id_for_agent_log(log)),
     )
 
 

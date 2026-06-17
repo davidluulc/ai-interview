@@ -8,6 +8,7 @@ from backend_python.database import SessionLocal
 from backend_python.db_models import AgentDecisionLog, RagRetrievalLog, User
 from backend_python.ai_debug import normalize_checkpoint
 from backend_python.langgraph_agent.checkpoint import record_checkpoint_summary
+from backend_python.langgraph_agent.checkpoint_persistence import save_checkpoint_summary
 from backend_python.langgraph_agent.checkpoint_store import checkpoint_summary_store
 from backend_python.main import app
 
@@ -287,3 +288,54 @@ def test_admin_ai_debug_detail_contains_runtime_audit() -> None:
     assert normalized["runtimeAudit"]["allowedRuntime"] == "langgraph"
     assert normalized["runtimeAudit"]["visibleRuntime"] == "classic"
     assert normalized["runtimeAudit"]["fallbackUsed"] is True
+
+
+def test_admin_ai_debug_detail_contains_replay_and_runtime_report() -> None:
+    client = TestClient(app)
+    headers, user_id = create_admin_headers()
+    thread_id = "debug-runtime-v6"
+    with SessionLocal() as db:
+        log = AgentDecisionLog(
+            user_id=user_id,
+            application_profile_id=404,
+            request_type="next_question",
+            next_action="lower_difficulty",
+            stage="技术追问",
+            difficulty="basic",
+            focus="LangGraph replay",
+            reason="连续弱回答，触发人工复核",
+            tools_json=json.dumps(["human_review"], ensure_ascii=False),
+            state_json=json.dumps({"threadId": thread_id, "agentMode": "coach"}, ensure_ascii=False),
+            decision_json=json.dumps({"nextAction": "lower_difficulty"}, ensure_ascii=False),
+            fallback_used=0,
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(log)
+        log_id = log.id
+        save_checkpoint_summary(
+            db,
+            {
+                "exists": True,
+                "threadId": thread_id,
+                "runtime": "langgraph",
+                "status": "interrupted",
+                "currentNode": "human_review",
+                "requiresHumanReview": True,
+                "interrupt": {"reason": "连续弱回答", "options": ["switch_to_coach"]},
+                "runtimeAudit": {"fallbackUsed": True, "qualityGateReasons": ["需要人工复核"]},
+                "qualityGate": {"passed": False, "reasons": ["requires human review"]},
+                "nodeTrace": [{"node": "observe_state"}, {"node": "human_review"}],
+            },
+        )
+
+    response = client.get(f"/api/admin/ai-debug/{log_id}", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["langgraph"]["replaySummary"]["status"] == "interrupted"
+    assert body["langgraph"]["replaySummary"]["timeline"][0]["node"] == "observe_state"
+    assert "fallback_used" in body["langgraph"]["replaySummary"]["risks"]
+    assert body["langgraph"]["runtimeReport"]["totalRuns"] >= 1
+    assert body["langgraph"]["runtimeReport"]["fallbackCount"] >= 1
+    assert body["langgraph"]["runtimeReport"]["humanReviewCount"] >= 1

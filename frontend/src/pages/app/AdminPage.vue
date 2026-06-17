@@ -142,6 +142,40 @@
                       <li v-for="reason in runtimeAuditReasons" :key="reason">{{ reason }}</li>
                     </ul>
                   </div>
+                  <div v-if="hasReplaySummary" class="debug-subsection">
+                    <h4>运行时间线</h4>
+                    <p>{{ replaySummaryText }}</p>
+                    <div v-for="step in replayTimeline" :key="`${step.step}-${step.node}`" class="mini-row">
+                      <strong>{{ step.step }}. {{ step.title }}</strong>
+                      <span>{{ step.node }} · {{ step.detail }}</span>
+                    </div>
+                    <div v-if="replayRisks.length" class="debug-subsection compact">
+                      <h4>风险标记</h4>
+                      <ul class="debug-list">
+                        <li v-for="risk in replayRisks" :key="risk">{{ risk }}</li>
+                      </ul>
+                    </div>
+                    <div v-if="replayNextActions.length" class="debug-subsection compact">
+                      <h4>建议动作</h4>
+                      <ul class="debug-list">
+                        <li v-for="action in replayNextActions" :key="action">{{ reviewActionLabel(action) }}</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div v-if="hasRuntimeReport" class="debug-subsection">
+                    <h4>Runtime 报告</h4>
+                    <p>{{ runtimeReportSummary }}</p>
+                    <p>
+                      运行 {{ runtimeReportNumber("totalRuns") }} 次 · fallback
+                      {{ runtimeReportNumber("fallbackCount") }} 次 · 人审
+                      {{ runtimeReportNumber("humanReviewCount") }} 次
+                    </p>
+                    <ul v-if="runtimeReportReasons.length" class="debug-list">
+                      <li v-for="item in runtimeReportReasons" :key="item.reason">
+                        {{ item.reason }}：{{ item.count }} 次
+                      </li>
+                    </ul>
+                  </div>
                 </article>
 
                 <article class="debug-panel">
@@ -354,7 +388,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import AppLayout from "@/layouts/AppLayout.vue";
 import { useAdminStore } from "@/stores/admin";
 import { useAuthStore } from "@/stores/auth";
-import type { AdminAgentLog, AdminRagDocument, AdminRagQualityItem } from "@/api/admin";
+import type { AdminAgentLog, AdminRagDocument, AdminRagQualityItem, AdminRuntimeReplayStep } from "@/api/admin";
 
 type DebugRecord = Record<string, unknown>;
 
@@ -411,6 +445,57 @@ const runtimeAuditReasons = computed(() => {
     ? runtimeAudit.value.qualityGateReasons
     : [];
   return [...policyReasons, ...qualityGateReasons].map(String).filter(Boolean);
+});
+const replaySummary = computed(() => {
+  const langgraph = admin.selectedAiDebugDetail?.langgraph as DebugRecord | undefined;
+  const replay = langgraph?.replaySummary;
+  return replay && typeof replay === "object" ? (replay as DebugRecord) : {};
+});
+const hasReplaySummary = computed(() => Object.keys(replaySummary.value).length > 0);
+const replaySummaryText = computed(() => {
+  const value = replaySummary.value.summary;
+  return typeof value === "string" && value.trim() ? value : "暂无 LangGraph 回放摘要。";
+});
+const replayTimeline = computed<AdminRuntimeReplayStep[]>(() => {
+  const timeline = replaySummary.value.timeline;
+  if (!Array.isArray(timeline)) return [];
+  return timeline.map((item, index) => {
+    const record = item && typeof item === "object" ? (item as DebugRecord) : {};
+    return {
+      step: Number(record.step ?? index + 1),
+      node: String(record.node ?? "unknown"),
+      title: String(record.title ?? "未知节点"),
+      detail: String(record.detail ?? "暂无节点详情")
+    };
+  });
+});
+const replayRisks = computed(() => {
+  const risks = replaySummary.value.risks;
+  return Array.isArray(risks) ? risks.map(String).filter(Boolean) : [];
+});
+const replayNextActions = computed(() => {
+  const actions = replaySummary.value.nextActions;
+  return Array.isArray(actions) ? actions.map(String).filter(Boolean) : [];
+});
+const runtimeReport = computed(() => {
+  const langgraph = admin.selectedAiDebugDetail?.langgraph as DebugRecord | undefined;
+  const report = langgraph?.runtimeReport;
+  return report && typeof report === "object" ? (report as DebugRecord) : {};
+});
+const hasRuntimeReport = computed(() => Object.keys(runtimeReport.value).length > 0);
+const runtimeReportSummary = computed(() => {
+  const value = runtimeReport.value.summary;
+  return typeof value === "string" && value.trim() ? value : "暂无 Runtime 报告。";
+});
+const runtimeReportReasons = computed(() => {
+  const items = runtimeReport.value.topQualityGateReasons;
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item) => {
+      const record = item && typeof item === "object" ? (item as DebugRecord) : {};
+      return { reason: String(record.reason ?? ""), count: Number(record.count ?? 0) };
+    })
+    .filter((item) => item.reason);
 });
 const userRangeLabel = computed(() => {
   const total = admin.filteredUsers.length;
@@ -498,6 +583,25 @@ function runtimeAuditText(key: string): string {
   const value = runtimeAudit.value[key];
   if (value === null || value === undefined || value === "") return "未记录";
   return String(value);
+}
+
+function runtimeReportNumber(key: string): number {
+  const value = runtimeReport.value[key];
+  const numberValue = Number(value ?? 0);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function reviewActionLabel(value: string): string {
+  const map: Record<string, string> = {
+    resume: "恢复工作流",
+    fallback_classic: "回退 classic",
+    inspect_quality_gate: "检查质量门禁",
+    continue_interview: "继续面试",
+    switch_to_coach: "切换学习辅导",
+    end_interview: "结束面试",
+    inspect_timeline: "查看时间线"
+  };
+  return map[value] || value || "未知动作";
 }
 
 function debugRagKey(item: DebugRecord): string {
@@ -933,6 +1037,11 @@ th {
   border-top: 1px solid var(--color-border);
   margin-top: 12px;
   padding-top: 12px;
+}
+
+.debug-subsection.compact {
+  margin-top: 10px;
+  padding-top: 10px;
 }
 
 .debug-subsection h4 {

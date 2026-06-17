@@ -166,6 +166,38 @@ describe("admin store", () => {
     expect(store.selectedAiDebugDetail?.langgraph?.comparisonSummary?.comparison?.fallbackToClassic).toBe(true);
   });
 
+  it("keeps replay summary and runtime report fields in ai debug detail", async () => {
+    vi.mocked(adminApi.fetchAdminAiDebugDetail).mockResolvedValue({
+      summary: { traceId: 1, threadId: "debug-runtime-v6" },
+      rag: { items: [], totalHitCount: 0 },
+      agent: {},
+      langgraph: {
+        exists: true,
+        replaySummary: {
+          status: "interrupted",
+          summary: "本轮 LangGraph 在 human_review 节点暂停。",
+          timeline: [{ step: 1, node: "human_review", title: "人工复核", detail: "连续弱回答" }],
+          risks: ["requires_human_review"],
+          nextActions: ["resume", "fallback_classic"]
+        },
+        runtimeReport: {
+          totalRuns: 2,
+          fallbackCount: 1,
+          humanReviewCount: 1,
+          topQualityGateReasons: [{ reason: "需要人工复核", count: 1 }],
+          summary: "该线程共 2 次运行，其中 1 次 fallback、1 次触发人工复核，需要继续观察。"
+        }
+      },
+      diagnostics: []
+    });
+
+    const store = useAdminStore();
+    await store.loadAiDebugDetail(1);
+
+    expect(store.selectedAiDebugDetail?.langgraph?.replaySummary?.timeline?.[0]?.node).toBe("human_review");
+    expect(store.selectedAiDebugDetail?.langgraph?.runtimeReport?.fallbackCount).toBe(1);
+  });
+
   it("filters users by search text and role", () => {
     const store = useAdminStore();
     store.users = [

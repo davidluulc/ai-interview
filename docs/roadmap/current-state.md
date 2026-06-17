@@ -7,25 +7,25 @@
 当前 active 开发阶段：
 
 ```text
-LangGraph / Agent 工作流深化 V6
+暂无。LangGraph / Agent 工作流深化 V6 已完成并归档，下一阶段建议讨论是否继续扩大 LangGraph 主链路迁移，或进入生产级 RAG V3。
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/langgraph-agent-workflow-v6-design.md
+暂无
 ```
 
 当前 active plan：
 
 ```text
-docs/plans/active/langgraph-agent-workflow-v6.md
+暂无
 ```
 
 当前实现进度：
 
 ```text
-面试训练闭环增强 V3 已完成并归档。当前进入 LangGraph / Agent 工作流深化 V6：目标是在已完成 canary、quality gate、checkpoint summary、runtime audit 和 AI Debug 的基础上，新增节点契约、执行时间线回放、人工复核队列和 runtime report，让 LangGraph 候选链路具备更强的可回放调试、人工介入和迁移证据能力。
+LangGraph / Agent 工作流深化 V6 已完成：新增 LangGraph 节点契约、执行时间线回放、人工复核队列、runtime report 和管理员后台可读展示。后端新增 replay/review/report 服务与 runtime API，AI Debug detail 聚合 replaySummary 和 runtimeReport；Vue3 管理员后台展示运行时间线、风险标记、建议动作和 Runtime 报告。验证结果：python -m pytest -q 通过 357 tests；frontend 下 npm.cmd run test 通过 116 tests；npm.cmd run build 通过；内置浏览器验证管理员后台桌面端和移动端无横向溢出、页面无 undefined，V6 区域可见。
 ```
 
 上一阶段完成目标：

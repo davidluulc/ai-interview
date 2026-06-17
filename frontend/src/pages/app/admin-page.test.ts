@@ -15,7 +15,7 @@ const authStore: {
   isAdmin: true
 };
 
-const adminStore = {
+const adminStore: any = {
   summary: {
     userCount: 2,
     interviewRecordCount: 3,
@@ -151,6 +151,23 @@ const adminStore = {
         fallbackUsed: true,
         policyReasons: ["管理员账号允许使用 LangGraph 灰度链路"],
         qualityGateReasons: ["LangGraph 问题与最近问题重复度过高"]
+      },
+      replaySummary: {
+        status: "interrupted",
+        summary: "本轮 LangGraph 在 human_review 节点暂停：连续弱回答",
+        timeline: [
+          { step: 1, node: "observe_state", title: "观察当前状态", detail: "读取历史问答。" },
+          { step: 2, node: "human_review", title: "人工复核", detail: "连续弱回答" }
+        ],
+        risks: ["requires_human_review", "fallback_used"],
+        nextActions: ["resume", "fallback_classic"]
+      },
+      runtimeReport: {
+        totalRuns: 3,
+        fallbackCount: 1,
+        humanReviewCount: 1,
+        topQualityGateReasons: [{ reason: "需要人工复核", count: 1 }],
+        summary: "该线程共 3 次运行，其中 1 次 fallback、1 次触发人工复核，需要继续观察。"
       }
     },
     diagnostics: [
@@ -335,6 +352,62 @@ describe("admin page", () => {
     expect(text).toContain("可见链路：classic");
     expect(text).toContain("Quality Gate：未通过");
     expect(text).toContain("Fallback：已回退 classic");
+  });
+
+  it("renders LangGraph replay timeline human review and runtime report", () => {
+    adminStore.selectedAiDebugDetail = {
+      summary: { traceId: 1, agentMode: "coach", stage: "技术追问", threadId: "agent-log-1" },
+      rag: { totalHitCount: 0, items: [] },
+      agent: { nextActionLabel: "降低难度", fallbackUsed: true, reason: "连续弱回答" },
+      langgraph: {
+        exists: true,
+        explanation: "LangGraph checkpoint 已记录本轮旁路状态。",
+        runtime: "langgraph",
+        visibleRuntime: "classic",
+        status: "interrupted",
+        currentNode: "human_review",
+        threadId: "agent-log-1",
+        nodeTraceCount: 2,
+        requiresHumanReview: true,
+        interrupt: { reason: "连续弱回答", options: ["switch_to_coach"] },
+        resumeDecision: "",
+        qualityGate: { passed: false, fallbackToClassic: true, reasons: ["需要人工复核"] },
+        comparisonSummary: { comparison: { fallbackToClassic: true, reasons: ["两条链路的下一步动作不同"] } },
+        replaySummary: {
+          status: "interrupted",
+          summary: "本轮 LangGraph 在 human_review 节点暂停：连续弱回答",
+          timeline: [
+            { step: 1, node: "observe_state", title: "观察当前状态", detail: "读取历史问答。" },
+            { step: 2, node: "human_review", title: "人工复核", detail: "连续弱回答" }
+          ],
+          risks: ["requires_human_review", "fallback_used"],
+          nextActions: ["resume", "fallback_classic"]
+        },
+        runtimeReport: {
+          totalRuns: 3,
+          fallbackCount: 1,
+          humanReviewCount: 1,
+          topQualityGateReasons: [{ reason: "需要人工复核", count: 1 }],
+          summary: "该线程共 3 次运行，其中 1 次 fallback、1 次触发人工复核，需要继续观察。"
+        }
+      },
+      diagnostics: []
+    };
+
+    const wrapper = mount(AdminPage, { global: globalConfig });
+    const text = wrapper.text();
+
+    expect(text).toContain("运行时间线");
+    expect(text).toContain("观察当前状态");
+    expect(text).toContain("人工复核");
+    expect(text).toContain("风险标记");
+    expect(text).toContain("requires_human_review");
+    expect(text).toContain("Runtime 报告");
+    expect(text).toContain("运行 3 次");
+    expect(text).toContain("fallback 1 次");
+    expect(text).toContain("人审 1 次");
+    expect(text).toContain("需要人工复核");
+    expect(text).not.toContain("undefined");
   });
 
   it("renders runtime audit summary in AI debug detail", () => {

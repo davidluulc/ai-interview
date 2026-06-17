@@ -147,3 +147,74 @@ def test_langgraph_agent_v2_route_can_select_real_adapters(monkeypatch):
     assert response.status_code == 200
     assert called == {"rag": True, "decision": True}
     assert response.json()["decision"]["focus"] == "真实 adapter 分支"
+
+
+def test_langgraph_runtime_replay_and_report_routes():
+    thread_id = "route-runtime-v6-001"
+    run_response = client.post(
+        "/api/langgraph-agent/runtime/run",
+        json={
+            "threadId": thread_id,
+            "agentRuntime": "langgraph",
+            "agentMode": "coach",
+            "history": [
+                {"question": "什么是 checkpoint？", "answer": "不会"},
+                {"question": "thread_id 有什么用？", "answer": "不知道"},
+            ],
+            "answer": "还是不会",
+            "enableInterrupt": True,
+        },
+    )
+    assert run_response.status_code == 200
+    assert run_response.json()["status"] == "interrupted"
+
+    replay_response = client.get(f"/api/langgraph-agent/runtime/replay/{thread_id}")
+    assert replay_response.status_code == 200
+    replay = replay_response.json()
+    assert replay["threadId"] == thread_id
+    assert replay["status"] == "interrupted"
+    assert replay["timeline"]
+    assert "requires_human_review" in replay["risks"]
+    assert replay["nextActions"] == ["resume", "fallback_classic"]
+
+    report_response = client.get(f"/api/langgraph-agent/runtime/report/{thread_id}")
+    assert report_response.status_code == 200
+    report = report_response.json()
+    assert report["threadId"] == thread_id
+    assert report["totalRuns"] >= 1
+    assert report["humanReviewCount"] >= 1
+
+
+def test_langgraph_runtime_reviews_and_resolve_routes():
+    thread_id = "route-runtime-review-v6-001"
+    client.post(
+        "/api/langgraph-agent/runtime/run",
+        json={
+            "threadId": thread_id,
+            "agentRuntime": "langgraph",
+            "history": [
+                {"question": "什么是 Agent State？", "answer": "不会"},
+                {"question": "为什么要 checkpoint？", "answer": "不知道"},
+            ],
+            "answer": "不会",
+            "enableInterrupt": True,
+        },
+    )
+
+    reviews_response = client.get("/api/langgraph-agent/runtime/reviews")
+    assert reviews_response.status_code == 200
+    reviews = reviews_response.json()["items"]
+    assert any(item["threadId"] == thread_id for item in reviews)
+
+    resolve_response = client.post(
+        f"/api/langgraph-agent/runtime/reviews/{thread_id}/resolve",
+        json={"decision": "switch_to_coach", "comment": "先切换到学习辅导。"},
+    )
+    assert resolve_response.status_code == 200
+    payload = resolve_response.json()
+    assert payload["threadId"] == thread_id
+    assert payload["status"] == "resumed"
+    assert payload["resumeDecision"] == "switch_to_coach"
+
+    reviews_after_resolve = client.get("/api/langgraph-agent/runtime/reviews").json()["items"]
+    assert not any(item["threadId"] == thread_id for item in reviews_after_resolve)
