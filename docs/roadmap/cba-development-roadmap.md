@@ -54,11 +54,11 @@ C：面试体验与训练闭环 V3
 - 不做生产级 RAG 异步入库。
 - 不做 VPS / HTTPS 真实上线。
 
-当前 active 文档：
+阶段 C 已归档文档：
 
 ```text
-docs/specs/active/interview-training-loop-v3-design.md
-docs/plans/active/interview-training-loop-v3.md
+docs/specs/completed/interview-training-loop-v3-design.md
+docs/plans/completed/interview-training-loop-v3.md
 ```
 
 ## 4. 阶段 B：LangGraph / Agent 工作流深化
@@ -115,4 +115,3 @@ docs/plans/active/interview-training-loop-v3.md
 6. 更新 current-state.md、docs/specs/README.md、docs/plans/README.md。
 7. 再讨论下一阶段是否进入 B 或 A。
 ```
-

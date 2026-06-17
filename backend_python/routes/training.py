@@ -9,6 +9,7 @@ from ..auth import get_current_user
 from ..database import get_db
 from ..db_models import TrainingTask, User
 from ..training_tasks import (
+    build_training_practice_payload,
     complete_training_task,
     create_or_update_training_task,
     get_owned_training_task,
@@ -29,6 +30,8 @@ class GenerateFromReportRequest(BaseModel):
 
 class CompleteTaskRequest(BaseModel):
     answerStatus: str = "模糊"
+    answerText: str = ""
+    selfRating: int | None = Field(default=None, ge=1, le=5)
 
 
 def weak_label_for_tag(weak_tag: str) -> str:
@@ -102,6 +105,21 @@ async def get_training_task(
     return serialize_training_task(get_owned_training_task(db, task_id, user_id=current_user.id))
 
 
+@router.get("/{task_id}/practice")
+async def get_task_practice(
+    task_id: int,
+    mode: str = "coach",
+    difficulty: str = "basic",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    task = get_owned_training_task(db, task_id, user_id=current_user.id)
+    return {
+        "task": serialize_training_task(task),
+        "practice": build_training_practice_payload(task, mode=mode, difficulty=difficulty),
+    }
+
+
 @router.post("/{task_id}/start")
 async def start_training_task(
     task_id: int,
@@ -123,7 +141,14 @@ async def complete_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    task = complete_training_task(db, task_id, user_id=current_user.id, answer_status=payload.answerStatus)
+    task = complete_training_task(
+        db,
+        task_id,
+        user_id=current_user.id,
+        answer_status=payload.answerStatus,
+        answer_text=payload.answerText,
+        self_rating=payload.selfRating,
+    )
     return serialize_training_task(task)
 
 

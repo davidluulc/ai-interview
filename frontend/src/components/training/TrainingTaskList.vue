@@ -43,10 +43,10 @@
         <button
           type="button"
           :data-testid="`start-task-${task.id}`"
-          :disabled="task.status === 'in_progress' || task.status === 'done' || task.status === 'archived'"
+          :disabled="task.status === 'done' || task.status === 'archived'"
           @click="$emit('start', task.id)"
         >
-          开始训练
+          {{ task.status === "in_progress" ? "继续训练" : "开始训练" }}
         </button>
         <button
           type="button"

@@ -39,6 +39,26 @@ const trainingStore = {
   ],
   statusFilter: "",
   weakTag: "agent_tool_calling",
+  selectedTaskId: null,
+  practiceLoading: false,
+  practiceError: "",
+  practiceDetail: {
+    weakTag: "agent_tool_calling",
+    weakLabel: "工具调用",
+    mode: "coach",
+    difficulty: "basic",
+    question: "ToolCalls 在 Agent 里解决什么问题？",
+    answerKeyPoints: ["工具调用", "可观测性"],
+    commonMistakes: ["只说调用工具，不说日志"],
+    oneMinuteTemplate: "按状态、工具、结果三步回答。",
+    relatedTags: [],
+    rubric: ["是否覆盖：工具调用"],
+    fallbackUsed: false
+  },
+  practiceAnswerText: "",
+  practiceAnswerStatus: "模糊",
+  selfRating: null,
+  lastPracticeResult: null,
   visibleTasks: [task],
   filterSummary: "正在查看报告 #12 中 agent_tool_calling 的专项训练",
   loading: false,
@@ -50,6 +70,12 @@ const trainingStore = {
   clearFilters: vi.fn(),
   startTask: vi.fn(),
   completeTask: vi.fn(),
+  openPractice: vi.fn(),
+  submitPractice: vi.fn(),
+  resetPractice: vi.fn(),
+  setPracticeAnswerText: vi.fn(),
+  setPracticeAnswerStatus: vi.fn(),
+  setSelfRating: vi.fn(),
   archiveTask: vi.fn()
 };
 
@@ -72,6 +98,12 @@ describe("training page", () => {
     trainingStore.clearFilters.mockReset();
     trainingStore.startTask.mockReset();
     trainingStore.completeTask.mockReset();
+    trainingStore.openPractice.mockReset();
+    trainingStore.submitPractice.mockReset();
+    trainingStore.resetPractice.mockReset();
+    trainingStore.setPracticeAnswerText.mockReset();
+    trainingStore.setPracticeAnswerStatus.mockReset();
+    trainingStore.setSelfRating.mockReset();
     trainingStore.archiveTask.mockReset();
   });
 
@@ -93,6 +125,7 @@ describe("training page", () => {
     expect(wrapper.text()).toContain("训练概览");
     expect(wrapper.text()).toContain("薄弱点训练地图");
     expect(wrapper.text()).toContain("平均掌握度");
+    expect(wrapper.text()).toContain("专项练习");
     expect(wrapper.text()).toContain("正在查看报告 #12 中 agent_tool_calling 的专项训练");
     expect(wrapper.text()).toContain("工具调用专项训练");
     expect(wrapper.text()).toContain("补齐 Agent tool calling 表达");
@@ -127,6 +160,7 @@ describe("training page", () => {
 
     await wrapper.get('[data-testid="start-task-3"]').trigger("click");
     expect(trainingStore.startTask).toHaveBeenCalledWith(3);
+    expect(trainingStore.openPractice).toHaveBeenCalledWith(3);
 
     await wrapper.get('[data-testid="complete-task-3"]').trigger("click");
     expect(trainingStore.completeTask).toHaveBeenCalledWith(3, "完整");

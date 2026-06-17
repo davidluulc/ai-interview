@@ -103,3 +103,56 @@ def test_complete_training_task_clamps_mastery_score() -> None:
 
     assert completed.mastery_score == 0
     assert completed.status == "in_progress"
+
+
+def test_build_training_practice_payload_uses_weak_tag_template() -> None:
+    from backend_python.training_tasks import build_training_practice_payload, create_or_update_training_task
+
+    user = create_user()
+    with SessionLocal() as db:
+        task = create_or_update_training_task(
+            db,
+            user_id=user.id,
+            weak_tag="rag_quality",
+            weak_label="RAG 质量评估",
+            title="RAG 质量评估专项训练",
+            description="练习 RAG 评估指标。",
+            priority="high",
+            mastery_score=45,
+            metadata={"source": "report"},
+        )
+        payload = build_training_practice_payload(task, mode="coach", difficulty="basic")
+
+    assert payload["weakTag"] == "rag_quality"
+    assert payload["weakLabel"] == "RAG 质量评估"
+    assert payload["mode"] == "coach"
+    assert payload["difficulty"] == "basic"
+    assert payload["question"]
+    assert "Hit@K" in payload["answerKeyPoints"]
+    assert payload["commonMistakes"]
+    assert payload["oneMinuteTemplate"]
+    assert payload["rubric"]
+
+
+def test_build_training_practice_payload_normalizes_mode_and_difficulty() -> None:
+    from backend_python.training_tasks import build_training_practice_payload, create_or_update_training_task
+
+    user = create_user()
+    with SessionLocal() as db:
+        task = create_or_update_training_task(
+            db,
+            user_id=user.id,
+            weak_tag="unknown_tag",
+            weak_label="未知薄弱点",
+            title="兜底训练",
+            description="兜底表达训练。",
+            priority="medium",
+            mastery_score=30,
+            metadata={},
+        )
+        payload = build_training_practice_payload(task, mode="bad", difficulty="bad")
+
+    assert payload["mode"] == "coach"
+    assert payload["difficulty"] == "basic"
+    assert payload["question"]
+    assert payload["fallbackUsed"] is True

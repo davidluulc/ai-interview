@@ -9,25 +9,25 @@
 当前 active plan：
 
 ```text
-docs/plans/active/interview-training-loop-v3.md
+暂无
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/interview-training-loop-v3-design.md
+暂无
 ```
 
 当前阶段状态：
 
 ```text
-当前 active 阶段为面试训练闭环增强 V3。实现计划要求测试驱动，先补后端 practice endpoint 和 complete payload，再补 Vue3 训练练习面板。
+面试训练闭环增强 V3 已完成并归档。下一阶段建议先讨论是否进入 LangGraph / Agent 工作流深化 B 阶段，再写新的 active spec 和 active plan。
 ```
 
 最近完成并归档的 plan：
 
 ```text
-docs/plans/completed/langgraph-mainline-canary-v5.md
+docs/plans/completed/interview-training-loop-v3.md
 ```
 
 阶段主题：

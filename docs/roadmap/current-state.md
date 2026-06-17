@@ -1,31 +1,31 @@
 # AI 模拟面试系统当前状态与下一阶段路线
 
-更新时间：2026-06-14
+更新时间：2026-06-17
 
 ## 0. 当前执行焦点
 
 当前 active 开发阶段：
 
 ```text
-面试训练闭环增强 V3
+暂无。面试训练闭环增强 V3 已完成并归档，下一阶段建议讨论是否进入 LangGraph / Agent 工作流深化 B 阶段。
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/interview-training-loop-v3-design.md
+暂无
 ```
 
 当前 active plan：
 
 ```text
-docs/plans/active/interview-training-loop-v3.md
+暂无
 ```
 
 当前实现进度：
 
 ```text
-LangGraph 主链路灰度迁移 V5 已完成并归档。当前准备执行 CBA 路线中的 C 阶段：面试训练闭环增强 V3，目标是把训练任务从列表状态推进为可作答、可反馈、可更新掌握度的专项练习会话。
+面试训练闭环增强 V3 已完成：后端新增训练 practice payload 和 practice endpoint，complete 接口兼容 answerText / selfRating 并写入 lastPractice metadata；Vue3 训练中心新增专项练习面板，支持查看练习题、回答要点、常见错误、一分钟表达模板，提交后更新 masteryScore 和 attemptCount。验证结果：python -m pytest -q 通过 343 tests；frontend 下 npm.cmd run test 通过 114 tests；npm.cmd run build 通过；内置浏览器验证训练页桌面端和移动端无横向溢出、页面无 undefined，专项练习可开始、继续和提交。
 ```
 
 上一阶段完成目标：
@@ -1023,24 +1023,24 @@ browser:
 - 移动端面试页和管理员后台：无横向溢出，面试页从档案进入后可见 LangGraph 灰度。
 ```
 
-## 2026-06-17 本轮补充记录：CBA 路线与面试训练闭环增强 V3
+## 2026-06-17 本轮补充记录：面试训练闭环增强 V3 已完成
 
-当前 active 开发阶段：
+本阶段状态：
 
 ```text
-面试训练闭环增强 V3
+面试训练闭环增强 V3 已完成并归档
 ```
 
-当前 active spec：
+已归档 spec：
 
 ```text
-docs/specs/active/interview-training-loop-v3-design.md
+docs/specs/completed/interview-training-loop-v3-design.md
 ```
 
-当前 active plan：
+已归档 plan：
 
 ```text
-docs/plans/active/interview-training-loop-v3.md
+docs/plans/completed/interview-training-loop-v3.md
 ```
 
 当前总路线文档：
@@ -1053,6 +1053,36 @@ docs/roadmap/cba-development-roadmap.md
 
 ```text
 把训练任务从“列表和状态按钮”升级为“专项练习会话”：用户能查看 weakTag 对应练习题、回答要点、常见错误和一分钟表达模板，输入练习回答并自评，提交后更新 masteryScore、attemptCount、lastPracticedAt 和任务状态，再回到面试台验证提升效果。
+```
+
+本阶段已落地：
+
+- 后端新增 `build_training_practice_payload()`，把 weakTag 训练模板封装成稳定 practice payload。
+- 后端新增 `GET /api/training/tasks/{task_id}/practice`，返回训练任务和练习材料。
+- `POST /api/training/tasks/{task_id}/complete` 兼容 `answerText` 和 `selfRating`，并把最近一次练习摘要写入 `metadata.lastPractice`。
+- Vue3 新增 `TrainingPracticePanel`，展示练习题、回答要点、常见错误、一分钟表达模板、回答输入、自评和提交结果。
+- 训练页集成专项练习面板，任务可开始、继续、提交练习。
+- 修复训练中任务刷新后无法继续打开练习的问题。
+
+本阶段已验证：
+
+```text
+python -m pytest tests/test_training_tasks.py tests/test_training_practice_route.py -q
+结果：7 passed
+
+python -m pytest -q
+结果：343 passed, 1 warning
+
+frontend: npm.cmd run test
+结果：30 个测试文件通过，114 个测试通过
+
+frontend: npm.cmd run build
+结果：通过
+
+browser:
+- /vue/app/training 桌面端：训练任务可见，点击开始训练后出现专项练习面板，提交后 masteryScore 从 45 更新到 60，attemptCount 从 0 更新到 1。
+- /vue/app/training 移动端 390px 左右：展开专项练习后 clientWidth = scrollWidth = 375，无横向溢出。
+- 页面未出现 undefined。
 ```
 
 本阶段明确不做：

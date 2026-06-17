@@ -10,6 +10,8 @@ from .db_models import TrainingTask
 
 ACTIVE_STATUSES = {"todo", "in_progress", "done"}
 VALID_PRIORITIES = {"low", "medium", "high"}
+VALID_PRACTICE_MODES = {"coach", "interview"}
+VALID_PRACTICE_DIFFICULTIES = {"basic", "medium", "hard"}
 MASTERY_DELTA = {"不会": -5, "模糊": 8, "完整": 15}
 
 
@@ -23,6 +25,14 @@ def clamp_score(value: int) -> int:
 
 def normalize_priority(value: str) -> str:
     return value if value in VALID_PRIORITIES else "medium"
+
+
+def normalize_practice_mode(value: str) -> str:
+    return value if value in VALID_PRACTICE_MODES else "coach"
+
+
+def normalize_practice_difficulty(value: str) -> str:
+    return value if value in VALID_PRACTICE_DIFFICULTIES else "basic"
 
 
 def parse_json(value: str, fallback: Any) -> Any:
@@ -120,7 +130,67 @@ def get_owned_training_task(db: Session, task_id: int, *, user_id: int) -> Train
     return task
 
 
-def complete_training_task(db: Session, task_id: int, *, user_id: int, answer_status: str) -> TrainingTask:
+def _safe_template_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _build_practice_rubric(answer_key_points: list[str]) -> list[str]:
+    if not answer_key_points:
+        return ["是否讲清背景", "是否结合项目做法", "是否说明结果和复盘"]
+    return [f"是否覆盖：{point}" for point in answer_key_points[:4]]
+
+
+def build_training_practice_payload(
+    task: TrainingTask,
+    *,
+    mode: str = "coach",
+    difficulty: str = "basic",
+) -> dict[str, Any]:
+    from .weakness_training_templates import get_training_template
+
+    normalized_mode = normalize_practice_mode(mode)
+    normalized_difficulty = normalize_practice_difficulty(difficulty)
+    template = get_training_template(task.weak_tag)
+    ladder = template.get("difficultyLadder") if isinstance(template.get("difficultyLadder"), dict) else {}
+    ladder_questions = _safe_template_list(ladder.get(normalized_difficulty)) or _safe_template_list(
+        ladder.get("basic")
+    )
+    mode_key = "coachQuestions" if normalized_mode == "coach" else "interviewQuestions"
+    mode_questions = _safe_template_list(template.get(mode_key))
+    question = (
+        ladder_questions
+        or mode_questions
+        or _safe_template_list(template.get("coachQuestions"))
+        or ["请结合项目讲清这个薄弱点。"]
+    )[0]
+    answer_key_points = _safe_template_list(template.get("answerKeyPoints"))[:8]
+    common_mistakes = _safe_template_list(template.get("commonMistakes"))[:6]
+    return {
+        "weakTag": task.weak_tag,
+        "weakLabel": task.weak_label or str(template.get("label") or task.weak_tag),
+        "mode": normalized_mode,
+        "difficulty": normalized_difficulty,
+        "question": question,
+        "answerKeyPoints": answer_key_points,
+        "commonMistakes": common_mistakes,
+        "oneMinuteTemplate": str(template.get("oneMinuteTemplate") or ""),
+        "relatedTags": _safe_template_list(template.get("relatedTags"))[:6],
+        "rubric": _build_practice_rubric(answer_key_points),
+        "fallbackUsed": bool(template.get("fallbackUsed")),
+    }
+
+
+def complete_training_task(
+    db: Session,
+    task_id: int,
+    *,
+    user_id: int,
+    answer_status: str,
+    answer_text: str = "",
+    self_rating: int | None = None,
+) -> TrainingTask:
     task = get_owned_training_task(db, task_id, user_id=user_id)
     delta = MASTERY_DELTA.get(answer_status, 0)
     task.mastery_score = clamp_score(task.mastery_score + delta)
@@ -128,6 +198,14 @@ def complete_training_task(db: Session, task_id: int, *, user_id: int, answer_st
     task.last_practiced_at = utc_now_naive()
     task.updated_at = utc_now_naive()
     task.status = "done" if task.mastery_score >= 80 else "in_progress"
+    metadata = parse_json(task.metadata_json, {})
+    metadata["lastPractice"] = {
+        "answerStatus": answer_status,
+        "answerPreview": str(answer_text or "")[:300],
+        "selfRating": self_rating,
+        "completedAt": task.last_practiced_at.isoformat() if task.last_practiced_at else "",
+    }
+    task.metadata_json = dump_json(metadata)
     db.commit()
     db.refresh(task)
     return task

@@ -49,6 +49,14 @@ export const useTrainingStore = defineStore("training", () => {
   const sourceInterviewRecordId = ref<number | null>(null);
   const weakTag = ref("");
   const statusFilter = ref<TrainingStatusFilter>("");
+  const selectedTaskId = ref<number | null>(null);
+  const practiceLoading = ref(false);
+  const practiceError = ref("");
+  const practiceDetail = ref<trainingApi.TrainingPractice | null>(null);
+  const practiceAnswerText = ref("");
+  const practiceAnswerStatus = ref<trainingApi.TrainingAnswerStatus>("模糊");
+  const selfRating = ref<number | null>(null);
+  const lastPracticeResult = ref<trainingApi.TrainingTask | null>(null);
 
   const activeTasks = computed(() => tasks.value.filter((task) => ["todo", "in_progress"].includes(task.status)));
   const todoTasks = computed(() => tasks.value.filter((task) => task.status === "todo"));
@@ -118,7 +126,7 @@ export const useTrainingStore = defineStore("training", () => {
   }
 
   async function completeTask(taskId: number, answerStatus = "完整"): Promise<void> {
-    const updated = await trainingApi.completeTrainingTask(taskId, answerStatus);
+    const updated = await trainingApi.completeTrainingTask(taskId, answerStatus as trainingApi.TrainingAnswerStatus);
     tasks.value = replaceTask(tasks.value, updated);
   }
 
@@ -146,6 +154,58 @@ export const useTrainingStore = defineStore("training", () => {
     statusFilter.value = "";
   }
 
+  async function openPractice(taskId: number): Promise<void> {
+    selectedTaskId.value = taskId;
+    practiceLoading.value = true;
+    practiceError.value = "";
+    lastPracticeResult.value = null;
+    try {
+      const result = await trainingApi.getTrainingPractice(taskId, "coach", "basic");
+      practiceDetail.value = result.practice;
+      tasks.value = replaceTask(tasks.value, result.task);
+    } catch (err) {
+      practiceError.value = err instanceof Error ? err.message : "训练练习加载失败";
+    } finally {
+      practiceLoading.value = false;
+    }
+  }
+
+  async function submitPractice(): Promise<void> {
+    if (!selectedTaskId.value) {
+      practiceError.value = "请先选择训练任务";
+      return;
+    }
+    const updated = await trainingApi.completeTrainingTask(selectedTaskId.value, {
+      answerStatus: practiceAnswerStatus.value,
+      answerText: practiceAnswerText.value,
+      selfRating: selfRating.value
+    });
+    tasks.value = replaceTask(tasks.value, updated);
+    lastPracticeResult.value = updated;
+  }
+
+  function resetPractice(): void {
+    selectedTaskId.value = null;
+    practiceError.value = "";
+    practiceDetail.value = null;
+    practiceAnswerText.value = "";
+    practiceAnswerStatus.value = "模糊";
+    selfRating.value = null;
+    lastPracticeResult.value = null;
+  }
+
+  function setPracticeAnswerText(text: string): void {
+    practiceAnswerText.value = text;
+  }
+
+  function setPracticeAnswerStatus(status: trainingApi.TrainingAnswerStatus): void {
+    practiceAnswerStatus.value = status;
+  }
+
+  function setSelfRating(rating: number | null): void {
+    selfRating.value = rating;
+  }
+
   return {
     tasks,
     activeTasks,
@@ -159,6 +219,14 @@ export const useTrainingStore = defineStore("training", () => {
     sourceInterviewRecordId,
     weakTag,
     statusFilter,
+    selectedTaskId,
+    practiceLoading,
+    practiceError,
+    practiceDetail,
+    practiceAnswerText,
+    practiceAnswerStatus,
+    selfRating,
+    lastPracticeResult,
     visibleTasks,
     filterSummary,
     loading,
@@ -170,6 +238,12 @@ export const useTrainingStore = defineStore("training", () => {
     setFilters,
     setStatusFilter,
     setWeakTagFilter,
-    clearFilters
+    clearFilters,
+    openPractice,
+    submitPractice,
+    resetPractice,
+    setPracticeAnswerText,
+    setPracticeAnswerStatus,
+    setSelfRating
   };
 });

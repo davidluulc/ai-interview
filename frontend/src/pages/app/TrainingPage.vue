@@ -72,7 +72,22 @@
             @archive="training.archiveTask"
             @complete="completeTask"
             @open-report="openReport"
-            @start="training.startTask"
+            @start="startPractice"
+          />
+
+          <TrainingPracticePanel
+            :answer-status="training.practiceAnswerStatus"
+            :answer-text="training.practiceAnswerText"
+            :error="training.practiceError"
+            :loading="training.practiceLoading"
+            :practice="training.practiceDetail"
+            :result="training.lastPracticeResult"
+            :self-rating="training.selfRating"
+            @reset="training.resetPractice"
+            @submit="training.submitPractice"
+            @update:answer-status="training.setPracticeAnswerStatus"
+            @update:answer-text="training.setPracticeAnswerText"
+            @update:self-rating="training.setSelfRating"
           />
         </section>
       </section>
@@ -84,6 +99,7 @@
 import { computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import TrainingOverviewCards from "@/components/training/TrainingOverviewCards.vue";
+import TrainingPracticePanel from "@/components/training/TrainingPracticePanel.vue";
 import TrainingStatusFilter from "@/components/training/TrainingStatusFilter.vue";
 import TrainingTaskList from "@/components/training/TrainingTaskList.vue";
 import TrainingWeakTagMap from "@/components/training/TrainingWeakTagMap.vue";
@@ -106,6 +122,11 @@ onMounted(() => {
 
 function completeTask(id: number): Promise<void> {
   return training.completeTask(id, "完整");
+}
+
+async function startPractice(id: number): Promise<void> {
+  await training.startTask(id);
+  await training.openPractice(id);
 }
 
 function openReport(id: number): void {

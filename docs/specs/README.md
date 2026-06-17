@@ -9,19 +9,19 @@
 当前 active spec：
 
 ```text
-docs/specs/active/interview-training-loop-v3-design.md
+暂无
 ```
 
 当前阶段状态：
 
 ```text
-当前 active 阶段为面试训练闭环增强 V3。目标是让训练任务从列表状态升级为可作答、可反馈、可更新掌握度的专项练习体验。
+面试训练闭环增强 V3 已完成并归档。下一阶段建议先讨论是否进入 LangGraph / Agent 工作流深化 B 阶段，再写新的 active spec。
 ```
 
 最近完成并归档的 spec：
 
 ```text
-docs/specs/completed/langgraph-mainline-canary-v5-design.md
+docs/specs/completed/interview-training-loop-v3-design.md
 ```
 
 阶段主题：

@@ -5,6 +5,7 @@ import { useTrainingStore } from "./training";
 
 vi.mock("@/api/training", () => ({
   listTrainingTasks: vi.fn(),
+  getTrainingPractice: vi.fn(),
   startTrainingTask: vi.fn(),
   completeTrainingTask: vi.fn(),
   archiveTrainingTask: vi.fn()
@@ -26,6 +27,7 @@ describe("training store", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.mocked(trainingApi.listTrainingTasks).mockReset();
+    vi.mocked(trainingApi.getTrainingPractice).mockReset();
     vi.mocked(trainingApi.startTrainingTask).mockReset();
     vi.mocked(trainingApi.completeTrainingTask).mockReset();
     vi.mocked(trainingApi.archiveTrainingTask).mockReset();
@@ -206,4 +208,56 @@ describe("training store", () => {
     store.clearFilters();
     expect(store.visibleTasks).toHaveLength(2);
   });
+
+  it("opens a practice payload for a task", async () => {
+    vi.mocked(trainingApi.getTrainingPractice).mockResolvedValueOnce({
+      task: { ...task, id: 1, weakTag: "rag_quality" },
+      practice: makePractice({ weakTag: "rag_quality", question: "什么是 Hit@K？" })
+    });
+    const store = useTrainingStore();
+
+    await store.openPractice(1);
+
+    expect(store.selectedTaskId).toBe(1);
+    expect(store.practiceDetail?.question).toBe("什么是 Hit@K？");
+    expect(store.practiceError).toBe("");
+  });
+
+  it("submits practice and updates the task list", async () => {
+    const updated = { ...task, id: 1, status: "done" as const, masteryScore: 85, attemptCount: 1 };
+    vi.mocked(trainingApi.completeTrainingTask).mockResolvedValueOnce(updated);
+    const store = useTrainingStore();
+    store.tasks = [{ ...task, id: 1, status: "in_progress", masteryScore: 70, attemptCount: 0 }];
+    store.selectedTaskId = 1;
+    store.practiceAnswerText = "我的回答";
+    store.practiceAnswerStatus = "完整";
+    store.selfRating = 4;
+
+    await store.submitPractice();
+
+    expect(store.tasks[0].masteryScore).toBe(85);
+    expect(store.lastPracticeResult?.masteryScore).toBe(85);
+    expect(trainingApi.completeTrainingTask).toHaveBeenCalledWith(1, {
+      answerStatus: "完整",
+      answerText: "我的回答",
+      selfRating: 4
+    });
+  });
 });
+
+function makePractice(overrides: Partial<trainingApi.TrainingPractice> = {}): trainingApi.TrainingPractice {
+  return {
+    weakTag: "rag_quality",
+    weakLabel: "RAG 质量评估",
+    mode: "coach",
+    difficulty: "basic",
+    question: "什么是 Hit@K？",
+    answerKeyPoints: ["Hit@K"],
+    commonMistakes: [],
+    oneMinuteTemplate: "",
+    relatedTags: [],
+    rubric: [],
+    fallbackUsed: false,
+    ...overrides
+  };
+}

@@ -48,4 +48,27 @@ describe("TrainingTaskList", () => {
 
     expect(wrapper.emitted("open-report")).toEqual([[12]]);
   });
+
+  it("allows an in-progress task to reopen practice", async () => {
+    const wrapper = mount(TrainingTaskList, {
+      props: {
+        tasks: [
+          {
+            id: 9,
+            weakTag: "rag_quality",
+            title: "RAG 质量评估训练",
+            description: "继续专项训练。",
+            status: "in_progress",
+            masteryScore: 60
+          }
+        ]
+      }
+    });
+
+    const startButton = wrapper.get('[data-testid="start-task-9"]');
+
+    expect(startButton.attributes("disabled")).toBeUndefined();
+    await startButton.trigger("click");
+    expect(wrapper.emitted("start")).toEqual([[9]]);
+  });
 });
