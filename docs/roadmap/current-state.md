@@ -7,25 +7,25 @@
 当前 active 开发阶段：
 
 ```text
-暂无。面试训练闭环增强 V3 已完成并归档，下一阶段建议讨论是否进入 LangGraph / Agent 工作流深化 B 阶段。
+LangGraph / Agent 工作流深化 V6
 ```
 
 当前 active spec：
 
 ```text
-暂无
+docs/specs/active/langgraph-agent-workflow-v6-design.md
 ```
 
 当前 active plan：
 
 ```text
-暂无
+docs/plans/active/langgraph-agent-workflow-v6.md
 ```
 
 当前实现进度：
 
 ```text
-面试训练闭环增强 V3 已完成：后端新增训练 practice payload 和 practice endpoint，complete 接口兼容 answerText / selfRating 并写入 lastPractice metadata；Vue3 训练中心新增专项练习面板，支持查看练习题、回答要点、常见错误、一分钟表达模板，提交后更新 masteryScore 和 attemptCount。验证结果：python -m pytest -q 通过 343 tests；frontend 下 npm.cmd run test 通过 114 tests；npm.cmd run build 通过；内置浏览器验证训练页桌面端和移动端无横向溢出、页面无 undefined，专项练习可开始、继续和提交。
+面试训练闭环增强 V3 已完成并归档。当前进入 LangGraph / Agent 工作流深化 V6：目标是在已完成 canary、quality gate、checkpoint summary、runtime audit 和 AI Debug 的基础上，新增节点契约、执行时间线回放、人工复核队列和 runtime report，让 LangGraph 候选链路具备更强的可回放调试、人工介入和迁移证据能力。
 ```
 
 上一阶段完成目标：

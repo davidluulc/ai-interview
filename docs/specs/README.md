@@ -9,13 +9,13 @@
 当前 active spec：
 
 ```text
-暂无
+docs/specs/active/langgraph-agent-workflow-v6-design.md
 ```
 
 当前阶段状态：
 
 ```text
-面试训练闭环增强 V3 已完成并归档。下一阶段建议先讨论是否进入 LangGraph / Agent 工作流深化 B 阶段，再写新的 active spec。
+正在准备执行 LangGraph / Agent 工作流深化 V6：在已完成 canary、quality gate、checkpoint summary 和 runtime audit 的基础上，补齐执行回放、人工复核队列、节点契约和 runtime report。
 ```
 
 最近完成并归档的 spec：
