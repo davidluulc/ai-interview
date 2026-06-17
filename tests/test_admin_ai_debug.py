@@ -168,7 +168,7 @@ def test_admin_ai_debug_detail_contains_rag_agent_langgraph_and_diagnostics() ->
 
     assert response.status_code == 200
     body = response.json()
-    assert set(body) == {"summary", "rag", "agent", "langgraph", "diagnostics"}
+    assert set(body) == {"summary", "rag", "agent", "langgraph", "workflowObservation", "diagnostics"}
     assert body["summary"]["traceId"] == log_id
     assert body["rag"]["totalHitCount"] == 1
     assert body["rag"]["items"][0]["retrieverLabel"] == "题库"
@@ -177,6 +177,46 @@ def test_admin_ai_debug_detail_contains_rag_agent_langgraph_and_diagnostics() ->
     assert body["langgraph"]["exists"] is False
     assert "未启用 LangGraph 旁路" in body["langgraph"]["explanation"]
     assert isinstance(body["diagnostics"], list)
+
+
+def test_admin_ai_debug_detail_exposes_agent_workflow_observation() -> None:
+    client = TestClient(app)
+    headers, user_id = create_admin_headers()
+    with SessionLocal() as db:
+        log = AgentDecisionLog(
+            user_id=user_id,
+            application_profile_id=212,
+            request_type="next_question",
+            next_action="deepen",
+            stage="技术追问",
+            difficulty="medium",
+            focus="LangGraph workflow",
+            reason="mainline",
+            tools_json=json.dumps(["retrieve_context"], ensure_ascii=False),
+            state_json=json.dumps(
+                {
+                    "threadId": "workflow-thread-1",
+                    "runtimeAudit": {"visibleRuntime": "langgraph_mainline", "fallbackUsed": False},
+                    "nodeTrace": [{"nodeName": "observe_state"}, {"nodeName": "retrieve_context"}],
+                },
+                ensure_ascii=False,
+            ),
+            decision_json=json.dumps({"nextAction": "deepen"}, ensure_ascii=False),
+            fallback_used=0,
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(log)
+        log_id = log.id
+
+    response = client.get(f"/api/admin/ai-debug/{log_id}", headers=headers)
+
+    assert response.status_code == 200
+    detail = response.json()
+    assert detail["workflowObservation"]["title"] == "Agent 工作流观测"
+    assert detail["workflowObservation"]["runtime"] == "langgraph_mainline"
+    assert detail["workflowObservation"]["fallbackUsed"] is False
+    assert detail["workflowObservation"]["nodes"] == [{"nodeName": "observe_state"}, {"nodeName": "retrieve_context"}]
 
 
 def test_admin_ai_debug_detail_handles_missing_trace() -> None:

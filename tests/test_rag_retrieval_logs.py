@@ -144,6 +144,7 @@ def test_next_question_writes_rag_retrieval_logs(monkeypatch) -> None:
             },
             "history": [],
             "nextStage": "技术追问",
+            "agentRuntime": "classic",
         },
     )
 
@@ -190,6 +191,7 @@ def test_next_question_prompt_payload_includes_quality_strategy(monkeypatch) -> 
                 }
             ],
             "nextStage": "技术追问",
+            "agentRuntime": "classic",
         },
     )
 

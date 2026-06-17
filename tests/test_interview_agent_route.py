@@ -78,6 +78,7 @@ def test_next_question_writes_agent_decision_log(monkeypatch) -> None:
             "history": [{"question": "RAG 日志怎么写？", "answer": "不知道"}],
             "nextStage": "技术追问",
             "agentMode": "coach",
+            "agentRuntime": "classic",
         },
     )
 
@@ -170,6 +171,7 @@ def test_next_question_normalizes_generic_focus_and_softens_hard_weak_answer_pro
             "history": [{"question": "请写 RAG 日志 JSON", "answer": "不知道"}],
             "nextStage": "技术追问",
             "agentMode": "coach",
+            "agentRuntime": "classic",
         },
     )
 
@@ -280,6 +282,7 @@ def test_next_question_rewrites_repeated_prompt_from_model(monkeypatch) -> None:
             "history": [{"question": repeated_prompt, "answer": "不知道"}],
             "nextStage": "技术追问",
             "agentMode": "coach",
+            "agentRuntime": "classic",
         },
     )
 
@@ -451,6 +454,7 @@ def test_next_question_defaults_to_classic_when_agent_runtime_missing(monkeypatc
             "history": [{"question": "Depends 是什么？", "answer": "依赖注入"}],
             "nextStage": "技术追问",
             "agentMode": "coach",
+            "agentRuntime": "classic",
         },
     )
 
@@ -608,6 +612,7 @@ def test_next_question_returns_safe_fallback_when_question_model_provider_fails(
             "history": [{"question": "为什么要灰度迁移？", "answer": "为了稳一点"}],
             "nextStage": "技术追问",
             "agentMode": "coach",
+            "agentRuntime": "classic",
         },
     )
 

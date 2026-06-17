@@ -9,19 +9,19 @@
 当前 active spec：
 
 ```text
-docs/specs/active/langgraph-mainline-consolidation-v7-design.md
+暂无。
 ```
 
 当前阶段状态：
 
 ```text
-LangGraph Mainline Consolidation V7 已进入 active spec：将 /api/interview/next-question 默认主链路从 classic Python Orchestrator 收敛到 LangGraph mainline，classic Agent 降级为 fallback/helper，并清理前后台双轨对比式产品表达。
+LangGraph Mainline Consolidation V7 已完成并归档。当前没有 active spec，下一阶段需要先讨论方向，再写新的 active spec。
 ```
 
 最近完成并归档的 spec：
 
 ```text
-docs/specs/completed/production-rag-v3-ingestion-quality-design.md
+docs/specs/completed/langgraph-mainline-consolidation-v7-design.md
 ```
 
 阶段主题：

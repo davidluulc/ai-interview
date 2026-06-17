@@ -102,6 +102,30 @@ describe("interview store", () => {
     );
   });
 
+  it("stores runtime summary from next question response", async () => {
+    vi.mocked(interviewApi.nextQuestion).mockResolvedValue({
+      prompt: "Explain LangGraph mainline.",
+      decisionSummary: "Continue around workflow orchestration.",
+      ragReasons: [],
+      runtimeAudit: {
+        visibleRuntime: "langgraph_mainline",
+        fallbackUsed: false
+      },
+      workflowTrace: [{ nodeName: "observe_state" }, { nodeName: "retrieve_context" }],
+      checkpointSummary: { exists: true, threadId: "thread-1" },
+      fallbackSummary: { used: false, reason: "" }
+    });
+
+    const store = useInterviewStore();
+    store.draft = "I know a little about workflow orchestration.";
+    await store.submitAnswer({ profile: { targetRole: "AI application developer" } });
+
+    expect(store.lastRuntimeAudit?.visibleRuntime).toBe("langgraph_mainline");
+    expect(store.lastWorkflowTrace).toHaveLength(2);
+    expect(store.lastCheckpointSummary?.threadId).toBe("thread-1");
+    expect(store.lastFallbackSummary?.used).toBe(false);
+  });
+
   it("tracks interview session config and progress", () => {
     const store = useInterviewStore();
 

@@ -9,25 +9,25 @@
 当前 active plan：
 
 ```text
-docs/plans/active/langgraph-mainline-consolidation-v7.md
+暂无。
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/langgraph-mainline-consolidation-v7-design.md
+暂无。
 ```
 
 当前阶段状态：
 
 ```text
-LangGraph Mainline Consolidation V7 已进入 active plan：按测试驱动把 /api/interview/next-question 默认主链路收敛到 LangGraph mainline，classic Agent 降级为 fallback/helper，并同步前端面试页和管理员后台工作流观测。
+LangGraph Mainline Consolidation V7 已完成并归档。当前没有 active plan，下一阶段需要先讨论方向，再写新的 active plan。
 ```
 
 最近完成并归档的 plan：
 
 ```text
-docs/plans/completed/production-rag-v3-ingestion-quality.md
+docs/plans/completed/langgraph-mainline-consolidation-v7.md
 ```
 
 阶段主题：

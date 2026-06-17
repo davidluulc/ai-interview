@@ -38,7 +38,11 @@ export const useInterviewStore = defineStore("interview", () => {
   const decisionSummary = ref("");
   const ragReasons = ref<string[]>([]);
   const agentMode = ref<interviewApi.AgentMode>("coach");
-  const agentRuntime = ref<interviewApi.AgentRuntime>("classic");
+  const agentRuntime = ref<interviewApi.AgentRuntime>("langgraph_mainline");
+  const lastRuntimeAudit = ref<interviewApi.RuntimeAuditSummary | null>(null);
+  const lastWorkflowTrace = ref<interviewApi.WorkflowTraceItem[]>([]);
+  const lastCheckpointSummary = ref<Record<string, unknown> | null>(null);
+  const lastFallbackSummary = ref<{ used?: boolean; reason?: string } | null>(null);
   const sessionConfig = ref<InterviewSessionConfig>({
     totalRounds: 8,
     difficulty: "standard",
@@ -78,6 +82,10 @@ export const useInterviewStore = defineStore("interview", () => {
     error.value = "";
     decisionSummary.value = "";
     ragReasons.value = [];
+    lastRuntimeAudit.value = null;
+    lastWorkflowTrace.value = [];
+    lastCheckpointSummary.value = null;
+    lastFallbackSummary.value = null;
   }
 
   async function submitAnswer(options: SubmitAnswerOptions = {}): Promise<void> {
@@ -108,6 +116,10 @@ export const useInterviewStore = defineStore("interview", () => {
       messages.value.push({ role: "interviewer", content: question });
       decisionSummary.value = response.decisionSummary || "";
       ragReasons.value = response.ragReasons || [];
+      lastRuntimeAudit.value = response.runtimeAudit || null;
+      lastWorkflowTrace.value = response.workflowTrace || [];
+      lastCheckpointSummary.value = response.checkpointSummary || null;
+      lastFallbackSummary.value = response.fallbackSummary || null;
     } catch (err) {
       error.value = err instanceof Error ? err.message : "生成下一题失败";
     } finally {
@@ -125,6 +137,10 @@ export const useInterviewStore = defineStore("interview", () => {
     ragReasons,
     agentMode,
     agentRuntime,
+    lastRuntimeAudit,
+    lastWorkflowTrace,
+    lastCheckpointSummary,
+    lastFallbackSummary,
     sessionConfig,
     currentRound,
     isSessionComplete,

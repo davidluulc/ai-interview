@@ -1,18 +1,20 @@
 from backend_python.runtime_policy import decide_runtime_policy
 
 
-def test_default_runtime_is_classic_for_normal_user() -> None:
+def test_default_runtime_is_langgraph_mainline_for_normal_user() -> None:
     policy = decide_runtime_policy(
         requested_runtime=None,
         user_role="user",
         agent_mode="coach",
     )
 
-    assert policy["requestedRuntime"] == "classic"
-    assert policy["allowedRuntime"] == "classic"
-    assert policy["canUseLangGraph"] is False
+    assert policy["requestedRuntime"] == "langgraph_mainline"
+    assert policy["allowedRuntime"] == "langgraph_mainline"
+    assert policy["visibleRuntimeOnSuccess"] == "langgraph_mainline"
+    assert policy["visibleRuntimeOnFailure"] == "classic"
+    assert policy["canUseLangGraph"] is True
     assert policy["fallbackRuntime"] == "classic"
-    assert "未请求实验链路，默认使用稳定 classic Agent" in policy["reasons"]
+    assert "LangGraph mainline" in policy["reasons"][0]
 
 
 def test_normal_user_can_not_request_langgraph_canary() -> None:
@@ -55,14 +57,16 @@ def test_admin_shadow_still_uses_classic_as_visible_runtime() -> None:
     assert policy["canUseLangGraph"] is True
 
 
-def test_invalid_runtime_falls_back_to_classic() -> None:
+def test_invalid_runtime_falls_back_to_langgraph_mainline() -> None:
     policy = decide_runtime_policy(
         requested_runtime="unknown",
         user_role="admin",
         agent_mode="coach",
     )
 
-    assert policy["requestedRuntime"] == "unknown"
-    assert policy["allowedRuntime"] == "classic"
-    assert policy["canUseLangGraph"] is False
-    assert "请求的 runtime 不合法，已降级为 classic" in policy["reasons"]
+    assert policy["requestedRuntime"] == "langgraph_mainline"
+    assert policy["allowedRuntime"] == "langgraph_mainline"
+    assert policy["visibleRuntimeOnSuccess"] == "langgraph_mainline"
+    assert policy["visibleRuntimeOnFailure"] == "classic"
+    assert policy["canUseLangGraph"] is True
+    assert "LangGraph mainline" in policy["reasons"][0]

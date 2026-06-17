@@ -73,7 +73,7 @@ def validate_node_trace(node_trace: list[dict[str, Any]] | None) -> dict[str, An
     unknown_nodes: list[str] = []
 
     for item in node_trace or []:
-        node = str(item.get("node") or "").strip()
+        node = str(item.get("node") or item.get("nodeName") or "").strip()
         if not node:
             continue
         if node in known:

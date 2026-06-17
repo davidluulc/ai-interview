@@ -1,7 +1,22 @@
 import { apiRequest } from "./client";
 
 export type AgentMode = "coach" | "interview";
-export type AgentRuntime = "classic" | "shadow" | "langgraph_canary";
+export type AgentRuntime = "langgraph_mainline" | "classic" | "shadow" | "langgraph_canary";
+
+export interface RuntimeAuditSummary {
+  visibleRuntime?: string;
+  fallbackUsed?: boolean;
+  fallbackReason?: string;
+  qualityGateReasons?: string[];
+}
+
+export interface WorkflowTraceItem {
+  nodeName?: string;
+  node?: string;
+  inputSummary?: Record<string, unknown>;
+  outputSummary?: Record<string, unknown>;
+  fallbackUsed?: boolean;
+}
 
 export interface InterviewHistoryItem {
   question: string;
@@ -27,7 +42,11 @@ export interface NextQuestionResponse {
   decisionSummary?: string;
   agentDecision?: unknown;
   ragReasons?: string[];
-  runtimeAudit?: Record<string, unknown>;
+  runtimeAudit?: RuntimeAuditSummary;
+  workflowTrace?: WorkflowTraceItem[];
+  checkpointSummary?: Record<string, unknown>;
+  qualityGate?: Record<string, unknown>;
+  fallbackSummary?: { used?: boolean; reason?: string };
 }
 
 export async function nextQuestion(payload: NextQuestionPayload): Promise<NextQuestionResponse> {
@@ -38,7 +57,7 @@ export async function nextQuestion(payload: NextQuestionPayload): Promise<NextQu
       history: payload.history || [],
       nextStage: payload.nextStage || "",
       agentMode: payload.agentMode || "coach",
-      agentRuntime: payload.agentRuntime || "classic",
+      agentRuntime: payload.agentRuntime || "langgraph_mainline",
       applicationProfileId: payload.applicationProfileId
     })
   });

@@ -13,7 +13,11 @@ const interviewStore = {
   decisionSummary: "当前处于学习辅导模式，会先确认基础概念。",
   ragReasons: ["命中岗位知识库：FastAPI"],
   agentMode: "coach" as "coach" | "interview",
-  agentRuntime: "classic" as "classic" | "shadow" | "langgraph_canary",
+  agentRuntime: "langgraph_mainline" as "langgraph_mainline" | "classic" | "shadow" | "langgraph_canary",
+  lastRuntimeAudit: null as null | { visibleRuntime?: string; fallbackUsed?: boolean },
+  lastWorkflowTrace: [] as Array<{ nodeName?: string; node?: string }>,
+  lastCheckpointSummary: null as null | Record<string, unknown>,
+  lastFallbackSummary: null as null | { used?: boolean; reason?: string },
   sessionConfig: { totalRounds: 8, difficulty: "standard", focusArea: "mixed" },
   currentRound: 1,
   isSessionComplete: false,
@@ -22,7 +26,7 @@ const interviewStore = {
   setAgentMode: vi.fn((mode: "coach" | "interview") => {
     interviewStore.agentMode = mode;
   }),
-  setAgentRuntime: vi.fn((runtime: "classic" | "shadow" | "langgraph_canary") => {
+  setAgentRuntime: vi.fn((runtime: "langgraph_mainline" | "classic" | "shadow" | "langgraph_canary") => {
     interviewStore.agentRuntime = runtime;
   }),
   updateSessionConfig: vi.fn((config: Record<string, unknown>) => {
@@ -71,7 +75,11 @@ describe("interview page", () => {
     interviewStore.updateSessionConfig.mockClear();
     interviewStore.resetSession.mockClear();
     interviewStore.agentMode = "coach";
-    interviewStore.agentRuntime = "classic";
+    interviewStore.agentRuntime = "langgraph_mainline";
+    interviewStore.lastRuntimeAudit = null;
+    interviewStore.lastWorkflowTrace = [];
+    interviewStore.lastCheckpointSummary = null;
+    interviewStore.lastFallbackSummary = null;
     authStore.isAdmin = false;
     interviewStore.sessionConfig = { totalRounds: 8, difficulty: "standard", focusArea: "mixed" };
     interviewStore.currentRound = 1;
@@ -183,6 +191,26 @@ describe("interview page", () => {
 
     expect(wrapper.text()).not.toContain("实验链路");
     expect(wrapper.find('[data-testid="runtime-langgraph-canary"]').exists()).toBe(false);
+  });
+
+  it("shows friendly fallback note without raw workflow json", () => {
+    interviewStore.decisionSummary = "候选人回答偏弱，先降低难度。";
+    interviewStore.lastRuntimeAudit = { visibleRuntime: "classic", fallbackUsed: true };
+    interviewStore.lastFallbackSummary = { used: true, reason: "quality gate failed" };
+    interviewStore.lastWorkflowTrace = [{ nodeName: "observe_state" }];
+
+    const wrapper = mount(InterviewPage, {
+      global: {
+        stubs: {
+          AppLayout: { template: "<main><slot /></main>" }
+        }
+      }
+    });
+
+    expect(wrapper.text()).toContain("为什么这么问");
+    expect(wrapper.text()).toContain("系统已使用稳定兜底策略保证面试继续");
+    expect(wrapper.text()).not.toContain("quality gate failed");
+    expect(wrapper.text()).not.toContain("observe_state");
   });
 
   it("shows runtime experiment controls for admins and submits selected runtime", async () => {

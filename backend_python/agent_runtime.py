@@ -11,8 +11,9 @@ RuntimeRunner = Callable[..., Awaitable[dict[str, Any]]]
 
 
 def normalize_agent_runtime(value: str | None) -> str:
-    runtime = str(value or "classic").strip().lower()
-    return runtime if runtime in {"classic", "langgraph", "shadow", "langgraph_canary"} else "classic"
+    runtime = str(value or "langgraph_mainline").strip().lower()
+    allowed = {"classic", "langgraph", "shadow", "langgraph_canary", "langgraph_mainline"}
+    return runtime if runtime in allowed else "langgraph_mainline"
 
 
 def _extract_question(result: dict[str, Any]) -> dict[str, Any]:
@@ -50,6 +51,33 @@ def _runtime_response(*, runtime: str, thread_id: str, result: dict[str, Any]) -
     }
 
 
+def _failed_langgraph_result(thread_id: str, error: Exception | str) -> dict[str, Any]:
+    return {
+        "status": "failed",
+        "nextQuestion": {},
+        "decision": {},
+        "checkpointSummary": {"exists": False, "threadId": thread_id},
+        "runtimeTrace": [],
+        "error": str(error),
+    }
+
+
+def _failed_quality_gate(reason: str) -> dict[str, Any]:
+    return {
+        "passed": False,
+        "fallbackToClassic": True,
+        "riskLevel": "high",
+        "reasons": [reason],
+        "checks": {
+            "runtimeCompleted": False,
+            "nonEmptyQuestion": False,
+            "validDecision": False,
+            "validDifficulty": False,
+            "checkpointAvailable": False,
+        },
+    }
+
+
 async def run_agent_runtime(
     *,
     agent_runtime: str | None,
@@ -74,6 +102,55 @@ async def run_agent_runtime(
             },
             quality_gate=None,
             checkpoint_summary=response["checkpointSummary"],
+            comparison_summary=None,
+            visible_runtime="classic",
+        )
+        return response
+
+    if runtime == "langgraph_mainline":
+        try:
+            langgraph_result = await langgraph_runner(**common)
+            quality_gate = evaluate_runtime_quality(langgraph_result, recent_questions=recent_questions)
+        except Exception as exc:
+            langgraph_result = _failed_langgraph_result(thread_id, exc)
+            quality_gate = _failed_quality_gate("LangGraph runtime 执行失败")
+
+        policy = {
+            "requestedRuntime": "langgraph_mainline",
+            "allowedRuntime": "langgraph_mainline",
+            "fallbackRuntime": "classic",
+            "reasons": ["默认使用 LangGraph mainline"],
+        }
+
+        if quality_gate["passed"]:
+            response = _runtime_response(runtime="langgraph_mainline", thread_id=thread_id, result=langgraph_result)
+            response["visibleRuntime"] = "langgraph_mainline"
+            response["qualityGate"] = quality_gate
+            response["comparisonSummary"] = None
+            response["runtimeAudit"] = build_runtime_audit(
+                policy=policy,
+                quality_gate=quality_gate,
+                checkpoint_summary=response["checkpointSummary"],
+                comparison_summary=None,
+                visible_runtime="langgraph_mainline",
+            )
+            return response
+
+        classic_result = await classic_runner(**common)
+        response = _runtime_response(runtime="classic", thread_id=thread_id, result=classic_result)
+        response["visibleRuntime"] = "classic"
+        response["fallbackRuntime"] = "classic"
+        response["qualityGate"] = quality_gate
+        response["comparisonSummary"] = None
+        response["runtimeTrace"] = (
+            langgraph_result.get("runtimeTrace") if isinstance(langgraph_result.get("runtimeTrace"), list) else []
+        )
+        response["runtimeAudit"] = build_runtime_audit(
+            policy=policy,
+            quality_gate=quality_gate,
+            checkpoint_summary=langgraph_result.get("checkpointSummary")
+            if isinstance(langgraph_result.get("checkpointSummary"), dict)
+            else {},
             comparison_summary=None,
             visible_runtime="classic",
         )

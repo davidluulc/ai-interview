@@ -87,6 +87,41 @@
             <p v-if="admin.aiDebugLoading" class="muted">AI 调试详情加载中...</p>
             <p v-if="admin.aiDebugError" class="error">{{ admin.aiDebugError }}</p>
             <template v-if="admin.selectedAiDebugDetail">
+              <section v-if="workflowObservation" class="workflow-observation">
+                <div class="section-title">
+                  <h3>Agent 工作流观测</h3>
+                  <span>{{ workflowObservation.runtime || "未记录 runtime" }}</span>
+                </div>
+                <div class="workflow-metrics">
+                  <article>
+                    <span>稳定兜底</span>
+                    <strong>{{ workflowObservation.fallbackUsed ? "已触发" : "未触发" }}</strong>
+                  </article>
+                  <article>
+                    <span>Quality Gate</span>
+                    <strong>{{ workflowQualityGatePassed ? "通过" : "未通过" }}</strong>
+                  </article>
+                  <article>
+                    <span>Checkpoint</span>
+                    <strong>{{ workflowCheckpoint.exists ? "已保存" : "未保存" }}</strong>
+                  </article>
+                </div>
+                <p class="section-help">
+                  threadId：{{ workflowCheckpoint.threadId || "暂无" }} · 当前节点：{{
+                    workflowCheckpoint.currentNode || "暂无"
+                  }}
+                </p>
+                <div class="workflow-node-list">
+                  <span v-for="node in workflowNodes" :key="node.nodeName || node.node">
+                    {{ node.nodeName || node.node }}
+                  </span>
+                </div>
+                <div class="workflow-rag-list">
+                  <span v-for="item in workflowRagSummary" :key="item.retrieverLabel">
+                    {{ item.retrieverLabel }} · 命中 {{ item.hitCount }} · {{ item.qualityLevel }}
+                  </span>
+                </div>
+              </section>
               <div class="debug-grid">
                 <article class="debug-panel">
                   <h3>RAG 召回链路</h3>
@@ -438,7 +473,13 @@ import { computed, onMounted, ref, watch } from "vue";
 import AppLayout from "@/layouts/AppLayout.vue";
 import { useAdminStore } from "@/stores/admin";
 import { useAuthStore } from "@/stores/auth";
-import type { AdminAgentLog, AdminRagDocument, AdminRagQualityItem, AdminRuntimeReplayStep } from "@/api/admin";
+import type {
+  AdminAgentLog,
+  AdminRagDocument,
+  AdminRagQualityItem,
+  AdminRuntimeReplayStep,
+  AdminWorkflowObservation
+} from "@/api/admin";
 
 type DebugRecord = Record<string, unknown>;
 
@@ -457,6 +498,18 @@ const paginatedUsers = computed(() => {
 const debugRagItems = computed(() => {
   const rag = admin.selectedAiDebugDetail?.rag as DebugRecord | undefined;
   return Array.isArray(rag?.items) ? (rag.items as DebugRecord[]) : [];
+});
+const workflowObservation = computed<AdminWorkflowObservation | null>(() => {
+  return admin.selectedAiDebugDetail?.workflowObservation || null;
+});
+const workflowNodes = computed(() => workflowObservation.value?.nodes || []);
+const workflowRagSummary = computed(() => workflowObservation.value?.ragSummary || []);
+const workflowCheckpoint = computed(() => {
+  return workflowObservation.value?.checkpoint || { exists: false };
+});
+const workflowQualityGatePassed = computed(() => {
+  const gate = workflowObservation.value?.qualityGate;
+  return Boolean(gate?.passed);
 });
 const debugInterruptReason = computed(() => {
   const langgraph = admin.selectedAiDebugDetail?.langgraph as DebugRecord | undefined;
@@ -1081,6 +1134,57 @@ th {
   gap: 12px;
 }
 
+.workflow-observation {
+  border: 1px solid rgba(23, 92, 211, 0.25);
+  border-radius: var(--radius-sm);
+  background: #f5f8ff;
+  margin-bottom: 12px;
+  padding: 14px;
+}
+
+.workflow-observation h3 {
+  margin: 0;
+}
+
+.workflow-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.workflow-metrics article {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  padding: 10px;
+}
+
+.workflow-metrics span {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.workflow-node-list,
+.workflow-rag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.workflow-node-list span,
+.workflow-rag-list span {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 12px;
+  padding: 6px 9px;
+}
+
 .debug-panel {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -1226,7 +1330,8 @@ th {
   }
 
   .ai-debug-layout,
-  .debug-grid {
+  .debug-grid,
+  .workflow-metrics {
     grid-template-columns: 1fr;
   }
 }

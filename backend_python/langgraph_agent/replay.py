@@ -34,7 +34,7 @@ def _build_timeline(summary: dict[str, Any], node_trace: list[dict[str, Any]]) -
     timeline: list[dict[str, Any]] = []
 
     for index, item in enumerate(node_trace, start=1):
-        node = str(item.get("node") or "").strip()
+        node = str(item.get("node") or item.get("nodeName") or "").strip()
         contract = contracts.get(node, {})
         title = str(contract.get("title") or node or "未知节点")
         detail = _node_detail(node=node, summary=summary, raw_item=item)

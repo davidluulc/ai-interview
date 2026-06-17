@@ -328,6 +328,36 @@ describe("admin page", () => {
     expect(text).not.toContain("undefined");
   });
 
+  it("renders agent workflow observation as the main runtime diagnostic section", () => {
+    adminStore.selectedAiDebugDetail = {
+      ...adminStore.selectedAiDebugDetail,
+      workflowObservation: {
+        title: "Agent 工作流观测",
+        runtime: "langgraph_mainline",
+        fallbackUsed: true,
+        fallbackReason: "LangGraph runtime 执行失败",
+        nodes: [{ nodeName: "observe_state" }, { nodeName: "retrieve_context" }],
+        ragSummary: [
+          { retrieverLabel: "岗位知识库", hitCount: 2, qualityLevel: "good" },
+          { retrieverLabel: "题库", hitCount: 1, qualityLevel: "weak" },
+          { retrieverLabel: "候选人画像", hitCount: 0, qualityLevel: "miss" }
+        ],
+        checkpoint: { exists: true, threadId: "thread-1", currentNode: "update_memory" },
+        qualityGate: { passed: false, reasons: ["问题为空"] }
+      }
+    };
+
+    const wrapper = mount(AdminPage, { global: globalConfig });
+    const text = wrapper.text();
+
+    expect(text).toContain("Agent 工作流观测");
+    expect(text).toContain("langgraph_mainline");
+    expect(text).toContain("岗位知识库");
+    expect(text).toContain("稳定兜底");
+    expect(text).toContain("thread-1");
+    expect(text).not.toContain("classic vs LangGraph");
+  });
+
   it("renders langgraph runtime quality gate and comparison summary", () => {
     adminStore.selectedAiDebugDetail = {
       summary: { traceId: 1, agentMode: "coach", stage: "技术追问", threadId: "debug-runtime-v4" },

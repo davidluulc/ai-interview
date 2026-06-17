@@ -716,6 +716,13 @@ async def next_question(
         "decisionSummary": agent_decision.get("decisionSummary") or agent_decision.get("reason") or "",
         "ragReasons": rag_reasons,
         "runtimeAudit": runtime_audit,
+        "workflowTrace": [],
+        "checkpointSummary": {},
+        "qualityGate": provider_quality_gate or {},
+        "fallbackSummary": {
+            "used": bool(runtime_audit.get("fallbackUsed")),
+            "reason": "; ".join(runtime_audit.get("qualityGateReasons") or []),
+        },
     }
     runtime_thread_id = f"interview-{current_user.id}-{payload.applicationProfileId or 'none'}-{len(payload.history)}"
 
@@ -734,7 +741,7 @@ async def next_question(
             decision=agent_decision,
         )
 
-    if runtime_policy["allowedRuntime"] in {"shadow", "langgraph"}:
+    if runtime_policy["allowedRuntime"] in {"shadow", "langgraph", "langgraph_mainline"}:
         async def classic_runner(**kwargs: Any) -> dict[str, Any]:
             return {
                 "question": {
@@ -783,7 +790,13 @@ async def next_question(
             )
 
         runtime_result = await run_agent_runtime(
-            agent_runtime="shadow" if runtime_policy["allowedRuntime"] == "shadow" else "langgraph_canary",
+            agent_runtime=(
+                "shadow"
+                if runtime_policy["allowedRuntime"] == "shadow"
+                else "langgraph_canary"
+                if runtime_policy["requestedRuntime"] == "langgraph_canary"
+                else "langgraph_mainline"
+            ),
             thread_id=runtime_thread_id,
             classic_runner=classic_runner,
             langgraph_runner=langgraph_runner,
@@ -794,7 +807,14 @@ async def next_question(
         )
         runtime_audit = runtime_result.get("runtimeAudit") if isinstance(runtime_result.get("runtimeAudit"), dict) else runtime_audit
         shadow_result = runtime_result.get("shadow") if isinstance(runtime_result.get("shadow"), dict) else {}
-        checkpoint_summary = shadow_result.get("checkpointSummary") if isinstance(shadow_result.get("checkpointSummary"), dict) else {}
+        runtime_checkpoint_summary = (
+            runtime_result.get("checkpointSummary") if isinstance(runtime_result.get("checkpointSummary"), dict) else {}
+        )
+        checkpoint_summary = (
+            shadow_result.get("checkpointSummary")
+            if isinstance(shadow_result.get("checkpointSummary"), dict)
+            else runtime_checkpoint_summary
+        )
         if checkpoint_summary:
             checkpoint_summary["runtimeAudit"] = runtime_audit
             checkpoint_summary["qualityGate"] = runtime_result.get("qualityGate") if isinstance(runtime_result.get("qualityGate"), dict) else {}
@@ -803,7 +823,7 @@ async def next_question(
             )
             checkpoint_summary_store.save_summary(checkpoint_summary)
             save_checkpoint_summary(db, checkpoint_summary)
-        if runtime_result.get("visibleRuntime") == "langgraph":
+        if runtime_result.get("visibleRuntime") in {"langgraph", "langgraph_mainline"}:
             question = runtime_result.get("question") if isinstance(runtime_result.get("question"), dict) else {}
             prompt = str(question.get("prompt") or question.get("content") or classic_response["prompt"])
             decision = runtime_result.get("decision") if isinstance(runtime_result.get("decision"), dict) else {}
@@ -821,8 +841,19 @@ async def next_question(
                 "decisionSummary": str(decision.get("decisionSummary") or decision.get("reason") or classic_response["decisionSummary"]),
                 "ragReasons": rag_reasons,
                 "runtimeAudit": runtime_audit,
+                "workflowTrace": runtime_result.get("runtimeTrace") if isinstance(runtime_result.get("runtimeTrace"), list) else [],
+                "checkpointSummary": runtime_checkpoint_summary,
+                "qualityGate": runtime_result.get("qualityGate") if isinstance(runtime_result.get("qualityGate"), dict) else {},
+                "fallbackSummary": {"used": False, "reason": ""},
             }
         classic_response["runtimeAudit"] = runtime_audit
+        classic_response["workflowTrace"] = runtime_result.get("runtimeTrace") if isinstance(runtime_result.get("runtimeTrace"), list) else []
+        classic_response["checkpointSummary"] = runtime_checkpoint_summary
+        classic_response["qualityGate"] = runtime_result.get("qualityGate") if isinstance(runtime_result.get("qualityGate"), dict) else {}
+        classic_response["fallbackSummary"] = {
+            "used": bool(runtime_audit.get("fallbackUsed")),
+            "reason": "; ".join(runtime_audit.get("qualityGateReasons") or []),
+        }
         classic_response["agentDecision"] = {
             **agent_decision,
             "runtimeAudit": runtime_audit,

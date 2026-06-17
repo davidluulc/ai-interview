@@ -80,7 +80,19 @@
         />
       </section>
 
-      <InterviewEvidencePanel :decision-summary="interview.decisionSummary" :rag-reasons="interview.ragReasons" />
+      <aside class="workbench-side">
+        <InterviewEvidencePanel :decision-summary="interview.decisionSummary" :rag-reasons="interview.ragReasons" />
+        <section v-if="interview.lastRuntimeAudit || interview.lastWorkflowTrace.length" class="interview-insight-panel">
+          <p class="eyebrow">Workflow Insight</p>
+          <h2>为什么这么问</h2>
+          <p v-if="interview.lastFallbackSummary?.used" class="runtime-note">
+            系统已使用稳定兜底策略保证面试继续。
+          </p>
+          <p v-else-if="interview.lastWorkflowTrace.length" class="runtime-note">
+            本轮已完成状态观察、资料检索、回答分析和问题生成。
+          </p>
+        </section>
+      </aside>
     </div>
   </AppLayout>
 </template>
@@ -155,6 +167,11 @@ function finishInterview(): void {
   min-width: 0;
 }
 
+.workbench-side {
+  display: grid;
+  gap: 16px;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -223,6 +240,23 @@ h1 {
   background: var(--color-text);
   border-color: var(--color-text);
   color: var(--color-surface);
+}
+
+.interview-insight-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+}
+
+.interview-insight-panel h2,
+.interview-insight-panel p {
+  margin: 0;
+}
+
+.runtime-note {
+  color: var(--color-text-muted);
+  line-height: 1.7;
 }
 
 @media (max-width: 1040px) {

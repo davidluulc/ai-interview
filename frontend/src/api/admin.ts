@@ -210,11 +210,30 @@ export interface AdminAiDebugLangGraph {
   explanation?: string;
 }
 
+export interface AdminWorkflowObservation {
+  title: string;
+  runtime: string;
+  fallbackUsed: boolean;
+  fallbackReason?: string;
+  nodes: Array<{ nodeName?: string; node?: string; fallbackUsed?: boolean }>;
+  ragSummary: Array<{ retrieverLabel: string; hitCount: number; qualityLevel: string }>;
+  checkpoint: {
+    exists: boolean;
+    threadId?: string;
+    currentNode?: string;
+    roundCount?: number;
+    lastAction?: string;
+    requiresHumanReview?: boolean;
+  };
+  qualityGate?: { passed?: boolean; reasons?: string[] };
+}
+
 export interface AdminAiDebugDetail {
   summary: Record<string, unknown>;
   rag: Record<string, unknown>;
   agent: Record<string, unknown>;
   langgraph: AdminAiDebugLangGraph;
+  workflowObservation?: AdminWorkflowObservation;
   diagnostics: AdminAiDebugDiagnostic[];
 }
 

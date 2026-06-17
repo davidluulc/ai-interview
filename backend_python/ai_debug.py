@@ -262,6 +262,48 @@ def build_ai_debug_recent_item(
     }
 
 
+def build_workflow_observation(
+    *,
+    agent: dict[str, Any],
+    langgraph: dict[str, Any],
+    rag_items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    state = agent.get("state") if isinstance(agent.get("state"), dict) else {}
+    runtime_audit = (
+        state.get("runtimeAudit")
+        if isinstance(state.get("runtimeAudit"), dict)
+        else langgraph.get("runtimeAudit")
+        if isinstance(langgraph.get("runtimeAudit"), dict)
+        else {}
+    )
+    node_trace = state.get("nodeTrace") if isinstance(state.get("nodeTrace"), list) else langgraph.get("runtimeTrace") or []
+    quality_gate = langgraph.get("qualityGate") if isinstance(langgraph.get("qualityGate"), dict) else {}
+    return {
+        "title": "Agent 工作流观测",
+        "runtime": str(runtime_audit.get("visibleRuntime") or langgraph.get("visibleRuntime") or ""),
+        "fallbackUsed": bool(runtime_audit.get("fallbackUsed") or agent.get("fallbackUsed")),
+        "fallbackReason": str(runtime_audit.get("fallbackReason") or ""),
+        "qualityGate": quality_gate,
+        "checkpoint": {
+            "exists": bool(langgraph.get("exists")),
+            "threadId": langgraph.get("threadId") or "",
+            "currentNode": langgraph.get("currentNode") or "",
+            "roundCount": int(langgraph.get("roundCount") or 0),
+            "lastAction": langgraph.get("lastAction") or agent.get("nextAction") or "",
+            "requiresHumanReview": bool(langgraph.get("requiresHumanReview")),
+        },
+        "nodes": node_trace if isinstance(node_trace, list) else [],
+        "ragSummary": [
+            {
+                "retrieverLabel": item.get("retrieverLabel") or item.get("retrieverName") or "",
+                "hitCount": int(item.get("hitCount") or 0),
+                "qualityLevel": item.get("qualityLevel") or "",
+            }
+            for item in rag_items[:3]
+        ],
+    }
+
+
 def build_ai_debug_detail(
     log: AgentDecisionLog,
     rag_logs: list[RagRetrievalLog],
@@ -297,5 +339,6 @@ def build_ai_debug_detail(
         },
         "agent": agent,
         "langgraph": langgraph,
+        "workflowObservation": build_workflow_observation(agent=agent, langgraph=langgraph, rag_items=rag_items),
         "diagnostics": diagnostics,
     }
