@@ -9,13 +9,13 @@
 当前 active spec：
 
 ```text
-暂无。
+docs/specs/active/langgraph-mainline-consolidation-v7-design.md
 ```
 
 当前阶段状态：
 
 ```text
-Production RAG V3 已完成并归档。当前没有 active spec，下一阶段需要先讨论方向，再写新的 active spec。
+LangGraph Mainline Consolidation V7 已进入 active spec：将 /api/interview/next-question 默认主链路从 classic Python Orchestrator 收敛到 LangGraph mainline，classic Agent 降级为 fallback/helper，并清理前后台双轨对比式产品表达。
 ```
 
 最近完成并归档的 spec：
@@ -27,7 +27,7 @@ docs/specs/completed/production-rag-v3-ingestion-quality-design.md
 阶段主题：
 
 ```text
-Production RAG V3：将文件导入任务从内存态升级为数据库持久化任务，并补齐失败原因、重试入口、用户侧任务历史和管理员摄取质量监控。
+LangGraph Mainline Consolidation V7：Agent 主链路收敛、workflow state、checkpoint、fallback、quality gate、RAG 节点化接入和后台工作流观测。
 ```
 
 ## 使用规则
