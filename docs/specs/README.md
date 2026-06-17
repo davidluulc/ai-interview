@@ -9,7 +9,7 @@
 当前 active spec：
 
 ```text
-暂无。
+docs/specs/active/backend-production-infrastructure-v1-design.md
 ```
 
 最近完成并归档的 spec：
