@@ -7,19 +7,19 @@
 当前 active 开发阶段：
 
 ```text
-暂无。
+Project Closure Audit V1：项目阶段性收口审计与开发基线整理
 ```
 
 当前 active spec：
 
 ```text
-暂无。
+docs/specs/active/project-closure-audit-v1-design.md
 ```
 
 当前 active plan：
 
 ```text
-暂无。
+暂无。下一步需要编写 docs/plans/active/project-closure-audit-v1.md。
 ```
 
 当前实现进度：
@@ -28,10 +28,10 @@
 LangGraph Mainline Consolidation V7 已完成：/api/interview/next-question 默认内部运行时已收敛到 LangGraph mainline，classic Agent 降级为 fallback/helper；RAG 以 retrieve_context 节点形式复用现有能力；Agent decision log、runtime audit、checkpoint summary 和后台 Agent 工作流观测已接入；Vue3 面试页展示轻量工作流解释和兜底提示，管理员后台展示节点轨迹、RAG 摘要、checkpoint、fallback 和 quality gate。
 ```
 
-上一阶段完成目标：
+本阶段目标：
 
 ```text
-Project Directory Cleanup V1 已完成：新增后端、Vue3 前端和本地开发启动脚本，旧启动脚本改为兼容入口，README 明确 8000 是后端 API/旧入口、5173 是 Vue3 当前主前端，并用测试锁住旧原生前端文件仍保留。
+在继续 RAG 生产化、Redis、Celery、PostgreSQL 之前，先统一 README、启动入口、测试命令、文档状态、Vue3 主入口、旧兼容入口说明和后续开发基线。
 ```
 
 本文档是当前项目的唯一可信路线入口。判断项目进度时，优先看本文档，再看 `project-progress.md` 的历史执行记录。旧 spec、旧 plan、旧学习手册只作为背景资料，不再直接决定下一步开发路线。
