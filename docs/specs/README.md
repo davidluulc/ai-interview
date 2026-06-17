@@ -9,7 +9,7 @@
 当前 active spec：
 
 ```text
-暂无。
+docs/specs/active/production-hardening-v3-design.md
 ```
 
 最近完成并归档的 spec：
@@ -27,7 +27,7 @@ Async RAG Ingestion V2：RAG 文档上传和 retry 通过 taskId 派发 Celery i
 当前准备执行阶段：
 
 ```text
-暂无。下一阶段需要先根据 roadmap/current-state.md 重新讨论并创建新的 active spec。
+Production Hardening V3：后端可靠性与安全加固。优先执行 V3.1 Celery worker 真实运行与任务可靠性。
 ```
 
 ## 使用规则
