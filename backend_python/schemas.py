@@ -9,6 +9,7 @@ class QuestionRequest(BaseModel):
     history: list[dict[str, Any]] = Field(default_factory=list)
     nextStage: str = ""
     agentMode: str = "interview"
+    agentRuntime: str | None = Field(default=None, description="Agent runtime preference: classic, shadow, or langgraph_canary")
 
 
 class ReportRequest(BaseModel):
@@ -30,6 +31,7 @@ class QuestionResponse(BaseModel):
     agentDecision: dict[str, Any] = Field(default_factory=dict)
     decisionSummary: str = ""
     ragReasons: list[str] = Field(default_factory=list)
+    runtimeAudit: dict[str, Any] = Field(default_factory=dict)
 
 
 class ReportResponse(BaseModel):

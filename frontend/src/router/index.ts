@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
+import { ACCESS_TOKEN_KEY } from "@/api/client";
 
 export const routes: RouteRecordRaw[] = [
   { path: "/vue", redirect: "/vue/app/interview" },
@@ -33,6 +34,11 @@ export const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true }
   },
   {
+    path: "/vue/app/reports/:recordId",
+    component: () => import("@/pages/app/ReportPage.vue"),
+    meta: { requiresAuth: true }
+  },
+  {
     path: "/vue/app/training",
     component: () => import("@/pages/app/TrainingPage.vue"),
     meta: { requiresAuth: true }
@@ -62,9 +68,12 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const isPublic = Boolean(to.meta.public);
-  const hasToken = Boolean(localStorage.getItem("ai_interview_access_token"));
+  const hasToken = Boolean(localStorage.getItem(ACCESS_TOKEN_KEY));
   if (!isPublic && !hasToken) {
     return "/vue/auth/login";
+  }
+  if (isPublic && hasToken) {
+    return "/vue/app/interview";
   }
   return true;
 });

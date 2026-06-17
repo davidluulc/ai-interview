@@ -120,6 +120,27 @@ class AgentDecisionLog(Base):
     user: Mapped[User] = relationship(back_populates="agent_decision_logs")
 
 
+class LangGraphCheckpointSummary(Base):
+    __tablename__ = "langgraph_checkpoint_summaries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    thread_id: Mapped[str] = mapped_column(String(200), index=True)
+    runtime: Mapped[str] = mapped_column(String(50), default="langgraph", index=True)
+    status: Mapped[str] = mapped_column(String(50), default="completed", index=True)
+    current_node: Mapped[str] = mapped_column(String(100), default="")
+    round_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_action: Mapped[str] = mapped_column(String(80), default="")
+    last_question: Mapped[str] = mapped_column(Text, default="")
+    requires_human_review: Mapped[int] = mapped_column(Integer, default=0)
+    interrupt_json: Mapped[str] = mapped_column(Text, default="")
+    resume_decision: Mapped[str] = mapped_column(Text, default="")
+    runtime_trace_json: Mapped[str] = mapped_column(Text, default="[]")
+    quality_gate_json: Mapped[str] = mapped_column(Text, default="{}")
+    comparison_json: Mapped[str] = mapped_column(Text, default="{}")
+    raw_summary_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class RagDocument(Base):
     __tablename__ = "rag_documents"
 

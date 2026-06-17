@@ -26,14 +26,14 @@ export function getRefreshToken(): string {
   return localStorage.getItem(REFRESH_TOKEN_KEY) || "";
 }
 
-function buildHeaders(initHeaders?: HeadersInit): Record<string, string> {
+function buildHeaders(initHeaders?: HeadersInit, body?: BodyInit | null): Record<string, string> {
   const sourceHeaders = new Headers(initHeaders);
   const headers: Record<string, string> = {};
   sourceHeaders.forEach((value, key) => {
     headers[key] = value;
   });
 
-  if (!sourceHeaders.has("Content-Type")) {
+  if (!sourceHeaders.has("Content-Type") && !(body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -97,7 +97,7 @@ export async function apiRequest<T = unknown>(
 ): Promise<T> {
   const response = await fetch(path, {
     ...init,
-    headers: buildHeaders(init.headers)
+    headers: buildHeaders(init.headers, init.body)
   });
   const body = await readResponseBody(response);
 

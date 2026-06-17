@@ -1,6 +1,7 @@
 import { apiRequest } from "./client";
 
 export type AgentMode = "coach" | "interview";
+export type AgentRuntime = "classic" | "shadow" | "langgraph_canary";
 
 export interface InterviewHistoryItem {
   question: string;
@@ -13,6 +14,7 @@ export interface NextQuestionPayload {
   history?: InterviewHistoryItem[];
   nextStage?: string;
   agentMode?: AgentMode;
+  agentRuntime?: AgentRuntime;
 }
 
 export interface NextQuestionResponse {
@@ -25,6 +27,7 @@ export interface NextQuestionResponse {
   decisionSummary?: string;
   agentDecision?: unknown;
   ragReasons?: string[];
+  runtimeAudit?: Record<string, unknown>;
 }
 
 export async function nextQuestion(payload: NextQuestionPayload): Promise<NextQuestionResponse> {
@@ -35,6 +38,7 @@ export async function nextQuestion(payload: NextQuestionPayload): Promise<NextQu
       history: payload.history || [],
       nextStage: payload.nextStage || "",
       agentMode: payload.agentMode || "coach",
+      agentRuntime: payload.agentRuntime || "classic",
       applicationProfileId: payload.applicationProfileId
     })
   });

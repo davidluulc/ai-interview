@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import * as interviewApi from "@/api/interview";
 
 export interface ChatMessage {
@@ -10,7 +10,17 @@ export interface ChatMessage {
 export interface SubmitAnswerOptions {
   applicationProfileId?: number;
   agentMode?: interviewApi.AgentMode;
+  agentRuntime?: interviewApi.AgentRuntime;
   profile?: Record<string, unknown>;
+}
+
+export type InterviewDifficulty = "basic" | "standard" | "pressure";
+export type InterviewFocusArea = "project_deep_dive" | "technical_basic" | "rag_agent" | "behavioral" | "mixed";
+
+export interface InterviewSessionConfig {
+  totalRounds: number;
+  difficulty: InterviewDifficulty;
+  focusArea: InterviewFocusArea;
 }
 
 const openingQuestion = "请选择投递档案，然后开始一次模拟面试。";
@@ -27,6 +37,48 @@ export const useInterviewStore = defineStore("interview", () => {
   const error = ref("");
   const decisionSummary = ref("");
   const ragReasons = ref<string[]>([]);
+  const agentMode = ref<interviewApi.AgentMode>("coach");
+  const agentRuntime = ref<interviewApi.AgentRuntime>("classic");
+  const sessionConfig = ref<InterviewSessionConfig>({
+    totalRounds: 8,
+    difficulty: "standard",
+    focusArea: "mixed"
+  });
+
+  const currentRound = computed(() => {
+    return Math.min(answeredHistory.value.length + 1, sessionConfig.value.totalRounds);
+  });
+
+  const isSessionComplete = computed(() => {
+    return answeredHistory.value.length >= sessionConfig.value.totalRounds;
+  });
+
+  const canFinish = computed(() => answeredHistory.value.length > 0);
+
+  function setAgentMode(mode: interviewApi.AgentMode): void {
+    agentMode.value = mode;
+  }
+
+  function setAgentRuntime(runtime: interviewApi.AgentRuntime): void {
+    agentRuntime.value = runtime;
+  }
+
+  function updateSessionConfig(config: Partial<InterviewSessionConfig>): void {
+    sessionConfig.value = {
+      ...sessionConfig.value,
+      ...config,
+      totalRounds: Number(config.totalRounds || sessionConfig.value.totalRounds)
+    };
+  }
+
+  function resetSession(): void {
+    messages.value = [{ role: "interviewer", content: openingQuestion }];
+    answeredHistory.value = [];
+    draft.value = "";
+    error.value = "";
+    decisionSummary.value = "";
+    ragReasons.value = [];
+  }
 
   async function submitAnswer(options: SubmitAnswerOptions = {}): Promise<void> {
     const answer = draft.value.trim();
@@ -46,7 +98,8 @@ export const useInterviewStore = defineStore("interview", () => {
     try {
       const response = await interviewApi.nextQuestion({
         applicationProfileId: options.applicationProfileId,
-        agentMode: options.agentMode || "coach",
+        agentMode: options.agentMode || agentMode.value,
+        agentRuntime: options.agentRuntime || agentRuntime.value,
         profile: options.profile || {},
         history: nextHistory
       });
@@ -62,5 +115,24 @@ export const useInterviewStore = defineStore("interview", () => {
     }
   }
 
-  return { messages, draft, loading, error, decisionSummary, ragReasons, submitAnswer };
+  return {
+    messages,
+    answeredHistory,
+    draft,
+    loading,
+    error,
+    decisionSummary,
+    ragReasons,
+    agentMode,
+    agentRuntime,
+    sessionConfig,
+    currentRound,
+    isSessionComplete,
+    canFinish,
+    setAgentMode,
+    setAgentRuntime,
+    updateSessionConfig,
+    resetSession,
+    submitAnswer
+  };
 });

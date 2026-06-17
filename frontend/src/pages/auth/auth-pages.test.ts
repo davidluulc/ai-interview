@@ -4,6 +4,7 @@ import LoginPage from "./LoginPage.vue";
 import RegisterPage from "./RegisterPage.vue";
 
 const pushMock = vi.fn();
+const replaceMock = vi.fn();
 const authStore = {
   login: vi.fn(),
   register: vi.fn(),
@@ -15,7 +16,7 @@ vi.mock("vue-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("vue-router")>();
   return {
     ...actual,
-    useRouter: () => ({ push: pushMock })
+    useRouter: () => ({ push: pushMock, replace: replaceMock })
   };
 });
 
@@ -35,6 +36,7 @@ const globalConfig = {
 describe("auth pages", () => {
   beforeEach(() => {
     pushMock.mockReset();
+    replaceMock.mockReset();
     authStore.login.mockReset();
     authStore.register.mockReset();
     authStore.loading = false;
@@ -50,7 +52,8 @@ describe("auth pages", () => {
     await wrapper.find("form").trigger("submit");
 
     expect(authStore.login).toHaveBeenCalledWith("student@example.com", "password123");
-    expect(pushMock).toHaveBeenCalledWith("/vue/app/interview");
+    expect(replaceMock).toHaveBeenCalledWith("/vue/app/interview");
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
   it("submits registration data and navigates to the interview workspace", async () => {
@@ -63,6 +66,25 @@ describe("auth pages", () => {
     await wrapper.find("form").trigger("submit");
 
     expect(authStore.register).toHaveBeenCalledWith("student@example.com", "student", "password123");
-    expect(pushMock).toHaveBeenCalledWith("/vue/app/interview");
+    expect(replaceMock).toHaveBeenCalledWith("/vue/app/interview");
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps only the action text clickable on the login page switch", () => {
+    const wrapper = mount(LoginPage, { global: globalConfig });
+    const links = wrapper.findAll("a");
+
+    expect(wrapper.text()).toContain("还没有账号？去注册");
+    expect(links).toHaveLength(1);
+    expect(links[0].text()).toBe("去注册");
+  });
+
+  it("keeps only the action text clickable on the register page switch", () => {
+    const wrapper = mount(RegisterPage, { global: globalConfig });
+    const links = wrapper.findAll("a");
+
+    expect(wrapper.text()).toContain("已有账号？去登录");
+    expect(links).toHaveLength(1);
+    expect(links[0].text()).toBe("去登录");
   });
 });

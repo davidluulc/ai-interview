@@ -349,6 +349,56 @@ def ensure_sqlite_compatibility_schema() -> None:
             connection.execute(text("CREATE INDEX IF NOT EXISTS ix_training_tasks_status ON training_tasks (status)"))
             connection.execute(text("CREATE INDEX IF NOT EXISTS ix_training_tasks_priority ON training_tasks (priority)"))
 
+        if "langgraph_checkpoint_summaries" not in table_names:
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE langgraph_checkpoint_summaries (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        thread_id VARCHAR(200) NOT NULL,
+                        runtime VARCHAR(50) NOT NULL DEFAULT 'langgraph',
+                        status VARCHAR(50) NOT NULL DEFAULT 'completed',
+                        current_node VARCHAR(100) NOT NULL DEFAULT '',
+                        round_count INTEGER NOT NULL DEFAULT 0,
+                        last_action VARCHAR(80) NOT NULL DEFAULT '',
+                        last_question TEXT NOT NULL DEFAULT '',
+                        requires_human_review INTEGER NOT NULL DEFAULT 0,
+                        interrupt_json TEXT NOT NULL DEFAULT '',
+                        resume_decision TEXT NOT NULL DEFAULT '',
+                        runtime_trace_json TEXT NOT NULL DEFAULT '[]',
+                        quality_gate_json TEXT NOT NULL DEFAULT '{}',
+                        comparison_json TEXT NOT NULL DEFAULT '{}',
+                        raw_summary_json TEXT NOT NULL DEFAULT '{}',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
+                    )
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_langgraph_checkpoint_summaries_id "
+                    "ON langgraph_checkpoint_summaries (id)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_langgraph_checkpoint_summaries_thread_id "
+                    "ON langgraph_checkpoint_summaries (thread_id)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_langgraph_checkpoint_summaries_runtime "
+                    "ON langgraph_checkpoint_summaries (runtime)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_langgraph_checkpoint_summaries_status "
+                    "ON langgraph_checkpoint_summaries (status)"
+                )
+            )
+
         if "interview_records" not in table_names:
             return
 

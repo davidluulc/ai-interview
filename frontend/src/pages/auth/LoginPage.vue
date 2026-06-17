@@ -29,7 +29,9 @@
       <PrimaryButton :disabled="auth.loading">{{ auth.loading ? "登录中" : "登录" }}</PrimaryButton>
     </form>
 
-    <RouterLink class="switch-link" to="/vue/auth/register">还没有账号？去注册</RouterLink>
+    <p class="switch-text">
+      还没有账号？<RouterLink class="switch-link" to="/vue/auth/register">去注册</RouterLink>
+    </p>
   </AuthLayout>
 </template>
 
@@ -48,7 +50,7 @@ const password = ref("");
 
 async function submit(): Promise<void> {
   await auth.login(email.value, password.value);
-  await router.push("/vue/app/interview");
+  await router.replace("/vue/app/interview");
 }
 </script>
 
@@ -87,11 +89,14 @@ p {
   font-size: 14px;
 }
 
-.switch-link {
-  display: block;
+.switch-text {
   margin-top: 18px;
   text-align: center;
-  color: var(--color-accent);
   font-size: 14px;
+}
+
+.switch-link {
+  color: var(--color-accent);
+  font-weight: 700;
 }
 </style>

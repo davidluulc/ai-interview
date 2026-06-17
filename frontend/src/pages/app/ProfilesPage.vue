@@ -6,6 +6,10 @@
       <p>先把简历、岗位 JD 和公司信息沉淀成档案，再进入模拟面试。</p>
     </section>
 
+    <section v-if="profiles.currentProfile" class="current-section">
+      <ProfileCurrentCard :profile="profiles.currentProfile" @start="startInterview" />
+    </section>
+
     <section class="profile-workspace">
       <form class="profile-form" @submit.prevent="submit">
         <h2>新建档案</h2>
@@ -24,41 +28,28 @@
         <PrimaryButton :disabled="profiles.loading">{{ profiles.loading ? "保存中" : "保存档案" }}</PrimaryButton>
       </form>
 
-      <div class="profile-list" aria-label="投递档案列表">
-        <div class="list-head">
-          <h2>已有档案</h2>
-          <span>{{ profiles.profiles.length }} 个</span>
-        </div>
-
-        <p v-if="profiles.loading && profiles.profiles.length === 0" class="empty">正在加载档案...</p>
-        <p v-else-if="profiles.profiles.length === 0" class="empty">还没有档案，先创建一个用于模拟面试。</p>
-
-        <article
-          v-for="profile in profiles.profiles"
-          :key="profile.id"
-          :class="['profile-card', { active: profiles.currentProfileId === profile.id }]"
-        >
-          <div>
-            <h3>{{ profile.title }}</h3>
-            <p>{{ profile.targetRole || profile.target_role || "未填写目标岗位" }}</p>
-            <small>{{ profile.company || "未填写公司" }}</small>
-          </div>
-          <button type="button" @click="profiles.selectProfile(profile.id)">
-            {{ profiles.currentProfileId === profile.id ? "当前档案" : "设为当前" }}
-          </button>
-        </article>
-      </div>
+      <ProfileList
+        :current-profile-id="profiles.currentProfileId"
+        :loading="profiles.loading"
+        :profiles="profiles.profiles"
+        @select="profiles.selectProfile"
+        @start="startInterview"
+      />
     </section>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive } from "vue";
+import { useRouter } from "vue-router";
 import PrimaryButton from "@/components/common/PrimaryButton.vue";
 import TextField from "@/components/common/TextField.vue";
+import ProfileCurrentCard from "@/components/profiles/ProfileCurrentCard.vue";
+import ProfileList from "@/components/profiles/ProfileList.vue";
 import AppLayout from "@/layouts/AppLayout.vue";
 import { useProfilesStore } from "@/stores/profiles";
 
+const router = useRouter();
 const profiles = useProfilesStore();
 const form = reactive({
   title: "",
@@ -80,6 +71,11 @@ async function submit(): Promise<void> {
   form.jd = "";
   form.resume = "";
 }
+
+async function startInterview(id: number): Promise<void> {
+  profiles.selectProfile(id);
+  await router.push("/vue/app/interview");
+}
 </script>
 
 <style scoped>
@@ -88,6 +84,10 @@ async function submit(): Promise<void> {
   gap: 8px;
   max-width: 880px;
   margin-bottom: 28px;
+}
+
+.current-section {
+  margin-bottom: 22px;
 }
 
 .eyebrow {
@@ -109,8 +109,6 @@ h1 {
 }
 
 .page-header p,
-.profile-card p,
-.empty,
 small {
   color: var(--color-text-muted);
 }
@@ -122,8 +120,7 @@ small {
   align-items: start;
 }
 
-.profile-form,
-.profile-list {
+.profile-form {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.82);
@@ -161,41 +158,6 @@ small {
 .area-field textarea:focus {
   border-color: rgba(0, 113, 227, 0.55);
   box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
-}
-
-.list-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.list-head span {
-  color: var(--color-text-muted);
-  font-size: 13px;
-}
-
-.profile-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  border-top: 1px solid var(--color-border);
-  padding: 16px 0;
-}
-
-.profile-card.active h3 {
-  color: var(--color-accent);
-}
-
-.profile-card button {
-  white-space: nowrap;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  cursor: pointer;
-  padding: 8px 12px;
 }
 
 .error {

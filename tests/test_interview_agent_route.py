@@ -1,6 +1,7 @@
 import json
 from uuid import uuid4
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
@@ -408,3 +409,214 @@ def test_next_question_uses_frequent_weak_tags_in_agent_strategy(monkeypatch) ->
     assert decision_json["trainingTemplateHint"]["weakTag"] == "rag_quality"
     assert "select_weakness_strategy" in [item["nodeName"] for item in decision_json["nodeTrace"]]
     assert "select_training_template" in [item["nodeName"] for item in decision_json["nodeTrace"]]
+
+
+def test_next_question_defaults_to_classic_when_agent_runtime_missing(monkeypatch) -> None:
+    from backend_python.routes import interview
+
+    async def fake_call_model(messages: list[dict], temperature: float, model_name: str = "") -> dict:
+        if temperature < 0.3:
+            return {
+                "nextAction": "lower_difficulty",
+                "stage": "技术追问",
+                "difficulty": "basic",
+                "focus": "FastAPI Depends",
+                "reason": "候选人回答较短，先降低难度。",
+                "tools": ["retrieve_context", "generate_question"],
+                "shouldUpdateMemory": True,
+                "agentMode": "coach",
+            }
+        return {
+            "stage": "技术追问",
+            "stability": "动态追问",
+            "focus": "FastAPI Depends",
+            "prompt": "我们先拆小一点：Depends 在 FastAPI 里解决什么问题？",
+        }
+
+    monkeypatch.setattr(interview, "call_model", fake_call_model)
+    client = TestClient(app)
+    suffix = uuid4().hex
+    email = f"runtime-default-{suffix}@example.com"
+    username = f"runtime_default_{suffix[:8]}"
+
+    client.post("/api/auth/register", json={"email": email, "username": username, "password": "password123"})
+    tokens = client.post("/api/auth/login", json={"email": email, "password": "password123"}).json()
+
+    response = client.post(
+        "/api/interview/next-question",
+        headers={"Authorization": f"Bearer {tokens['accessToken']}"},
+        json={
+            "applicationProfileId": None,
+            "profile": {"targetRole": "Python 后端开发实习生", "resume": "做过 FastAPI"},
+            "history": [{"question": "Depends 是什么？", "answer": "依赖注入"}],
+            "nextStage": "技术追问",
+            "agentMode": "coach",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["prompt"]
+    assert body["runtimeAudit"]["requestedRuntime"] == "classic"
+    assert body["runtimeAudit"]["allowedRuntime"] == "classic"
+    assert body["runtimeAudit"]["visibleRuntime"] == "classic"
+
+
+def test_normal_user_langgraph_canary_request_is_downgraded(monkeypatch) -> None:
+    from backend_python.routes import interview
+
+    async def fake_call_model(messages: list[dict], temperature: float, model_name: str = "") -> dict:
+        if temperature < 0.3:
+            return {
+                "nextAction": "lower_difficulty",
+                "stage": "技术追问",
+                "difficulty": "basic",
+                "focus": "LangGraph 灰度",
+                "reason": "普通用户请求实验链路时应由策略层降级。",
+                "tools": ["retrieve_context", "generate_question"],
+                "shouldUpdateMemory": True,
+                "agentMode": "coach",
+            }
+        return {
+            "stage": "技术追问",
+            "stability": "动态追问",
+            "focus": "LangGraph 灰度",
+            "prompt": "我们先解释一下：灰度发布为什么要保留 fallback？",
+        }
+
+    monkeypatch.setattr(interview, "call_model", fake_call_model)
+    client = TestClient(app)
+    suffix = uuid4().hex
+    email = f"runtime-user-{suffix}@example.com"
+    username = f"runtime_user_{suffix[:8]}"
+
+    client.post("/api/auth/register", json={"email": email, "username": username, "password": "password123"})
+    tokens = client.post("/api/auth/login", json={"email": email, "password": "password123"}).json()
+
+    response = client.post(
+        "/api/interview/next-question",
+        headers={"Authorization": f"Bearer {tokens['accessToken']}"},
+        json={
+            "applicationProfileId": None,
+            "profile": {"targetRole": "AI 应用开发实习生", "resume": "学习 LangGraph"},
+            "history": [{"question": "LangGraph 是什么？", "answer": "工作流框架"}],
+            "nextStage": "技术追问",
+            "agentMode": "coach",
+            "agentRuntime": "langgraph_canary",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["runtimeAudit"]["requestedRuntime"] == "langgraph_canary"
+    assert body["runtimeAudit"]["allowedRuntime"] == "classic"
+    assert body["runtimeAudit"]["visibleRuntime"] == "classic"
+    assert "普通用户暂不开放 LangGraph 灰度链路" in body["runtimeAudit"]["policyReasons"]
+
+
+def test_admin_langgraph_canary_can_use_langgraph_visible_question(monkeypatch) -> None:
+    from backend_python.routes import interview
+
+    async def fake_call_model(messages: list[dict], temperature: float, model_name: str = "") -> dict:
+        if temperature < 0.3:
+            return {
+                "nextAction": "lower_difficulty",
+                "stage": "技术追问",
+                "difficulty": "basic",
+                "focus": "LangGraph checkpoint",
+                "reason": "管理员灰度链路允许 LangGraph 生成可见问题。",
+                "tools": ["retrieve_context", "generate_question"],
+                "shouldUpdateMemory": True,
+                "agentMode": "coach",
+            }
+        return {
+            "stage": "技术追问",
+            "stability": "动态追问",
+            "focus": "LangGraph checkpoint",
+            "prompt": "classic fallback question",
+        }
+
+    monkeypatch.setattr(interview, "call_model", fake_call_model)
+    client = TestClient(app)
+    suffix = uuid4().hex
+    email = f"runtime-admin-{suffix}@example.com"
+    username = f"runtime_admin_{suffix[:8]}"
+
+    client.post("/api/auth/register", json={"email": email, "username": username, "password": "password123"})
+    with SessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == email))
+        assert user is not None
+        user.role = "admin"
+        db.commit()
+    tokens = client.post("/api/auth/login", json={"email": email, "password": "password123"}).json()
+
+    response = client.post(
+        "/api/interview/next-question",
+        headers={"Authorization": f"Bearer {tokens['accessToken']}"},
+        json={
+            "applicationProfileId": None,
+            "profile": {"targetRole": "AI 应用开发实习生", "resume": "学习 LangGraph checkpoint"},
+            "history": [{"question": "LangGraph checkpoint 是什么？", "answer": "不知道"}],
+            "nextStage": "技术追问",
+            "agentMode": "coach",
+            "agentRuntime": "langgraph_canary",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["prompt"] != "classic fallback question"
+    assert "RAG 为什么需要检索" in body["prompt"]
+    assert body["runtimeAudit"]["requestedRuntime"] == "langgraph_canary"
+    assert body["runtimeAudit"]["allowedRuntime"] == "langgraph"
+    assert body["runtimeAudit"]["visibleRuntime"] == "langgraph"
+    assert body["runtimeAudit"]["fallbackUsed"] is False
+
+
+def test_next_question_returns_safe_fallback_when_question_model_provider_fails(monkeypatch) -> None:
+    from backend_python.routes import interview
+
+    async def fake_call_model(messages: list[dict], temperature: float, model_name: str = "") -> dict:
+        if temperature < 0.3:
+            return {
+                "nextAction": "lower_difficulty",
+                "stage": "技术追问",
+                "difficulty": "basic",
+                "focus": "LangGraph 灰度迁移",
+                "reason": "候选人回答较短，先降低难度继续追问。",
+                "tools": ["retrieve_context", "generate_question"],
+                "shouldUpdateMemory": True,
+                "agentMode": "coach",
+            }
+        raise HTTPException(status_code=502, detail="LLM provider request failed.")
+
+    monkeypatch.setattr(interview, "call_model", fake_call_model)
+    client = TestClient(app)
+    suffix = uuid4().hex
+    email = f"runtime-provider-fallback-{suffix}@example.com"
+    username = f"runtime_provider_{suffix[:8]}"
+
+    client.post("/api/auth/register", json={"email": email, "username": username, "password": "password123"})
+    tokens = client.post("/api/auth/login", json={"email": email, "password": "password123"}).json()
+
+    response = client.post(
+        "/api/interview/next-question",
+        headers={"Authorization": f"Bearer {tokens['accessToken']}"},
+        json={
+            "applicationProfileId": None,
+            "profile": {"targetRole": "AI 应用开发实习生", "resume": "做过 LangGraph 灰度迁移"},
+            "history": [{"question": "为什么要灰度迁移？", "answer": "为了稳一点"}],
+            "nextStage": "技术追问",
+            "agentMode": "coach",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["prompt"]
+    assert "模型服务暂时不可用" in body["prompt"]
+    assert body["agentDecision"]["fallbackUsed"] is True
+    assert "model_provider_fallback" in body["agentDecision"]["triggerRules"]
+    assert body["runtimeAudit"]["visibleRuntime"] == "classic"
+    assert body["runtimeAudit"]["fallbackUsed"] is True
+    assert "模型供应商请求失败" in body["runtimeAudit"]["qualityGateReasons"]

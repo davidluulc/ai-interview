@@ -1,66 +1,51 @@
 # Plans 说明
 
-`active/` 只放“尚未执行、当前准备执行”的 implementation plan。
-
-如果一个 plan 已经执行完，即使里面还有复盘价值，也不要继续放在 `active/`，避免误判为下一步任务。
-
-`completed/` 放已经执行完、但仍有复盘价值的 implementation plan。
-
-`archive/` 放历史计划，保留上下文，不建议日常翻阅。
+`active/` 只放当前准备执行、尚未完成的 implementation plan。
+`completed/` 放已经阶段性完成、仍有复盘价值的 implementation plan。
+`archive/` 放历史 plan，只作为背景资料，不建议直接拿来继续执行。
 
 ## 当前状态
 
-当前 `active/` 暂时没有 implementation plan。
-
-原因：
+当前 active plan：
 
 ```text
-Vue3 前端重构 V1 的 spec 已经写入 active，但还需要用户 review 并确认范围。确认后，再根据 spec 编写新的 implementation plan。
+暂无
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/vue3-frontend-rebuild-v1-design.md
+暂无
 ```
 
-上一阶段 Docker + Nginx + VPS 上线 V1 plan 已完成并移动到：
+当前阶段状态：
 
 ```text
-docs/plans/completed/docker-nginx-vps-deployment-v1.md
+LangGraph 主链路灰度迁移 V5 已完成并归档。下一阶段需要先讨论方向，再写新的 active spec 和 active plan。
 ```
 
-上一阶段后端生产化 V1 plan 已完成并移动到：
+最近完成并归档的 plan：
 
 ```text
-docs/plans/completed/backend-production-v1-postgres-redis-celery.md
+docs/plans/completed/langgraph-mainline-canary-v5.md
 ```
 
-上一阶段面试体验增强 V3 + LangGraph 深化 plan 已完成并移动到：
+阶段主题：
 
 ```text
-docs/plans/completed/interview-experience-v3-langgraph-deepening.md
+LangGraph 主链路灰度迁移 V5：runtime policy、runtime audit、langgraph_canary 管理员实验开关、quality gate、fallback classic 和 AI Debug Runtime 审计展示。
 ```
 
-上一阶段 LangGraph Agent V2 plan 已完成并移动到：
+## 追求目标模式建议
+
+如果要使用 Codex 的“追求目标”模式，不要直接复制 `completed/` 或 `archive/` 中的旧 plan。
+
+推荐流程：
 
 ```text
-docs/plans/completed/langgraph-agent-v2-real-rag-checkpoint.md
+先确认 active spec
+-> 再写 active plan
+-> 按 plan 分阶段测试驱动开发
+-> 完成后把 spec 和 plan 移到 completed
+-> 更新 roadmap/current-state.md
 ```
-
-已执行完但仍有参考价值的主线 plan 在：
-
-```text
-docs/plans/completed/
-```
-
-## 追求目标模式怎么用
-
-如果要使用 Codex 的“追求目标”模式，不要直接复制 `completed/` 里的旧 plan。
-
-推荐流程是：
-
-1. 先看 `docs/roadmap/current-state.md`。
-2. 再看 `docs/specs/active/` 是否只有一份明确的新阶段 spec。
-3. 如果只有 spec、没有 plan，先写 plan。
-4. plan 写完后再按 plan 执行。

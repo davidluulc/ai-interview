@@ -1,12 +1,20 @@
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from backend_python.candidate_memory import retrieve_candidate_memory
-from backend_python.database import SessionLocal
+from backend_python.database import SessionLocal, get_db
+from backend_python.human_review_policy import evaluate_human_review
 from backend_python.langgraph_agent.adapters import decide_real_action_for_graph, retrieve_real_context_for_graph
-from backend_python.langgraph_agent.checkpoint import summarize_checkpoint
+from backend_python.langgraph_agent.checkpoint import record_checkpoint_summary, summarize_checkpoint
+from backend_python.langgraph_agent.checkpoint_persistence import (
+    get_latest_checkpoint_summary,
+    list_checkpoint_summaries,
+    save_checkpoint_summary,
+)
+from backend_python.langgraph_agent.checkpoint_store import checkpoint_summary_store
 from backend_python.langgraph_agent.graph import run_interview_graph_poc
 from backend_python.langgraph_agent.service import run_langgraph_agent_v2
 from backend_python.llm_client import call_model
@@ -26,6 +34,24 @@ class LangGraphQuestionRequest(BaseModel):
     agentMode: str = "interview"
     useRealRag: bool = False
     useRealDecision: bool = False
+
+
+class LangGraphRuntimeRunRequest(BaseModel):
+    threadId: str = "default-thread"
+    agentRuntime: str = "langgraph"
+    agentMode: str = "interview"
+    applicationProfileId: int | None = None
+    profile: dict[str, Any] = Field(default_factory=dict)
+    history: list[dict[str, Any]] = Field(default_factory=list)
+    answer: str = ""
+    nextStage: str = ""
+    enableInterrupt: bool = False
+
+
+class LangGraphRuntimeResumeRequest(BaseModel):
+    threadId: str
+    decision: str
+    comment: str = ""
 
 
 @router.post("/next-question-poc")
@@ -134,5 +160,120 @@ async def next_question_v2(payload: LangGraphQuestionRequest) -> dict[str, Any]:
 
 
 @router.get("/checkpoint/{thread_id}")
-async def checkpoint_summary(thread_id: str) -> dict[str, Any]:
-    return summarize_checkpoint(thread_id)
+async def checkpoint_summary(thread_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    persisted = get_latest_checkpoint_summary(db, thread_id)
+    return persisted if persisted.get("exists") else summarize_checkpoint(thread_id)
+
+
+def _weak_answer_streak(history: list[dict[str, Any]], answer: str) -> int:
+    answers = [str(item.get("answer") or "") for item in history]
+    if answer:
+        answers.append(answer)
+
+    streak = 0
+    for value in reversed(answers):
+        normalized = value.strip()
+        if not normalized or "不会" in normalized or "不知道" in normalized:
+            streak += 1
+            continue
+        break
+    return streak
+
+
+@router.post("/runtime/run")
+async def runtime_run(payload: LangGraphRuntimeRunRequest, db: Session = Depends(get_db)) -> dict[str, Any]:
+    weak_streak = _weak_answer_streak(payload.history, payload.answer)
+    should_review = weak_streak >= 3
+    policy = {
+        "requiresHumanReview": should_review,
+        "recommendedAction": "lower_difficulty" if weak_streak else "deep_follow_up",
+        "triggerRules": ["weak_answer_streak"] if should_review else [],
+    }
+    review = evaluate_human_review(
+        agent_policy=policy,
+        answer_analysis={"weakAnswerStreak": weak_streak},
+        history=payload.history,
+    )
+    interrupted = bool(payload.enableInterrupt and review["shouldInterrupt"])
+    state = {
+        "runtime": payload.agentRuntime,
+        "status": "interrupted" if interrupted else "completed",
+        "currentNode": "human_review" if interrupted else "generate_question",
+        "roundCount": len(payload.history),
+        "decision": {"nextAction": policy["recommendedAction"]},
+        "policy": policy,
+        "interrupt": review if interrupted else None,
+        "nodeTrace": [
+            {"node": "observe_state"},
+            {"node": "human_review" if interrupted else "generate_question"},
+        ],
+        "runtimeTrace": [{"runtime": payload.agentRuntime, "status": "started"}],
+        "nextQuestion": {}
+        if interrupted
+        else {"content": "请继续解释 LangGraph checkpoint 和 thread_id 的关系。"},
+    }
+    checkpoint = record_checkpoint_summary(thread_id=payload.threadId, state=state)
+
+    if interrupted:
+        checkpoint = checkpoint_summary_store.mark_interrupted(payload.threadId, interrupt=review)
+        checkpoint["qualityGate"] = {}
+        checkpoint["comparisonSummary"] = {}
+        persisted_checkpoint = save_checkpoint_summary(db, checkpoint)
+        return {
+            "threadId": payload.threadId,
+            "runtime": payload.agentRuntime,
+            "status": "interrupted",
+            "question": None,
+            "decision": state["decision"],
+            "interrupt": review,
+            "checkpointSummary": persisted_checkpoint,
+            "runtimeTrace": state["runtimeTrace"],
+        }
+
+    checkpoint["qualityGate"] = {}
+    checkpoint["comparisonSummary"] = {}
+    persisted_checkpoint = save_checkpoint_summary(db, checkpoint)
+    return {
+        "threadId": payload.threadId,
+        "runtime": payload.agentRuntime,
+        "status": "completed",
+        "question": state["nextQuestion"],
+        "decision": state["decision"],
+        "interrupt": None,
+        "checkpointSummary": persisted_checkpoint,
+        "runtimeTrace": state["runtimeTrace"],
+    }
+
+
+@router.get("/runtime/runs/{thread_id}")
+async def runtime_runs(thread_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    return {
+        "threadId": thread_id,
+        "items": list_checkpoint_summaries(db, thread_id),
+    }
+
+
+@router.post("/runtime/resume")
+async def runtime_resume(payload: LangGraphRuntimeResumeRequest, db: Session = Depends(get_db)) -> dict[str, Any]:
+    checkpoint = summarize_checkpoint(payload.threadId)
+    if not checkpoint.get("exists"):
+        raise HTTPException(status_code=404, detail="LangGraph runtime thread not found")
+    if checkpoint.get("status") != "interrupted":
+        raise HTTPException(status_code=400, detail="LangGraph runtime thread is not interrupted")
+
+    resumed = checkpoint_summary_store.mark_resumed(payload.threadId, resume_decision=payload.decision)
+    persisted_checkpoint = save_checkpoint_summary(db, resumed)
+    question = {
+        "content": "根据人工选择，系统将继续生成下一轮面试问题。"
+        if payload.decision == "continue_interview"
+        else "根据人工选择，系统先切换到学习辅导模式，拆解当前知识点。"
+    }
+    return {
+        "threadId": payload.threadId,
+        "runtime": resumed.get("runtime") or "langgraph",
+        "status": "completed",
+        "question": question,
+        "resumeDecision": payload.decision,
+        "checkpointSummary": persisted_checkpoint,
+        "runtimeTrace": persisted_checkpoint.get("runtimeTrace", []),
+    }

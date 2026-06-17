@@ -40,6 +40,24 @@ describe("auth store", () => {
     expect(store.user?.email).toBe("student@example.com");
   });
 
+  it("exposes whether the current user is an admin", async () => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      access_token: "access-1",
+      refresh_token: "refresh-1",
+      user: {
+        id: 1,
+        email: "admin@ai-interview.com",
+        username: "admin",
+        role: "admin"
+      }
+    });
+
+    const store = useAuthStore();
+    await store.login("admin@ai-interview.com", "password123");
+
+    expect(store.isAdmin).toBe(true);
+  });
+
   it("restores current user when an access token exists", async () => {
     localStorage.setItem(ACCESS_TOKEN_KEY, "access-1");
     vi.mocked(authApi.fetchCurrentUser).mockResolvedValue({

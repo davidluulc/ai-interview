@@ -1,15 +1,18 @@
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import require_admin_user
 from ..agent_logging import serialize_agent_decision_log
+from ..ai_debug import build_ai_debug_detail, build_ai_debug_recent_item
 from ..config import DASHSCOPE_EMBEDDING_MODEL, DASHSCOPE_RERANK_MODEL, QWEN_MODEL
 from ..database import DATABASE_URL, get_db
 from ..db_models import AgentDecisionLog, InterviewRecord, RagDocument, RagRetrievalLog, User
+from ..langgraph_agent.checkpoint import summarize_checkpoint
+from ..langgraph_agent.checkpoint_persistence import get_latest_checkpoint_summary
 from ..rag_logging import serialize_rag_log
 from ..rag_store import serialize_document
 
@@ -79,6 +82,47 @@ def build_rag_quality_payload(logs: list[RagRetrievalLog]) -> dict[str, Any]:
             }
         )
     return {"summary": summary, "items": low_quality_items}
+
+
+def list_rag_logs_for_agent_log(db: Session, log: AgentDecisionLog) -> list[RagRetrievalLog]:
+    statement = select(RagRetrievalLog).where(RagRetrievalLog.user_id == log.user_id)
+    if log.application_profile_id is not None:
+        statement = statement.where(RagRetrievalLog.application_profile_id == log.application_profile_id)
+    return list(
+        db.scalars(
+            statement.order_by(RagRetrievalLog.created_at.desc(), RagRetrievalLog.id.desc()).limit(12)
+        ).all()
+    )
+
+
+def thread_id_for_agent_log(log: AgentDecisionLog) -> str:
+    import json
+
+    try:
+        state = json.loads(log.state_json or "{}")
+    except json.JSONDecodeError:
+        state = {}
+    try:
+        decision = json.loads(log.decision_json or "{}")
+    except json.JSONDecodeError:
+        decision = {}
+    thread_id = (
+        state.get("threadId")
+        or state.get("thread_id")
+        or decision.get("threadId")
+        or decision.get("thread_id")
+        or f"agent-log-{log.id}"
+    )
+    return str(thread_id)
+
+
+def checkpoint_for_agent_log(log: AgentDecisionLog, db: Session | None = None) -> dict[str, Any]:
+    thread_id = thread_id_for_agent_log(log)
+    if db is not None:
+        persisted = get_latest_checkpoint_summary(db, thread_id)
+        if persisted.get("exists"):
+            return persisted
+    return summarize_checkpoint(thread_id)
 
 
 @router.get("/summary")
@@ -166,6 +210,45 @@ async def admin_agent_logs(
         .limit(bounded_limit(limit))
     ).all()
     return {"items": [serialize_agent_decision_log(log) for log in logs]}
+
+
+@router.get("/ai-debug/recent")
+async def admin_ai_debug_recent(
+    limit: int = Query(default=20, ge=1, le=50),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin_user),
+) -> dict[str, list[dict[str, Any]]]:
+    logs = db.scalars(
+        select(AgentDecisionLog)
+        .order_by(AgentDecisionLog.created_at.desc(), AgentDecisionLog.id.desc())
+        .limit(bounded_limit(limit))
+    ).all()
+    return {
+        "items": [
+            build_ai_debug_recent_item(
+                log,
+                list_rag_logs_for_agent_log(db, log),
+                checkpoint_for_agent_log(log, db),
+            )
+            for log in logs
+        ]
+    }
+
+
+@router.get("/ai-debug/{trace_id}")
+async def admin_ai_debug_detail(
+    trace_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin_user),
+) -> dict[str, Any]:
+    log = db.get(AgentDecisionLog, trace_id)
+    if log is None:
+        raise HTTPException(status_code=404, detail="AI debug trace not found")
+    return build_ai_debug_detail(
+        log,
+        list_rag_logs_for_agent_log(db, log),
+        checkpoint_for_agent_log(log, db),
+    )
 
 
 @router.get("/config")

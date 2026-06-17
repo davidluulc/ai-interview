@@ -19,6 +19,7 @@ export const useAuthStore = defineStore("auth", () => {
     tokenVersion.value;
     return Boolean(getAccessToken());
   });
+  const isAdmin = computed(() => user.value?.role === "admin");
 
   async function applyLoginResponse(response: authApi.AuthResponse): Promise<void> {
     const tokens = normalizeToken(response);
@@ -87,5 +88,5 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
-  return { user, loading, error, isAuthenticated, login, register, restore, logout };
+  return { user, loading, error, isAuthenticated, isAdmin, login, register, restore, logout };
 });

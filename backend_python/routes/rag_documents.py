@@ -1,6 +1,7 @@
+import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user
 from ..database import get_db
 from ..db_models import RagChunk, RagDocument, User
+from ..rag_ingestion import IngestionError, build_ingestion_preview, extract_text_from_upload
 from ..rag_store import (
     VALID_KNOWLEDGE_BASES,
     create_rag_document_with_embeddings,
@@ -16,6 +18,7 @@ from ..rag_store import (
     serialize_chunk,
     serialize_document,
 )
+from ..task_status import create_task_status, fail_task_status, get_task_status, succeed_task_status, update_task_status
 
 router = APIRouter(prefix="/api/rag/documents", tags=["rag documents"])
 
@@ -96,6 +99,62 @@ async def update_document_status(
     db.commit()
     db.refresh(document)
     return serialize_document(document)
+
+
+@router.post("/upload")
+async def upload_document(
+    title: str = Form(...),
+    knowledgeBase: str = Form(...),
+    visibility: str = Form("private"),
+    metadata: str = Form("{}"),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    task = create_task_status(task_type="rag_ingestion", message="RAG document ingestion task created.")
+    task_id = task["taskId"]
+    try:
+        update_task_status(task_id, status="running", progress=20, message="Parsing uploaded file.")
+        content = await file.read()
+        text = await extract_text_from_upload(filename=file.filename or title, content=content)
+        preview = build_ingestion_preview(text, title=title)
+
+        update_task_status(task_id, status="running", progress=60, message="Creating RAG document.")
+        parsed_metadata = json.loads(metadata or "{}")
+        if not isinstance(parsed_metadata, dict):
+            raise IngestionError("metadata must be a JSON object.")
+
+        document = await create_rag_document_with_embeddings(
+            db,
+            user_id=current_user.id,
+            title=title,
+            knowledge_base=validate_knowledge_base(knowledgeBase),
+            source_type="upload",
+            content=text,
+            metadata={
+                **parsed_metadata,
+                "originalFilename": file.filename or "",
+                "ingestionTaskId": task_id,
+            },
+            visibility=normalize_document_visibility(visibility),
+        )
+        result = {"document": serialize_document(document), "preview": preview}
+        succeed_task_status(task_id, result=result, message="RAG document ingestion finished.")
+        return {"taskId": task_id, "status": "success", **result}
+    except (IngestionError, json.JSONDecodeError) as exc:
+        fail_task_status(task_id, error=str(exc), message="RAG document ingestion failed.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/ingestion-tasks/{task_id}")
+async def get_ingestion_task(
+    task_id: str,
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    task = get_task_status(task_id)
+    if not task or task.get("taskType") != "rag_ingestion":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RAG ingestion task not found")
+    return task
 
 
 @router.get("/{document_id}")

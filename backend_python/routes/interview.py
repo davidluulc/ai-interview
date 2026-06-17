@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..agent_logging import create_agent_decision_log
 from ..agent_orchestrator import run_next_question_agent
+from ..agent_runtime import run_agent_runtime
 from ..agent_trace import build_node_trace
 from ..auth import get_current_user
 from ..candidate_memory import (
@@ -18,6 +19,10 @@ from ..candidate_memory import (
 from ..database import get_db
 from ..db_models import User
 from ..interview_agent import build_debug_signals
+from ..langgraph_agent.adapters import decide_real_action_for_graph, retrieve_real_context_for_graph
+from ..langgraph_agent.checkpoint_store import checkpoint_summary_store
+from ..langgraph_agent.checkpoint_persistence import save_checkpoint_summary
+from ..langgraph_agent.service import run_langgraph_agent_v2
 from ..llm_client import call_model
 from ..prompts.interview import NEXT_QUESTION_SYSTEM_PROMPT, REPORT_SYSTEM_PROMPT, build_context_message
 from ..question_rag import format_question_context, retrieve_questions
@@ -25,6 +30,8 @@ from ..rag import format_role_context, retrieve_role_context
 from ..rag_explain import build_user_rag_reason
 from ..rag_logging import build_rag_query, create_rag_log, infer_retrieval_mode
 from ..rag_quality import evaluate_retrieval_quality
+from ..runtime_audit import build_runtime_audit
+from ..runtime_policy import decide_runtime_policy
 from ..schemas import QuestionRequest, QuestionResponse, ReportRequest, ReportResponse
 from ..training_tags import merge_weak_tags
 from ..training_tasks import list_candidate_training_tasks, select_agent_training_task
@@ -357,6 +364,72 @@ def normalize_next_question_result(
     }
 
 
+def build_model_provider_fallback_question(
+    *,
+    payload: QuestionRequest,
+    agent_decision: dict[str, Any],
+    error: Exception,
+) -> tuple[dict[str, str], dict[str, Any], dict[str, Any]]:
+    focus = str(agent_decision.get("focus") or "").strip()
+    if not focus:
+        focus = infer_question_focus(
+            str(payload.profile.get("targetRole") or ""),
+            str(payload.profile.get("resume") or ""),
+            str(payload.profile.get("jd") or ""),
+            str((payload.history[-1] if payload.history else {}).get("question") or ""),
+            fallback="稳定性降级追问",
+        )
+    focus = focus[:16]
+    stage = str(agent_decision.get("stage") or payload.nextStage or "技术追问")
+    prompt = (
+        f"模型服务暂时不可用，我们先用稳定兜底问题继续训练。围绕「{focus}」，"
+        "请你先用自己的话解释一个核心概念，再补充一个你项目里可能怎么落地的例子。"
+    )
+    trigger_rules = agent_decision.get("triggerRules") if isinstance(agent_decision.get("triggerRules"), list) else []
+    if "model_provider_fallback" not in trigger_rules:
+        trigger_rules = [*trigger_rules, "model_provider_fallback"]
+    fallback_decision = {
+        **agent_decision,
+        "nextAction": agent_decision.get("nextAction") or "lower_difficulty",
+        "stage": stage,
+        "difficulty": agent_decision.get("difficulty") or "basic",
+        "focus": focus,
+        "fallbackUsed": True,
+        "guardrailApplied": True,
+        "triggerRules": trigger_rules,
+        "reason": "模型供应商请求失败，后端使用安全兜底问题保持训练流程不中断。",
+        "decisionSummary": "模型供应商请求失败，本轮已切换为安全兜底问题，避免前端训练流程中断。",
+        "providerError": str(getattr(error, "detail", error)),
+    }
+    quality_gate = {
+        "passed": False,
+        "fallbackToClassic": True,
+        "riskLevel": "medium",
+        "reasons": ["模型供应商请求失败"],
+        "checks": {
+            "modelProviderAvailable": False,
+            "safeFallbackQuestion": True,
+        },
+    }
+    return (
+        {
+            "stage": stage,
+            "stability": "模型降级兜底",
+            "focus": focus,
+            "prompt": prompt,
+        },
+        fallback_decision,
+        quality_gate,
+    )
+
+
+async def safe_call_question_model(*, messages: list[dict[str, Any]], temperature: float) -> dict[str, Any]:
+    try:
+        return await call_model(messages=messages, temperature=temperature)
+    except HTTPException as exc:
+        return {"__provider_error__": exc}
+
+
 def normalize_string_list(value: Any, *, limit: int = 3, fallback: list[str] | None = None) -> list[str]:
     if not isinstance(value, list):
         return fallback or []
@@ -506,6 +579,11 @@ async def next_question(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
+    runtime_policy = decide_runtime_policy(
+        requested_runtime=payload.agentRuntime,
+        user_role=current_user.role,
+        agent_mode=payload.agentMode,
+    )
     agent_result = await run_next_question_agent(
         profile=payload.profile,
         history=payload.history,
@@ -561,7 +639,8 @@ async def next_question(
     question_context = format_question_context(question_hits)
     candidate_context = format_candidate_memory(memories)
     candidate_profile_context = format_candidate_profile(build_candidate_profile(memories))
-    result = await call_model(
+    provider_quality_gate: dict[str, Any] | None = None
+    result = await safe_call_question_model(
         temperature=0.7,
         messages=[
             {
@@ -596,10 +675,16 @@ async def next_question(
         ],
     )
 
-    if not result.get("prompt"):
+    if result.get("__provider_error__"):
+        normalized_question, agent_decision, provider_quality_gate = build_model_provider_fallback_question(
+            payload=payload,
+            agent_decision=agent_decision,
+            error=result["__provider_error__"],
+        )
+    elif not result.get("prompt"):
         raise HTTPException(status_code=500, detail="Model did not return a next question.")
-
-    normalized_question = normalize_next_question_result(result, payload=payload, agent_decision=agent_decision)
+    else:
+        normalized_question = normalize_next_question_result(result, payload=payload, agent_decision=agent_decision)
     rag_reasons = [
         build_user_rag_reason(retriever_name="role_knowledge", hits=role_hits, focus=normalized_question["focus"]),
         build_user_rag_reason(retriever_name="question_bank", hits=question_hits, focus=normalized_question["focus"]),
@@ -618,20 +703,139 @@ async def next_question(
         agent_decision=agent_decision,
         normalized_question=normalized_question,
     )
-    create_agent_decision_log(
-        db,
-        user_id=current_user.id,
-        application_profile_id=payload.applicationProfileId,
-        request_type="next_question",
-        state=agent_state,
-        decision=agent_decision,
+    runtime_audit = build_runtime_audit(
+        policy=runtime_policy,
+        quality_gate=provider_quality_gate,
+        checkpoint_summary={},
+        comparison_summary={},
+        visible_runtime="classic",
     )
-    return {
+    classic_response = {
         **normalized_question,
         "agentDecision": agent_decision,
         "decisionSummary": agent_decision.get("decisionSummary") or agent_decision.get("reason") or "",
         "ragReasons": rag_reasons,
+        "runtimeAudit": runtime_audit,
     }
+    runtime_thread_id = f"interview-{current_user.id}-{payload.applicationProfileId or 'none'}-{len(payload.history)}"
+
+    def write_agent_log(*, audit: dict[str, Any], quality_gate: dict[str, Any] | None = None) -> None:
+        agent_state["threadId"] = runtime_thread_id
+        agent_state["runtimeAudit"] = audit
+        agent_decision["runtimeAudit"] = audit
+        if isinstance(quality_gate, dict):
+            agent_decision["qualityGate"] = quality_gate
+        create_agent_decision_log(
+            db,
+            user_id=current_user.id,
+            application_profile_id=payload.applicationProfileId,
+            request_type="next_question",
+            state=agent_state,
+            decision=agent_decision,
+        )
+
+    if runtime_policy["allowedRuntime"] in {"shadow", "langgraph"}:
+        async def classic_runner(**kwargs: Any) -> dict[str, Any]:
+            return {
+                "question": {
+                    "stage": classic_response["stage"],
+                    "stability": classic_response["stability"],
+                    "focus": classic_response["focus"],
+                    "prompt": classic_response["prompt"],
+                    "content": classic_response["prompt"],
+                },
+                "decision": agent_decision,
+                "status": "completed",
+            }
+
+        def retrieve_context_for_graph(profile: dict[str, Any], next_stage: str) -> dict[str, Any]:
+            return retrieve_real_context_for_graph(
+                profile=profile,
+                next_stage=next_stage,
+                role_retrieve_fn=retrieve_role_context,
+                question_retrieve_fn=retrieve_questions,
+                memory_retrieve_fn=lambda profile, limit: retrieve_candidate_memory(
+                    db,
+                    profile,
+                    limit=limit,
+                    user_id=current_user.id,
+                    application_profile_id=payload.applicationProfileId,
+                ),
+                role_retrieve_kwargs={"db": db, "user_id": current_user.id},
+                question_retrieve_kwargs={"db": db, "user_id": current_user.id},
+            )
+
+        async def decide_action_for_graph(**kwargs: Any) -> dict[str, Any]:
+            return await decide_real_action_for_graph(call_model_fn=call_model, **kwargs)
+
+        async def langgraph_runner(**kwargs: Any) -> dict[str, Any]:
+            return await run_langgraph_agent_v2(
+                thread_id=runtime_thread_id,
+                application_profile_id=payload.applicationProfileId,
+                profile=payload.profile,
+                history=payload.history,
+                next_stage=payload.nextStage,
+                agent_mode=payload.agentMode,
+                use_real_rag=True,
+                use_real_decision=True,
+                retrieve_context_fn=retrieve_context_for_graph,
+                decide_action_fn=decide_action_for_graph,
+            )
+
+        runtime_result = await run_agent_runtime(
+            agent_runtime="shadow" if runtime_policy["allowedRuntime"] == "shadow" else "langgraph_canary",
+            thread_id=runtime_thread_id,
+            classic_runner=classic_runner,
+            langgraph_runner=langgraph_runner,
+            payload={
+                "answer": str((payload.history[-1] if payload.history else {}).get("answer") or ""),
+                "recentQuestions": [str(item.get("question") or "") for item in payload.history if item.get("question")],
+            },
+        )
+        runtime_audit = runtime_result.get("runtimeAudit") if isinstance(runtime_result.get("runtimeAudit"), dict) else runtime_audit
+        shadow_result = runtime_result.get("shadow") if isinstance(runtime_result.get("shadow"), dict) else {}
+        checkpoint_summary = shadow_result.get("checkpointSummary") if isinstance(shadow_result.get("checkpointSummary"), dict) else {}
+        if checkpoint_summary:
+            checkpoint_summary["runtimeAudit"] = runtime_audit
+            checkpoint_summary["qualityGate"] = runtime_result.get("qualityGate") if isinstance(runtime_result.get("qualityGate"), dict) else {}
+            checkpoint_summary["comparisonSummary"] = (
+                runtime_result.get("comparisonSummary") if isinstance(runtime_result.get("comparisonSummary"), dict) else {}
+            )
+            checkpoint_summary_store.save_summary(checkpoint_summary)
+            save_checkpoint_summary(db, checkpoint_summary)
+        if runtime_result.get("visibleRuntime") == "langgraph":
+            question = runtime_result.get("question") if isinstance(runtime_result.get("question"), dict) else {}
+            prompt = str(question.get("prompt") or question.get("content") or classic_response["prompt"])
+            decision = runtime_result.get("decision") if isinstance(runtime_result.get("decision"), dict) else {}
+            write_agent_log(audit=runtime_audit, quality_gate=runtime_result.get("qualityGate") if isinstance(runtime_result.get("qualityGate"), dict) else {})
+            return {
+                "stage": str(question.get("stage") or classic_response["stage"]),
+                "stability": str(question.get("stability") or classic_response["stability"]),
+                "focus": str(question.get("focus") or classic_response["focus"]),
+                "prompt": prompt,
+                "agentDecision": {
+                    **decision,
+                    "runtimeAudit": runtime_audit,
+                    "qualityGate": runtime_result.get("qualityGate") or {},
+                },
+                "decisionSummary": str(decision.get("decisionSummary") or decision.get("reason") or classic_response["decisionSummary"]),
+                "ragReasons": rag_reasons,
+                "runtimeAudit": runtime_audit,
+            }
+        classic_response["runtimeAudit"] = runtime_audit
+        classic_response["agentDecision"] = {
+            **agent_decision,
+            "runtimeAudit": runtime_audit,
+            "qualityGate": runtime_result.get("qualityGate") or {},
+        }
+
+    write_agent_log(
+        audit=classic_response["runtimeAudit"],
+        quality_gate=classic_response.get("agentDecision", {}).get("qualityGate")
+        if isinstance(classic_response.get("agentDecision"), dict)
+        else None,
+    )
+    return classic_response
 
 
 @router.post("/report", response_model=ReportResponse)
