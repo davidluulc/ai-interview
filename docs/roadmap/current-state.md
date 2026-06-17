@@ -7,25 +7,25 @@
 当前 active 开发阶段：
 
 ```text
-暂无。LangGraph 主链路灰度迁移 V5 已完成并归档，下一阶段需要先讨论方向。
+面试训练闭环增强 V3
 ```
 
 当前 active spec：
 
 ```text
-暂无
+docs/specs/active/interview-training-loop-v3-design.md
 ```
 
 当前 active plan：
 
 ```text
-暂无
+docs/plans/active/interview-training-loop-v3.md
 ```
 
 当前实现进度：
 
 ```text
-LangGraph 主链路灰度迁移 V5 已完成：runtime policy、runtime audit、langgraph_canary 主接口兼容扩展、Vue3 管理员实验开关、AI Debug Runtime 审计展示、模型供应商失败时的问题生成兜底已落地。验证结果：python -m pytest -q 通过 339 tests；frontend 下 npm.cmd run test 通过 106 tests；npm.cmd run build 通过；内置浏览器验证面试页和后台页桌面/移动端无横向溢出、页面无 undefined、管理员可见 Runtime 审计。
+LangGraph 主链路灰度迁移 V5 已完成并归档。当前准备执行 CBA 路线中的 C 阶段：面试训练闭环增强 V3，目标是把训练任务从列表状态推进为可作答、可反馈、可更新掌握度的专项练习会话。
 ```
 
 上一阶段完成目标：
@@ -1021,4 +1021,52 @@ browser:
 - 桌面端真实 canary 提交：没有请求失败，成功进入下一题。
 - 桌面端管理员后台：Runtime 对比和 Runtime 审计可见，无 undefined，无横向溢出。
 - 移动端面试页和管理员后台：无横向溢出，面试页从档案进入后可见 LangGraph 灰度。
+```
+
+## 2026-06-17 本轮补充记录：CBA 路线与面试训练闭环增强 V3
+
+当前 active 开发阶段：
+
+```text
+面试训练闭环增强 V3
+```
+
+当前 active spec：
+
+```text
+docs/specs/active/interview-training-loop-v3-design.md
+```
+
+当前 active plan：
+
+```text
+docs/plans/active/interview-training-loop-v3.md
+```
+
+当前总路线文档：
+
+```text
+docs/roadmap/cba-development-roadmap.md
+```
+
+本阶段目标：
+
+```text
+把训练任务从“列表和状态按钮”升级为“专项练习会话”：用户能查看 weakTag 对应练习题、回答要点、常见错误和一分钟表达模板，输入练习回答并自评，提交后更新 masteryScore、attemptCount、lastPracticedAt 和任务状态，再回到面试台验证提升效果。
+```
+
+本阶段明确不做：
+
+- 不重写 RAG 检索链路。
+- 不重写 Agent 决策链路。
+- 不引入新的 LangGraph 主链路。
+- 不做生产级 RAG 异步入库、OCR、Qdrant 或 pgvector。
+- 不做 Docker / Nginx / VPS 真实上线。
+
+后续推荐顺序：
+
+```text
+C：面试体验与训练闭环 V3
+-> B：LangGraph / Agent 工作流深化
+-> A：生产级 RAG V3
 ```

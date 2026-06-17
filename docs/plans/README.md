@@ -9,19 +9,19 @@
 当前 active plan：
 
 ```text
-暂无
+docs/plans/active/interview-training-loop-v3.md
 ```
 
 当前 active spec：
 
 ```text
-暂无
+docs/specs/active/interview-training-loop-v3-design.md
 ```
 
 当前阶段状态：
 
 ```text
-LangGraph 主链路灰度迁移 V5 已完成并归档。下一阶段需要先讨论方向，再写新的 active spec 和 active plan。
+当前 active 阶段为面试训练闭环增强 V3。实现计划要求测试驱动，先补后端 practice endpoint 和 complete payload，再补 Vue3 训练练习面板。
 ```
 
 最近完成并归档的 plan：
@@ -33,7 +33,7 @@ docs/plans/completed/langgraph-mainline-canary-v5.md
 阶段主题：
 
 ```text
-LangGraph 主链路灰度迁移 V5：runtime policy、runtime audit、langgraph_canary 管理员实验开关、quality gate、fallback classic 和 AI Debug Runtime 审计展示。
+面试训练闭环增强 V3：训练任务练习材料、用户作答、自评、掌握度更新和训练中心前端体验。
 ```
 
 ## 追求目标模式建议

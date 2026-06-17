@@ -9,13 +9,13 @@
 当前 active spec：
 
 ```text
-暂无
+docs/specs/active/interview-training-loop-v3-design.md
 ```
 
 当前阶段状态：
 
 ```text
-LangGraph 主链路灰度迁移 V5 已完成并归档。下一阶段需要先讨论方向，再写新的 active spec。
+当前 active 阶段为面试训练闭环增强 V3。目标是让训练任务从列表状态升级为可作答、可反馈、可更新掌握度的专项练习体验。
 ```
 
 最近完成并归档的 spec：
@@ -27,7 +27,7 @@ docs/specs/completed/langgraph-mainline-canary-v5-design.md
 阶段主题：
 
 ```text
-LangGraph 主链路灰度迁移 V5：runtime policy、runtime audit、langgraph_canary 管理员实验开关、quality gate、fallback classic 和 AI Debug Runtime 审计展示。
+面试训练闭环增强 V3：报告 weakTag -> 训练任务 -> 专项练习 -> 用户作答 -> 掌握度更新 -> 再面试。
 ```
 
 ## 使用规则
