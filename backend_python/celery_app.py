@@ -1,6 +1,7 @@
 from celery import Celery
 
 from .config import CELERY_BROKER_URL, CELERY_RESULT_BACKEND, CELERY_TASK_ALWAYS_EAGER
+from .database import mask_database_url
 
 
 celery_app = Celery(
@@ -18,6 +19,22 @@ celery_app.conf.update(
     imports=(
         "backend_python.tasks.health",
         "backend_python.tasks.rag_evaluation",
+        "backend_python.tasks.rag_ingestion",
     ),
     broker_connection_retry_on_startup=True,
 )
+
+
+def build_celery_status(
+    *,
+    broker_url: str = CELERY_BROKER_URL,
+    result_backend: str = CELERY_RESULT_BACKEND,
+    task_always_eager: bool = CELERY_TASK_ALWAYS_EAGER,
+) -> dict:
+    return {
+        "status": "eager" if task_always_eager else "configured",
+        "taskAlwaysEager": bool(task_always_eager),
+        "brokerUrl": mask_database_url(broker_url),
+        "resultBackend": mask_database_url(result_backend),
+        "healthTask": "backend_python.tasks.health.ping_task",
+    }

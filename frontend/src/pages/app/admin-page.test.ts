@@ -68,13 +68,25 @@ const adminStore: any = {
   },
   ragIngestionTasks: {
     summary: {
-      totalCount: 2,
-      runningCount: 0,
+      totalCount: 3,
+      runningCount: 1,
       succeededCount: 1,
       failedCount: 1,
       retryableCount: 1
     },
     items: [
+      {
+        taskId: "rag_ingestion-queued",
+        userEmail: "demo@ai-interview.com",
+        title: "排队导入资料",
+        originalFilename: "queued.md",
+        knowledgeBase: "question_bank",
+        status: "queued",
+        error: "",
+        retryCount: 0,
+        maxRetries: 2,
+        canRetry: false
+      },
       {
         taskId: "rag_ingestion-failed",
         userEmail: "demo@ai-interview.com",
@@ -215,7 +227,30 @@ const adminStore: any = {
     modelName: "qwen-plus",
     embeddingModel: "text-embedding-v4",
     rerankModel: "gte-rerank",
-    databaseUrl: "sqlite:///./data/app.db"
+    databaseUrl: "sqlite:///./data/app.db",
+    infrastructure: {
+      database: {
+        dialect: "sqlite",
+        isLocalSqlite: true,
+        usesExternalService: false,
+        autoInitEnabled: true,
+        migrationTool: "metadata_create_all_for_local_sqlite",
+        maskedUrl: "sqlite:///./data/app.db"
+      },
+      redis: {
+        enabled: false,
+        status: "disabled",
+        url: "redis://localhost:6379/0",
+        error: ""
+      },
+      celery: {
+        status: "eager",
+        taskAlwaysEager: true,
+        brokerUrl: "redis://localhost:6379/1",
+        resultBackend: "redis://localhost:6379/2",
+        healthTask: "backend_python.tasks.health.ping_task"
+      }
+    }
   },
   loading: false,
   error: "",
@@ -280,12 +315,18 @@ describe("admin page", () => {
     expect(wrapper.text()).toContain("admin@ai-interview.com");
     expect(wrapper.text()).toContain("RAG 质量诊断");
     expect(wrapper.text()).toContain("RAG 摄取任务监控");
+    expect(wrapper.text()).toContain("排队导入资料");
+    expect(wrapper.text()).toContain("排队中");
     expect(wrapper.text()).toContain("失败导入资料");
     expect(wrapper.text()).toContain("document create failed");
     expect(wrapper.text()).toContain("补充岗位知识库或题库内容");
     expect(wrapper.text()).toContain("Agent 决策日志");
     expect(wrapper.text()).toContain("连续弱回答");
     expect(wrapper.text()).toContain("系统配置");
+    expect(wrapper.text()).toContain("基础设施状态");
+    expect(wrapper.text()).toContain("SQLite 本地开发");
+    expect(wrapper.text()).toContain("Redis 未启用");
+    expect(wrapper.text()).toContain("Celery eager");
     expect(wrapper.text()).not.toContain("undefined");
   });
 

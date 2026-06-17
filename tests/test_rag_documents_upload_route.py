@@ -58,7 +58,7 @@ def test_upload_text_document_creates_rag_document(monkeypatch) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "success"
+    assert body["status"] == "succeeded"
     assert body["document"]["title"] == "FastAPI Depends 资料"
     assert body["document"]["sourceType"] == "upload"
     assert body["document"]["metadata"]["originalFilename"] == "depends.txt"
@@ -80,6 +80,7 @@ def test_upload_text_document_creates_rag_document(monkeypatch) -> None:
         assert persisted_task.document_id == body["document"]["id"]
         input_payload = json.loads(persisted_task.input_json)
         assert input_payload["metadata"]["positionTag"] == "python_backend"
+        assert input_payload["textSnapshot"].startswith("FastAPI Depends")
 
 
 def test_upload_markdown_document_preserves_heading_text(monkeypatch) -> None:
@@ -160,6 +161,62 @@ def test_upload_rejects_invalid_metadata_json() -> None:
     assert tasks
     assert tasks[0]["status"] == "failed"
     assert "metadata must be a JSON object" in tasks[0]["error"]
+
+
+def test_retry_ingestion_task_dispatches_celery_task(monkeypatch) -> None:
+    async def fake_embed_text(text: str) -> list[float]:
+        return [0.2, 0.3, 0.4]
+
+    monkeypatch.setattr("backend_python.rag_store.embed_text", fake_embed_text)
+    client = TestClient(app)
+    tokens = register_and_login(client, "rag_upload_retry")
+
+    upload_response = client.post(
+        "/api/rag/documents/upload",
+        headers=auth_headers(tokens),
+        data={"title": "Retry doc", "knowledgeBase": "role_knowledge", "visibility": "private"},
+        files={"file": ("retry.txt", b"Retry should reuse the Celery ingestion path.", "text/plain")},
+    )
+    assert upload_response.status_code == 200
+    task_id = upload_response.json()["taskId"]
+
+    with SessionLocal() as db:
+        task = db.scalar(select(RagIngestionTask).where(RagIngestionTask.task_id == task_id))
+        assert task is not None
+        task.status = "failed"
+        task.error_message = "Simulated transient failure."
+        task.can_retry = 1
+        task.document_id = None
+        db.add(task)
+        db.commit()
+
+    from backend_python.rag_ingestion_tasks import execute_rag_ingestion_task
+    from backend_python.tasks.rag_ingestion import run_rag_ingestion_task
+
+    dispatched_task_ids: list[str] = []
+
+    class FakeAsyncResult:
+        def get(self, timeout: int | None = None) -> dict:
+            return {"ok": True, "timeout": timeout}
+
+    def fake_delay(dispatched_task_id: str) -> FakeAsyncResult:
+        dispatched_task_ids.append(dispatched_task_id)
+        execute_rag_ingestion_task(dispatched_task_id)
+        return FakeAsyncResult()
+
+    monkeypatch.setattr(run_rag_ingestion_task, "delay", fake_delay)
+
+    retry_response = client.post(
+        f"/api/rag/documents/ingestion-tasks/{task_id}/retry",
+        headers=auth_headers(tokens),
+    )
+
+    assert retry_response.status_code == 200
+    body = retry_response.json()
+    assert dispatched_task_ids == [task_id]
+    assert body["status"] == "succeeded"
+    assert body["retryCount"] == 1
+    assert body["document"]["sourceType"] == "upload_retry"
 
 
 def test_user_cannot_read_other_users_ingestion_task(monkeypatch) -> None:

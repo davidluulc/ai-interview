@@ -21,13 +21,13 @@
 最近完成并归档的 plan：
 
 ```text
-docs/plans/completed/project-closure-audit-v1.md
+docs/plans/completed/async-rag-ingestion-v2.md
 ```
 
 最近完成阶段主题：
 
 ```text
-Project Closure Audit V1：项目阶段性收口审计与开发基线整理。
+Async RAG Ingestion V2：RAG 文档入库从同步 HTTP 逻辑迁移为 Celery taskId 派发和数据库状态回写。
 ```
 
 ## 追求目标模式建议

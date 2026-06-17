@@ -8,6 +8,7 @@ from .core.errors import register_exception_handlers
 from .core.logging import setup_logging
 from .core.middleware import request_log_middleware
 from .database import init_db, should_auto_init_db
+from .infrastructure import get_infrastructure_status
 from .redis_client import get_redis_health
 from .routes import (
     admin,
@@ -59,7 +60,12 @@ app.mount("/static", StaticFiles(directory=ROOT_DIR), name="static")
 
 @app.get("/api/health")
 async def health_check() -> dict:
-    return {"status": "ok", "service": "ai-mock-interview-system", "redis": get_redis_health()}
+    return {
+        "status": "ok",
+        "service": "ai-mock-interview-system",
+        "redis": get_redis_health(),
+        "infrastructure": get_infrastructure_status(),
+    }
 
 
 @app.get("/styles.css")

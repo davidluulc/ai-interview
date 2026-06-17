@@ -59,7 +59,7 @@ def build_redis_health(*, enabled: bool, redis_url: str, client: Any | None) -> 
     if client is None:
         return RedisHealth(
             enabled=True,
-            status="unconfigured",
+            status="error",
             url=redis_url,
             error="Redis client is not configured.",
         )

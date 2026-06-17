@@ -463,6 +463,26 @@
             <strong>{{ maskDatabaseUrl(admin.config.databaseUrl) }}</strong>
           </p>
         </div>
+        <div v-if="admin.config.infrastructure" class="infra-panel">
+          <h3>基础设施状态</h3>
+          <div class="config-grid">
+            <p>
+              <span>Database</span>
+              <strong>{{ databaseInfraLabel }}</strong>
+              <small>{{ databaseMigrationLabel }}</small>
+            </p>
+            <p>
+              <span>Redis</span>
+              <strong>{{ redisInfraLabel }}</strong>
+              <small>{{ redisInfraDetail }}</small>
+            </p>
+            <p>
+              <span>Celery</span>
+              <strong>{{ celeryInfraLabel }}</strong>
+              <small>{{ celeryInfraDetail }}</small>
+            </p>
+          </div>
+        </div>
       </section>
     </section>
   </AppLayout>
@@ -510,6 +530,42 @@ const workflowCheckpoint = computed(() => {
 const workflowQualityGatePassed = computed(() => {
   const gate = workflowObservation.value?.qualityGate;
   return Boolean(gate?.passed);
+});
+const infrastructure = computed(() => admin.config?.infrastructure || null);
+const databaseInfraLabel = computed(() => {
+  const database = infrastructure.value?.database;
+  if (!database) return "未记录";
+  if (database.isLocalSqlite) return "SQLite 本地开发";
+  return `${database.dialect || "外部数据库"} 生产候选`;
+});
+const databaseMigrationLabel = computed(() => {
+  const database = infrastructure.value?.database;
+  if (!database) return "暂无迁移信息";
+  return database.autoInitEnabled ? "本地自动初始化" : `迁移入口：${database.migrationTool || "alembic"}`;
+});
+const redisInfraLabel = computed(() => {
+  const status = infrastructure.value?.redis?.status || "unknown";
+  if (status === "disabled") return "Redis 未启用";
+  if (status === "ok") return "Redis 正常";
+  if (status === "error") return "Redis 异常";
+  return `Redis ${status}`;
+});
+const redisInfraDetail = computed(() => {
+  const redis = infrastructure.value?.redis;
+  if (!redis) return "暂无 Redis 配置";
+  if (redis.status === "error" && redis.error) return redis.error;
+  return redis.url || "暂无 Redis URL";
+});
+const celeryInfraLabel = computed(() => {
+  const status = infrastructure.value?.celery?.status || "unknown";
+  if (status === "eager") return "Celery eager";
+  if (status === "configured") return "Celery worker";
+  return `Celery ${status}`;
+});
+const celeryInfraDetail = computed(() => {
+  const celery = infrastructure.value?.celery;
+  if (!celery) return "暂无 Celery 配置";
+  return celery.taskAlwaysEager ? "测试/本地同步执行任务" : "通过 broker 投递后台任务";
 });
 const debugInterruptReason = computed(() => {
   const langgraph = admin.selectedAiDebugDetail?.langgraph as DebugRecord | undefined;
@@ -784,6 +840,7 @@ function documentVisibilityLabel(value = ""): string {
 function ingestionStatusLabel(value = ""): string {
   const map: Record<string, string> = {
     pending: "等待中",
+    queued: "排队中",
     running: "处理中",
     succeeded: "已完成",
     success: "已完成",
@@ -1295,6 +1352,22 @@ th {
 
 .config-grid strong {
   word-break: break-all;
+}
+
+.infra-panel {
+  margin-top: 18px;
+}
+
+.infra-panel h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.infra-panel small {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
 }
 
 @media (max-width: 760px) {

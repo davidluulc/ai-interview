@@ -9,8 +9,9 @@ from ..auth import require_admin_user
 from ..agent_logging import serialize_agent_decision_log
 from ..ai_debug import build_ai_debug_detail, build_ai_debug_recent_item
 from ..config import DASHSCOPE_EMBEDDING_MODEL, DASHSCOPE_RERANK_MODEL, QWEN_MODEL
-from ..database import DATABASE_URL, get_db
+from ..database import DATABASE_URL, describe_database_url, get_db
 from ..db_models import AgentDecisionLog, InterviewRecord, RagDocument, RagIngestionTask, RagRetrievalLog, User
+from ..infrastructure import get_infrastructure_status
 from ..langgraph_agent.checkpoint import summarize_checkpoint
 from ..langgraph_agent.checkpoint_persistence import get_latest_checkpoint_summary, list_checkpoint_summaries
 from ..rag_ingestion_tasks import serialize_ingestion_task
@@ -98,7 +99,7 @@ def build_ingestion_task_quality_payload(tasks: list[RagIngestionTask]) -> dict[
         item = serialize_ingestion_task(task)
         item["userEmail"] = task.user.email if task.user else ""
         status_value = item.get("status")
-        if status_value == "running":
+        if status_value in {"queued", "running"}:
             summary["runningCount"] += 1
         elif status_value == "succeeded":
             summary["succeededCount"] += 1
@@ -293,10 +294,11 @@ async def admin_ai_debug_detail(
 
 
 @router.get("/config")
-async def admin_config(_: User = Depends(require_admin_user)) -> dict[str, str]:
+async def admin_config(_: User = Depends(require_admin_user)) -> dict[str, Any]:
     return {
         "modelName": QWEN_MODEL,
         "embeddingModel": DASHSCOPE_EMBEDDING_MODEL,
         "rerankModel": DASHSCOPE_RERANK_MODEL,
-        "databaseUrl": DATABASE_URL,
+        "databaseUrl": describe_database_url(DATABASE_URL)["maskedUrl"],
+        "infrastructure": get_infrastructure_status(),
     }

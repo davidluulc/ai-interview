@@ -17,14 +17,24 @@ def build_engine_options(database_url: str) -> dict:
     return options
 
 
-def describe_database_url(database_url: str) -> dict:
+def mask_database_url(database_url: str) -> str:
+    from .infrastructure import mask_service_url
+
+    return mask_service_url(database_url)
+
+
+def describe_database_url(database_url: str, *, auto_init: bool = AUTO_INIT_DB) -> dict:
     raw = str(database_url or "")
     dialect = raw.split(":", 1)[0] if ":" in raw else raw
     is_local_sqlite = raw.startswith("sqlite")
+    auto_init_enabled = should_auto_init_db(auto_init=auto_init, database_url=raw)
     return {
         "dialect": dialect,
         "isLocalSqlite": is_local_sqlite,
         "usesExternalService": not is_local_sqlite,
+        "autoInitEnabled": auto_init_enabled,
+        "migrationTool": "metadata_create_all_for_local_sqlite" if auto_init_enabled else "alembic",
+        "maskedUrl": mask_database_url(raw),
     }
 
 

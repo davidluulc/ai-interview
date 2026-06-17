@@ -30,3 +30,24 @@ def test_build_redis_health_reports_ping_error() -> None:
     assert health.enabled is True
     assert health.status == "error"
     assert "connection refused" in health.error
+
+
+def test_build_redis_health_reports_ok_after_successful_ping() -> None:
+    class HealthyClient:
+        def ping(self) -> bool:
+            return True
+
+    health = build_redis_health(enabled=True, redis_url="redis://:secret@localhost:6379/0", client=HealthyClient())
+
+    assert health.enabled is True
+    assert health.status == "ok"
+    assert health.url == "redis://:secret@localhost:6379/0"
+    assert health.error == ""
+
+
+def test_build_redis_health_enabled_without_client_is_error() -> None:
+    health = build_redis_health(enabled=True, redis_url="redis://localhost:6379/0", client=None)
+
+    assert health.enabled is True
+    assert health.status == "error"
+    assert "not configured" in health.error.lower()

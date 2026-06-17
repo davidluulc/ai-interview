@@ -22,6 +22,28 @@ def test_postgresql_database_url_does_not_use_sqlite_connect_args() -> None:
     assert description["usesExternalService"] is True
 
 
+def test_database_description_masks_password_and_marks_alembic_path() -> None:
+    url = "postgresql+psycopg://app_user:secret@db:5432/interview"
+
+    description = describe_database_url(url, auto_init=True)
+
+    assert description["dialect"] == "postgresql+psycopg"
+    assert description["isLocalSqlite"] is False
+    assert description["usesExternalService"] is True
+    assert description["autoInitEnabled"] is False
+    assert description["migrationTool"] == "alembic"
+    assert "secret" not in description["maskedUrl"]
+    assert description["maskedUrl"] == "postgresql+psycopg://app_user:***@db:5432/interview"
+
+
+def test_sqlite_database_description_keeps_local_path_visible() -> None:
+    description = describe_database_url("sqlite:///data/app.db", auto_init=True)
+
+    assert description["maskedUrl"] == "sqlite:///data/app.db"
+    assert description["autoInitEnabled"] is True
+    assert description["migrationTool"] == "metadata_create_all_for_local_sqlite"
+
+
 def test_mysql_database_url_is_described_as_external_service() -> None:
     description = describe_database_url("mysql+pymysql://user:pass@localhost:3306/app")
 

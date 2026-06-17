@@ -63,11 +63,23 @@ const knowledgeStore = {
   uploadError: "",
   metadataError: "metadata 必须是合法 JSON 对象，例如 {\"role\":\"Python 后端\",\"level\":\"实习\"}。",
   ingestionTask: {
-    status: "success",
+    status: "queued",
     preview: { textLength: 128, chunkCount: 2, warnings: [] },
     document: { id: 2, title: "文件导入资料" }
   },
   ingestionTasks: [
+    {
+      taskId: "rag_ingestion-queued",
+      title: "排队资料",
+      originalFilename: "queued.md",
+      knowledgeBase: "question_bank",
+      status: "queued",
+      error: "",
+      retryCount: 0,
+      maxRetries: 2,
+      canRetry: false,
+      preview: { textLength: 120, chunkCount: 2, warnings: [] }
+    },
     {
       taskId: "rag_ingestion-failed",
       title: "失败资料",
@@ -199,7 +211,7 @@ describe("knowledge page", () => {
       metadataJson: '{"positionTag":"python_backend"}',
       file
     });
-    expect(wrapper.text()).toContain("导入状态：success");
+    expect(wrapper.text()).toContain("导入状态：排队中");
     expect(wrapper.text()).toContain("文本长度 128");
   });
 
@@ -208,6 +220,8 @@ describe("knowledge page", () => {
 
     expect(knowledgeStore.loadIngestionTasks).toHaveBeenCalled();
     expect(wrapper.text()).toContain("最近导入任务");
+    expect(wrapper.text()).toContain("排队资料");
+    expect(wrapper.text()).toContain("题库 · 排队中");
     expect(wrapper.text()).toContain("失败资料");
     expect(wrapper.text()).toContain("document create failed");
     expect(wrapper.text()).toContain("重试 0/2");

@@ -130,7 +130,7 @@
           <button type="submit" :disabled="knowledge.uploading">{{ knowledge.uploading ? "导入中..." : "导入文件" }}</button>
         </form>
         <div v-if="knowledge.ingestionTask" class="ingestion-result">
-          <strong>导入状态：{{ knowledge.ingestionTask.status }}</strong>
+          <strong>导入状态：{{ ingestionStatusLabel(knowledge.ingestionTask.status) }}</strong>
           <span v-if="ingestionPreview">
             文本长度 {{ ingestionPreview.textLength }}，chunk 数 {{ ingestionPreview.chunkCount }}
           </span>
@@ -457,6 +457,7 @@ function statusLabel(value: string): string {
 function ingestionStatusLabel(value: string): string {
   const labels: Record<string, string> = {
     pending: "等待中",
+    queued: "排队中",
     running: "处理中",
     succeeded: "已完成",
     success: "已完成",

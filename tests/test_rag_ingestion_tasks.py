@@ -9,6 +9,7 @@ from backend_python.rag_ingestion_tasks import (
     mark_ingestion_text_ready,
     serialize_ingestion_task,
     succeed_ingestion_task,
+    update_ingestion_task,
 )
 
 init_db()
@@ -51,6 +52,28 @@ def test_create_and_serialize_ingestion_task() -> None:
     assert payload["originalFilename"] == "fastapi.md"
     assert payload["canRetry"] is False
     assert payload["hasTextSnapshot"] is False
+
+
+def test_ingestion_task_can_be_marked_queued() -> None:
+    with SessionLocal() as db:
+        user = create_user(db, "task-queued")
+
+        task = create_ingestion_task(
+            db,
+            user_id=user.id,
+            title="Queued task",
+            knowledge_base="role_knowledge",
+            original_filename="queued.md",
+            visibility="private",
+            metadata={},
+        )
+
+        update_ingestion_task(db, task, status="queued", progress=5, message="RAG ingestion task queued.")
+        payload = serialize_ingestion_task(task)
+
+    assert payload["status"] == "queued"
+    assert payload["progress"] == 5
+    assert payload["message"] == "RAG ingestion task queued."
 
 
 def test_text_ready_failure_can_be_retried() -> None:

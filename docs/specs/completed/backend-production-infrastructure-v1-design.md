@@ -201,6 +201,22 @@ Redis 是没启用、启用了且正常，还是启用了但失败。
 10. 使用浏览器验证管理员后台状态展示。
 11. 归档 spec 和 plan。
 
+## 7.1 追求目标执行约定
+
+本阶段可以直接交给 Codex 追求目标模式执行。执行时不需要先由当前对话单独创建 active plan 文件，而是要求追求目标模式先根据本 spec 在 `docs/plans/active/` 下生成 implementation plan，再严格按 plan 执行。
+
+执行时必须遵守以下约束：
+
+- 先写或更新后端测试，再实现后端代码。
+- PostgreSQL 只做配置兼容、URL 脱敏、数据库类型识别和 Alembic 路径说明，不要求本地真实切换。
+- Redis 只做健康检查和基础入口，不接入业务缓存、限流或 token blacklist。
+- Celery 只做 app 配置、health task、eager mode 和任务投递底座，不迁移完整 RAG ingestion 主链路。
+- 如需前端改动，只做管理员后台基础设施状态的最小展示。
+- 不做 Docker、Nginx、VPS、HTTPS 上线。
+- 不重构 RAG、Agent、LangGraph 或 Vue3 主链路。
+- 完成后更新 `docs/project-baseline.md`、`docs/roadmap/current-state.md`、`docs/specs/README.md` 和 `docs/plans/README.md`。
+- 完成后将本 spec 和生成的 plan 从 `active/` 移动到 `completed/`。
+
 ## 8. 测试计划
 
 后端测试：
@@ -269,4 +285,3 @@ PostgreSQL 负责长期可信业务数据，Redis 负责短期状态和任务队
 ```text
 Async RAG Ingestion V2：将 RAG 文档上传、解析、清洗、chunk 入库从同步 HTTP 请求迁移到 Celery 异步任务。
 ```
-

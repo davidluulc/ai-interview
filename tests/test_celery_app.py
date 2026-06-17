@@ -1,4 +1,4 @@
-from backend_python.celery_app import celery_app
+from backend_python.celery_app import build_celery_status, celery_app
 from backend_python.tasks.health import ping_task
 
 
@@ -7,6 +7,7 @@ def test_celery_app_uses_eager_mode_for_tests() -> None:
     assert celery_app.conf.task_eager_propagates is True
     assert "backend_python.tasks.health" in celery_app.conf.imports
     assert "backend_python.tasks.rag_evaluation" in celery_app.conf.imports
+    assert "backend_python.tasks.rag_ingestion" in celery_app.conf.imports
 
 
 def test_ping_task_returns_json_serializable_payload() -> None:
@@ -14,3 +15,19 @@ def test_ping_task_returns_json_serializable_payload() -> None:
 
     assert result["status"] == "ok"
     assert result["task"] == "ping"
+
+
+def test_build_celery_status_masks_urls_and_marks_eager_mode() -> None:
+    status = build_celery_status(
+        broker_url="redis://:broker-secret@localhost:6379/1",
+        result_backend="redis://:result-secret@localhost:6379/2",
+        task_always_eager=True,
+    )
+
+    assert status["status"] == "eager"
+    assert status["taskAlwaysEager"] is True
+    assert "broker-secret" not in status["brokerUrl"]
+    assert "result-secret" not in status["resultBackend"]
+    assert status["brokerUrl"] == "redis://:***@localhost:6379/1"
+    assert status["resultBackend"] == "redis://:***@localhost:6379/2"
+    assert status["healthTask"] == "backend_python.tasks.health.ping_task"

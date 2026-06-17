@@ -9,19 +9,25 @@
 当前 active spec：
 
 ```text
-docs/specs/active/backend-production-infrastructure-v1-design.md
+暂无。
 ```
 
 最近完成并归档的 spec：
 
 ```text
-docs/specs/completed/project-closure-audit-v1-design.md
+docs/specs/completed/async-rag-ingestion-v2-design.md
 ```
 
 最近完成阶段主题：
 
 ```text
-Project Closure Audit V1：统一 README、启动入口、测试命令、文档状态、Vue3 主入口、旧兼容入口说明和后续开发基线。
+Async RAG Ingestion V2：RAG 文档上传和 retry 通过 taskId 派发 Celery ingestion task，任务状态、进度、失败原因和 documentId 写回数据库。
+```
+
+当前准备执行阶段：
+
+```text
+暂无。下一阶段需要先根据 roadmap/current-state.md 重新讨论并创建新的 active spec。
 ```
 
 ## 使用规则

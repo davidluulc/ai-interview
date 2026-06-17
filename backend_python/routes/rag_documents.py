@@ -13,12 +13,12 @@ from ..rag_ingestion import IngestionError, build_ingestion_preview, extract_tex
 from ..rag_ingestion_tasks import (
     can_retry_ingestion_task,
     create_ingestion_task,
+    dispatch_rag_ingestion_task,
     fail_ingestion_task,
     json_loads,
     mark_ingestion_text_ready,
     merge_ingestion_task_input,
     serialize_ingestion_task,
-    succeed_ingestion_task,
     update_ingestion_task,
 )
 from ..rag_store import (
@@ -143,23 +143,8 @@ async def upload_document(
         preview = build_ingestion_preview(text, title=title)
         mark_ingestion_text_ready(db, task, text_snapshot=text, preview=preview)
 
-        document = await create_rag_document_with_embeddings(
-            db,
-            user_id=current_user.id,
-            title=title,
-            knowledge_base=knowledge_base,
-            source_type="upload",
-            content=text,
-            metadata={
-                **parsed_metadata,
-                "originalFilename": file.filename or "",
-                "ingestionTaskId": task.task_id,
-            },
-            visibility=normalize_document_visibility(visibility),
-        )
-        result = {"document": serialize_document(document), "preview": preview}
-        succeed_ingestion_task(db, task, document_id=document.id, result=result)
-        return {"taskId": task.task_id, "status": "success", **result}
+        dispatch_rag_ingestion_task(db, task)
+        return serialize_ingestion_task(task)
     except (IngestionError, json.JSONDecodeError) as exc:
         fail_ingestion_task(db, task, error_message=str(exc))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -216,22 +201,14 @@ async def retry_ingestion_task(
             detail="This ingestion task cannot be retried. Upload the file again.",
         )
 
-    payload = json_loads(task.input_json)
     task.retry_count += 1
-    update_ingestion_task(db, task, status="running", progress=60, message="Retrying RAG document ingestion.")
-    preview = json_loads(task.preview_json)
-    document = await create_rag_document_with_embeddings(
-        db,
-        user_id=current_user.id,
-        title=payload.get("title") or task.title,
-        knowledge_base=validate_knowledge_base(payload.get("knowledgeBase") or task.knowledge_base),
-        source_type="upload_retry",
-        content=payload.get("textSnapshot") or "",
-        metadata={**(payload.get("metadata") or {}), "retryOfIngestionTaskId": task.task_id},
-        visibility=normalize_document_visibility(payload.get("visibility") or "private"),
-    )
-    result = {"document": serialize_document(document), "preview": preview}
-    succeed_ingestion_task(db, task, document_id=document.id, result=result)
+    task.document_id = None
+    task.result_json = "{}"
+    task.error_message = ""
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    dispatch_rag_ingestion_task(db, task)
     return serialize_ingestion_task(task)
 
 

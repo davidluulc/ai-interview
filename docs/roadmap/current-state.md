@@ -7,31 +7,31 @@
 当前 active 开发阶段：
 
 ```text
-Backend Production Infrastructure V1：PostgreSQL 兼容、Redis 健康检查与 Celery 异步任务底座
+暂无。
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/backend-production-infrastructure-v1-design.md
+暂无。
 ```
 
 当前 active plan：
 
 ```text
-暂无。下一步由追求目标模式根据 active spec 生成 implementation plan。
+暂无。
 ```
 
 当前实现进度：
 
 ```text
-Project Closure Audit V1 已完成：README、开发基线文档、审计记录、docs spec/plan 索引和当前路线入口已统一；后端测试、前端测试、前端构建以及 Vue3 面试页/管理员后台桌面端和移动端最小验证已完成。
+Async RAG Ingestion V2 已完成：RAG 文档上传和 retry 已从路由内同步入库收敛为 Celery taskId 派发，task service 从数据库读取 RagIngestionTask.input_json 快照执行入库，并把 queued/running/succeeded/failed、progress、documentId、result/error 写回任务表。SQLite 本地开发和 Celery eager mode 仍可直接跑测试，不强制启动 Redis worker。
 ```
 
 下一阶段候选方向：
 
 ```text
-当前已进入 Backend Production Infrastructure V1 的 spec 阶段。下一步应根据 active spec 编写 implementation plan，并在不破坏 SQLite 本地开发体验的前提下推进 PostgreSQL 配置兼容、Redis 健康检查和 Celery 异步任务底座。
+下一步建议重新讨论：可以继续做 Redis/Celery worker 真实运行演练、PostgreSQL 本地集成演练、RAG 文档摄取能力扩展，或先做一轮项目收口审计与学习讲解。不要重复执行 Async RAG Ingestion V2。
 ```
 
 本文档是当前项目的可信路线入口。判断项目进度时，优先看本文档，再看 `docs/project-baseline.md` 和 `project-progress.md` 的历史执行记录。旧 spec、旧 plan、旧学习手册只作为背景资料，不再直接决定下一步开发路线。
@@ -1265,4 +1265,82 @@ browser:
 - /vue/app/admin 桌面端：显示 Agent 工作流观测、节点轨迹、RAG 摘要、checkpoint、fallback / quality gate 信息，无 undefined，无横向溢出。
 - /vue/app/interview 移动端 390px：无 undefined，无横向溢出。
 - /vue/app/admin 移动端 390px：显示 Agent 工作流观测，无 undefined，无横向溢出。
+```
+
+## 2026-06-17 本轮补充记录：Backend Production Infrastructure V1 已完成
+
+本阶段状态：
+
+```text
+Backend Production Infrastructure V1 已完成并归档。
+```
+
+已归档 spec：
+
+```text
+docs/specs/completed/backend-production-infrastructure-v1-design.md
+```
+
+已归档 plan：
+
+```text
+docs/plans/completed/backend-production-infrastructure-v1.md
+```
+
+本阶段目标：
+
+```text
+在不强制本机安装 PostgreSQL、不要求真实 Redis 服务、不启动 Celery worker 的前提下，建立一套可配置、可测试、可观测的后端生产化底座，为后续 RAG 摄取异步化做准备。
+```
+
+本阶段已落地：
+
+- `backend_python/database.py` 增加数据库摘要字段，支持 SQLite / PostgreSQL 类型识别、URL 脱敏、本地自动初始化状态和 Alembic 迁移路径说明。
+- `backend_python/redis_client.py` 将 Redis 健康状态收敛为 `disabled` / `ok` / `error` 三态。
+- `backend_python/celery_app.py` 增加 Celery 基础状态摘要，支持 eager mode 和 health task 可观测。
+- `backend_python/infrastructure.py` 聚合 database、Redis、Celery 基础设施状态，并统一脱敏外部服务 URL。
+- `/api/health` 新增 `infrastructure` 状态，同时保留旧的顶层 `redis` 字段。
+- `/api/admin/config` 新增 `infrastructure` 状态，并返回脱敏后的 `databaseUrl`。
+- Vue3 管理员后台“系统配置”区域新增“基础设施状态”，展示 SQLite / Redis / Celery 当前状态。
+
+本阶段明确未做：
+
+- 未强制本地切换 PostgreSQL。
+- 未做真实 VPS/生产库迁移。
+- 未把 Redis 接入业务缓存、限流或 token blacklist。
+- 未把完整 RAG ingestion 主链路迁移到 Celery。
+- 未做 Docker、Nginx、VPS、HTTPS 上线。
+- 未引入 Qdrant、pgvector 或对象存储。
+- 未重构 RAG、Agent、LangGraph 或 Vue3 主链路。
+
+本阶段已验证：
+
+```text
+backend focused:
+python -m pytest tests/test_database_config.py tests/test_redis_client.py tests/test_celery_app.py tests/test_infrastructure_status.py tests/test_core_flows.py::test_health_check tests/test_admin_routes.py::test_admin_config_returns_masked_infrastructure_status -q
+结果：17 passed, 1 warning
+
+backend full:
+python -m pytest -q
+结果：376 passed, 1 warning
+
+frontend full:
+cd frontend
+npm.cmd run test
+结果：30 个测试文件通过，122 个测试通过
+
+frontend build:
+cd frontend
+npm.cmd run build
+结果：通过
+
+browser:
+- /vue/app/admin 桌面端：基础设施状态可见，包含 database、Redis、Celery 状态，无 undefined，无横向溢出。
+- /vue/app/admin 移动端窄屏：基础设施状态可见，Redis / Celery 标签正常，无 undefined，无横向溢出。
+```
+
+后续推荐：
+
+```text
+Async RAG Ingestion V2：基于本阶段 Celery/Redis 基础设施入口，将 RAG 文档摄取、文本清洗、chunk 生成和索引构建迁移到异步任务。
 ```

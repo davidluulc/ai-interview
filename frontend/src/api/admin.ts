@@ -237,11 +237,42 @@ export interface AdminAiDebugDetail {
   diagnostics: AdminAiDebugDiagnostic[];
 }
 
+export interface AdminDatabaseInfrastructure {
+  dialect?: string;
+  isLocalSqlite?: boolean;
+  usesExternalService?: boolean;
+  autoInitEnabled?: boolean;
+  migrationTool?: string;
+  maskedUrl?: string;
+}
+
+export interface AdminRedisInfrastructure {
+  enabled?: boolean;
+  status?: "disabled" | "ok" | "error" | string;
+  url?: string;
+  error?: string;
+}
+
+export interface AdminCeleryInfrastructure {
+  status?: "eager" | "configured" | string;
+  taskAlwaysEager?: boolean;
+  brokerUrl?: string;
+  resultBackend?: string;
+  healthTask?: string;
+}
+
+export interface AdminInfrastructureStatus {
+  database?: AdminDatabaseInfrastructure;
+  redis?: AdminRedisInfrastructure;
+  celery?: AdminCeleryInfrastructure;
+}
+
 export interface AdminConfig {
   modelName: string;
   embeddingModel: string;
   rerankModel: string;
   databaseUrl: string;
+  infrastructure?: AdminInfrastructureStatus;
 }
 
 export function fetchAdminSummary(): Promise<AdminSummary> {

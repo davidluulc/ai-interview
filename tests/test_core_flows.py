@@ -78,6 +78,9 @@ def test_health_check() -> None:
     assert response.json()["status"] == "ok"
     assert response.json()["redis"]["enabled"] is False
     assert response.json()["redis"]["status"] == "disabled"
+    assert response.json()["infrastructure"]["database"]["dialect"]
+    assert response.json()["infrastructure"]["redis"]["status"] == "disabled"
+    assert response.json()["infrastructure"]["celery"]["status"] in {"eager", "configured"}
     assert "X-Process-Time-Ms" in response.headers
 
 

@@ -1,4 +1,6 @@
 import json
+import asyncio
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -6,9 +8,32 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from .database import SessionLocal
 from .db_models import RagIngestionTask
 
-VALID_TASK_STATUSES = {"pending", "running", "succeeded", "failed"}
+VALID_TASK_STATUSES = {"pending", "queued", "running", "succeeded", "failed"}
+
+
+def run_async_ingestion(coroutine: Any) -> Any:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coroutine)
+
+    result: dict[str, Any] = {}
+
+    def runner() -> None:
+        try:
+            result["value"] = asyncio.run(coroutine)
+        except Exception as exc:  # pragma: no cover - re-raised in caller thread.
+            result["error"] = exc
+
+    thread = threading.Thread(target=runner)
+    thread.start()
+    thread.join()
+    if "error" in result:
+        raise result["error"]
+    return result.get("value")
 
 
 def json_dumps(value: dict[str, Any]) -> str:
@@ -21,6 +46,10 @@ def json_loads(value: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+
+def get_ingestion_task_by_task_id(db: Session, task_id: str) -> RagIngestionTask | None:
+    return db.query(RagIngestionTask).filter_by(task_id=str(task_id or "")).one_or_none()
 
 
 def create_ingestion_task(
@@ -99,6 +128,23 @@ def mark_ingestion_text_ready(
     return update_ingestion_task(db, task, status="running", progress=60, message="Creating RAG document.")
 
 
+def queue_ingestion_task(db: Session, task: RagIngestionTask) -> RagIngestionTask:
+    return update_ingestion_task(db, task, status="queued", progress=max(task.progress, 5), message="RAG ingestion task queued.")
+
+
+def dispatch_rag_ingestion_task(db: Session, task: RagIngestionTask) -> RagIngestionTask:
+    from .tasks.rag_ingestion import run_rag_ingestion_task
+
+    queue_ingestion_task(db, task)
+    try:
+        run_rag_ingestion_task.delay(task.task_id)
+    except Exception as exc:
+        task.can_retry = 1 if json_loads(task.input_json).get("textSnapshot") else 0
+        fail_ingestion_task(db, task, error_message=f"Celery dispatch failed: {exc}")
+    db.refresh(task)
+    return task
+
+
 def merge_ingestion_task_input(
     db: Session,
     task: RagIngestionTask,
@@ -135,6 +181,49 @@ def succeed_ingestion_task(
     task.result_json = json_dumps(result)
     task.can_retry = 0
     return update_ingestion_task(db, task, status="succeeded", progress=100, message="RAG document ingestion finished.")
+
+
+def execute_rag_ingestion_task(task_id: str) -> dict[str, Any]:
+    from .rag_store import create_rag_document_with_embeddings, normalize_document_visibility, serialize_document
+
+    with SessionLocal() as db:
+        task = get_ingestion_task_by_task_id(db, task_id)
+        if task is None:
+            return {"taskId": task_id, "status": "failed", "error": "RAG ingestion task not found."}
+
+        try:
+            update_ingestion_task(db, task, status="running", progress=max(task.progress, 10), message="Running RAG ingestion task.")
+            payload = json_loads(task.input_json)
+            text_snapshot = str(payload.get("textSnapshot") or "").strip()
+            if not text_snapshot:
+                raise ValueError("RAG ingestion task is missing textSnapshot.")
+
+            metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+            document = run_async_ingestion(
+                create_rag_document_with_embeddings(
+                    db,
+                    user_id=task.user_id,
+                    title=str(payload.get("title") or task.title),
+                    knowledge_base=str(payload.get("knowledgeBase") or task.knowledge_base),
+                    source_type="upload_retry" if task.retry_count else "upload",
+                    content=text_snapshot,
+                    metadata={
+                        **metadata,
+                        "originalFilename": task.original_filename,
+                        "ingestionTaskId": task.task_id,
+                    },
+                    visibility=normalize_document_visibility(str(payload.get("visibility") or "private")),
+                )
+            )
+            preview = json_loads(task.preview_json)
+            result = {"document": serialize_document(document), "preview": preview}
+            succeed_ingestion_task(db, task, document_id=document.id, result=result)
+        except Exception as exc:
+            task.can_retry = 1 if json_loads(task.input_json).get("textSnapshot") else 0
+            fail_ingestion_task(db, task, error_message=str(exc))
+
+        db.refresh(task)
+        return serialize_ingestion_task(task)
 
 
 def can_retry_ingestion_task(task: RagIngestionTask) -> bool:

@@ -3,6 +3,7 @@ import { apiRequest } from "./client";
 export type KnowledgeBaseType = "role_knowledge" | "question_bank" | "candidate_memory";
 export type RagDocumentStatus = "enabled" | "disabled" | "archived";
 export type RagDocumentVisibility = "private" | "public";
+export type RagIngestionTaskStatus = "pending" | "queued" | "running" | "succeeded" | "success" | "failed";
 
 export interface RagDocument {
   id: number;
@@ -80,7 +81,7 @@ export interface RagIngestionTask {
   id?: number;
   taskId: string;
   taskType?: string;
-  status: string;
+  status: RagIngestionTaskStatus | string;
   title?: string;
   originalFilename?: string;
   knowledgeBase?: KnowledgeBaseType | string;

@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from backend_python.database import SessionLocal
-from backend_python.db_models import AgentDecisionLog, InterviewRecord, RagDocument, RagRetrievalLog, User
+from backend_python.db_models import AgentDecisionLog, InterviewRecord, RagDocument, RagIngestionTask, RagRetrievalLog, User
 from backend_python.main import app
 
 
@@ -167,6 +167,63 @@ def test_admin_can_list_users_documents_and_logs() -> None:
     assert any(item["title"] == "后台 RAG 文档" and item["knowledgeBase"] == "question_bank" for item in documents.json()["items"])
     assert any(item["queryText"] == "RAG 质量评估" and item["retrievalMode"] == "hybrid" for item in rag_logs.json()["items"])
     assert any(item["focus"] == "RAG 质量评估" and item["nextAction"] == "deepen" for item in agent_logs.json()["items"])
+
+
+def test_admin_rag_ingestion_summary_counts_queued_as_running() -> None:
+    client = TestClient(app)
+    suffix = uuid4().hex
+    email = f"admin-ingestion-{suffix}@example.com"
+    register_and_login(client, email, f"admin_ingestion_{suffix[:8]}")
+    promote_to_admin(email)
+    admin = client.post("/api/auth/login", json={"email": email, "password": "password123"}).json()
+
+    with SessionLocal() as db:
+        admin_user = db.scalar(select(User).where(User.email == email))
+        assert admin_user is not None
+        db.add(
+            RagIngestionTask(
+                task_id=f"rag_ingestion-{suffix}",
+                user_id=admin_user.id,
+                title="Queued ingestion",
+                knowledge_base="role_knowledge",
+                original_filename="queued.md",
+                source_extension=".md",
+                status="queued",
+                progress=5,
+                input_json="{}",
+            )
+        )
+        db.commit()
+
+    response = client.get(
+        "/api/admin/rag/ingestion-tasks",
+        headers={"Authorization": f"Bearer {admin['accessToken']}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["summary"]["runningCount"] >= 1
+    assert any(item["status"] == "queued" for item in body["items"])
+
+
+def test_admin_config_returns_masked_infrastructure_status() -> None:
+    client = TestClient(app)
+    suffix = uuid4().hex
+    email = f"admin-config-{suffix}@example.com"
+    register_and_login(client, email, f"admin_config_{suffix[:8]}")
+    promote_to_admin(email)
+    admin = client.post("/api/auth/login", json={"email": email, "password": "password123"}).json()
+
+    response = client.get("/api/admin/config", headers={"Authorization": f"Bearer {admin['accessToken']}"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["databaseUrl"].startswith("sqlite:")
+    assert "infrastructure" in body
+    assert body["infrastructure"]["database"]["dialect"]
+    assert body["infrastructure"]["redis"]["status"] in {"disabled", "ok", "error"}
+    assert body["infrastructure"]["celery"]["status"] in {"eager", "configured"}
+    assert "password" not in str(body).lower()
 
 
 def test_admin_lists_reject_regular_user() -> None:
