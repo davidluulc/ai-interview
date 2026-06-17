@@ -9,13 +9,13 @@
 当前 active spec：
 
 ```text
-暂无
+docs/specs/active/production-rag-v3-ingestion-quality-design.md
 ```
 
 当前阶段状态：
 
 ```text
-LangGraph / Agent 工作流深化 V6 已完成并归档。下一阶段建议先讨论是否继续扩大 LangGraph 主链路迁移，或进入生产级 RAG V3，再写新的 active spec。
+Production RAG V3 已进入 active spec：摄取任务持久化、失败重试与质量监控增强。本阶段聚焦 RAG 文档入口工程化，不重复 lifecycle、metadata、hybrid、rerank、evaluation 等已完成能力。
 ```
 
 最近完成并归档的 spec：
@@ -27,7 +27,7 @@ docs/specs/completed/langgraph-agent-workflow-v6-design.md
 阶段主题：
 
 ```text
-LangGraph / Agent 工作流深化 V6：节点契约 -> 执行回放 -> 人工复核队列 -> runtime report -> 管理员后台可读诊断。
+Production RAG V3：将文件导入任务从内存态升级为数据库持久化任务，并补齐失败原因、重试入口、用户侧任务历史和管理员摄取质量监控。
 ```
 
 ## 使用规则

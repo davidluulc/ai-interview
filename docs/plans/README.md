@@ -9,19 +9,19 @@
 当前 active plan：
 
 ```text
-暂无
+docs/plans/active/production-rag-v3-ingestion-quality.md
 ```
 
 当前 active spec：
 
 ```text
-暂无
+docs/specs/active/production-rag-v3-ingestion-quality-design.md
 ```
 
 当前阶段状态：
 
 ```text
-LangGraph / Agent 工作流深化 V6 已完成并归档。下一阶段建议先讨论是否继续扩大 LangGraph 主链路迁移，或进入生产级 RAG V3，再写新的 active plan。
+Production RAG V3 已进入 active plan：摄取任务持久化、失败重试与质量监控增强。本阶段优先按 TDD 开发后端任务模型、任务接口、管理员监控接口和 Vue3 可读展示。
 ```
 
 最近完成并归档的 plan：
@@ -33,7 +33,7 @@ docs/plans/completed/langgraph-agent-workflow-v6.md
 阶段主题：
 
 ```text
-LangGraph / Agent 工作流深化 V6：节点契约、执行回放、人工复核队列、runtime report 和管理员后台可读诊断。
+Production RAG V3：RAG 文件摄取任务持久化、失败重试、用户任务历史和管理员摄取质量监控。
 ```
 
 ## 追求目标模式建议
