@@ -7,34 +7,34 @@
 当前 active 开发阶段：
 
 ```text
-Project Closure Audit V1：项目阶段性收口审计与开发基线整理
+暂无。
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/project-closure-audit-v1-design.md
+暂无。
 ```
 
 当前 active plan：
 
 ```text
-docs/plans/active/project-closure-audit-v1.md
+暂无。
 ```
 
 当前实现进度：
 
 ```text
-LangGraph Mainline Consolidation V7 已完成：/api/interview/next-question 默认内部运行时已收敛到 LangGraph mainline，classic Agent 降级为 fallback/helper；RAG 以 retrieve_context 节点形式复用现有能力；Agent decision log、runtime audit、checkpoint summary 和后台 Agent 工作流观测已接入；Vue3 面试页展示轻量工作流解释和兜底提示，管理员后台展示节点轨迹、RAG 摘要、checkpoint、fallback 和 quality gate。
+Project Closure Audit V1 已完成：README、开发基线文档、审计记录、docs spec/plan 索引和当前路线入口已统一；后端测试、前端测试、前端构建以及 Vue3 面试页/管理员后台桌面端和移动端最小验证已完成。
 ```
 
-本阶段目标：
+下一阶段候选方向：
 
 ```text
-在继续 RAG 生产化、Redis、Celery、PostgreSQL 之前，先统一 README、启动入口、测试命令、文档状态、Vue3 主入口、旧兼容入口说明和后续开发基线。
+Backend Production Infrastructure V1：保留 SQLite 本地默认开发，同时规划 PostgreSQL 配置兼容、Redis 健康检查和 Celery 异步任务基础。该方向需要先写新的 active spec 和 active plan，再进入开发。
 ```
 
-本文档是当前项目的唯一可信路线入口。判断项目进度时，优先看本文档，再看 `project-progress.md` 的历史执行记录。旧 spec、旧 plan、旧学习手册只作为背景资料，不再直接决定下一步开发路线。
+本文档是当前项目的可信路线入口。判断项目进度时，优先看本文档，再看 `docs/project-baseline.md` 和 `project-progress.md` 的历史执行记录。旧 spec、旧 plan、旧学习手册只作为背景资料，不再直接决定下一步开发路线。
 
 ## 1. 判断原则
 

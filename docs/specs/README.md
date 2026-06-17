@@ -9,25 +9,19 @@
 当前 active spec：
 
 ```text
-docs/specs/active/project-closure-audit-v1-design.md
-```
-
-当前阶段状态：
-
-```text
-Project Closure Audit V1 正在准备执行：目标是在继续 RAG 生产化、Redis、Celery、PostgreSQL 之前，先统一 README、启动入口、测试命令、文档状态、Vue3 主入口和后续开发基线。
+暂无。
 ```
 
 最近完成并归档的 spec：
 
 ```text
-docs/specs/completed/langgraph-mainline-consolidation-v7-design.md
+docs/specs/completed/project-closure-audit-v1-design.md
 ```
 
 最近完成阶段主题：
 
 ```text
-LangGraph Mainline Consolidation V7：Agent 主链路收敛、workflow state、checkpoint、fallback、quality gate、RAG 节点化接入和后台工作流观测。
+Project Closure Audit V1：统一 README、启动入口、测试命令、文档状态、Vue3 主入口、旧兼容入口说明和后续开发基线。
 ```
 
 ## 使用规则

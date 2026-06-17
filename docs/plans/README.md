@@ -9,31 +9,25 @@
 当前 active plan：
 
 ```text
-docs/plans/active/project-closure-audit-v1.md
+暂无。
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/project-closure-audit-v1-design.md
-```
-
-当前阶段状态：
-
-```text
-Project Closure Audit V1 正在准备执行，active spec 和 active plan 已建立，下一步应按 plan 执行收口审计。
+暂无。
 ```
 
 最近完成并归档的 plan：
 
 ```text
-docs/plans/completed/langgraph-mainline-consolidation-v7.md
+docs/plans/completed/project-closure-audit-v1.md
 ```
 
 最近完成阶段主题：
 
 ```text
-LangGraph Mainline Consolidation V7：Agent 主链路收敛、classic fallback、RAG 节点化接入、runtime audit、checkpoint、quality gate 和 Vue3 工作流观测。
+Project Closure Audit V1：项目阶段性收口审计与开发基线整理。
 ```
 
 ## 追求目标模式建议

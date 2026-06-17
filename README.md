@@ -1,96 +1,33 @@
 # AI 模拟面试系统
 
-## 项目简介
+面向大学生、应届生和社会求职者的 AI 模拟面试系统。用户创建投递档案后，系统结合岗位知识库 RAG、题库 RAG、候选人画像 RAG 和 Agent/LangGraph 工作流生成面试问题，面试结束后生成复盘报告和训练任务。管理员后台提供 RAG 命中、Agent 决策、LangGraph checkpoint、fallback 和 quality gate 观测。
 
-这是一个面向大学生、应届生和社会求职者的 AI 模拟面试训练系统。
+## 当前主入口
 
-当前项目主线是 Python FastAPI 后端 + Vue3 前端 + RAG + Agent + LangGraph 旁路工作流。系统支持用户维护求职档案、进行模拟面试、查看历史复盘、生成专项训练任务，并通过管理员后台查看 RAG、Agent 和 LangGraph 相关可观测信息。
+- 后端 API / 旧兼容入口：`http://127.0.0.1:8000`
+- 后端接口文档：`http://127.0.0.1:8000/docs`
+- 后端健康检查：`http://127.0.0.1:8000/api/health`
+- Vue3 主前端：`http://127.0.0.1:5173/vue/app/interview`
+- Vue3 管理员后台：`http://127.0.0.1:5173/vue/app/admin`
 
-## 当前主前端
-
-当前主前端位于：
-
-```text
-frontend/
-```
-
-本地开发时请打开：
-
-```text
-http://127.0.0.1:5173/vue/app/interview
-```
-
-注意：`http://localhost:8000/` 当前仍可能显示旧版原生前端或后端根入口，不是当前主页面。
+`http://localhost:8000/` 当前仍可能显示旧版原生前端或后端根入口，不是当前主页面。根目录 `index.html`、`app.js`、`styles.css` 是旧版原生前端兼容入口，当前主前端是 `frontend/` 下的 Vue3 应用。
 
 ## 本地启动
 
-### 1. 启动后端
+分别启动后端和 Vue3 前端：
 
-双击：
-
-```text
-start-backend.cmd
+```powershell
+.\start-backend.cmd
+.\start-vue-frontend.cmd
 ```
 
-后端 API 文档：
+也可以先打开启动说明：
 
-```text
-http://127.0.0.1:8000/docs
+```powershell
+.\start-dev.cmd
 ```
 
-健康检查：
-
-```text
-http://127.0.0.1:8000/api/health
-```
-
-### 2. 启动 Vue3 前端
-
-双击：
-
-```text
-start-vue-frontend.cmd
-```
-
-Vue3 前端：
-
-```text
-http://127.0.0.1:5173/vue/app/interview
-```
-
-### 3. 快速说明
-
-也可以双击：
-
-```text
-start-dev.cmd
-```
-
-这个脚本不会替你同时启动两个服务，它会提示你分别打开后端和 Vue3 前端两个窗口。这样比隐藏启动两个后台进程更直观，也更适合本地学习和调试。
-
-## 旧版原生前端
-
-根目录下的 `index.html`、`styles.css`、`app.js` 是旧版原生前端。
-
-它们暂时保留用于兼容历史测试、历史文档和旧入口，不再作为当前主开发入口。
-
-后续如果要进一步整理目录，可以在单独阶段把旧版原生前端迁移到 `legacy_frontend/`，并同步修改仍引用旧文件的 `.mjs` 测试和文档。
-
-## 目录结构
-
-```text
-backend_python/        FastAPI 后端、RAG、Agent、LangGraph 旁路接口
-frontend/              Vue3 + Vite + TypeScript 当前主前端
-tests/                 后端 pytest 测试和旧前端 .mjs 测试
-docs/                  spec、plan、学习文档和部署文档
-scripts/               本地维护脚本
-data/                  本地 SQLite 数据和 seed 数据
-logs/                  本地日志
-deploy/                Nginx 等部署配置
-alembic/               数据库迁移脚本
-```
-
-## 常用命令
+## 测试和构建
 
 后端测试：
 
@@ -112,15 +49,22 @@ cd frontend
 npm.cmd run build
 ```
 
-## 当前学习重点
+## 当前主链路
 
-这个项目当前适合重点学习：
+- 面试接口：`POST /api/interview/next-question`
+- 默认 Agent runtime：`langgraph_mainline`
+- 兼容兜底链路：`classic`
+- RAG 接入：岗位知识库、题库、候选人画像三类 RAG 作为 `retrieve_context` 节点复用。
+- 可观测性：RAG 日志、Agent 决策日志、runtime audit、checkpoint summary、quality gate。
 
-- FastAPI 路由拆分、Pydantic schema、SQLAlchemy ORM 和 Alembic 迁移。
-- JWT 登录、refresh token、用户数据隔离和管理员权限。
-- 三类 RAG：岗位知识库、题库、候选人画像。
-- RAG 文档管理、metadata filter、hybrid search、rerank 和 evaluation。
-- Interview Orchestrator Agent、Agent State、Tool Calls、Decision、fallback 和日志。
-- LangGraph 旁路工作流、checkpoint、interrupt / resume 和 runtime governance。
-- Vue3 + Vite + TypeScript + Pinia 的前后端分离开发。
-- Docker、Nginx、Redis、Celery、PostgreSQL 的生产化预备能力。
+## 文档入口
+
+- 当前路线：`docs/roadmap/current-state.md`
+- 开发基线：`docs/project-baseline.md`
+- 当前 spec：`docs/specs/active/`
+- 当前 plan：`docs/plans/active/`
+- 审计记录：`docs/audits/project-closure-audit-v1.md`
+
+## 当前阶段边界
+
+本阶段不引入 Redis、Celery、PostgreSQL，不做 Docker/Nginx/VPS/HTTPS 上线，不重构 RAG、Agent、LangGraph 或 Vue3 主链路。下一阶段再讨论后端生产化底座。
