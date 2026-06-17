@@ -9,7 +9,7 @@
 当前 active plan：
 
 ```text
-暂无。Project Closure Audit V1 spec 已建立，下一步需要先编写对应 implementation plan。
+docs/plans/active/project-closure-audit-v1.md
 ```
 
 当前 active spec：
@@ -21,7 +21,7 @@ docs/specs/active/project-closure-audit-v1-design.md
 当前阶段状态：
 
 ```text
-Project Closure Audit V1 正在准备执行，下一步应编写 docs/plans/active/project-closure-audit-v1.md，再按 plan 执行收口审计。
+Project Closure Audit V1 正在准备执行，active spec 和 active plan 已建立，下一步应按 plan 执行收口审计。
 ```
 
 最近完成并归档的 plan：

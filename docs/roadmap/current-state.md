@@ -19,7 +19,7 @@ docs/specs/active/project-closure-audit-v1-design.md
 当前 active plan：
 
 ```text
-暂无。下一步需要编写 docs/plans/active/project-closure-audit-v1.md。
+docs/plans/active/project-closure-audit-v1.md
 ```
 
 当前实现进度：
