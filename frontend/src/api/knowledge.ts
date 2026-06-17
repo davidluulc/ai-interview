@@ -77,11 +77,22 @@ export interface RagIngestionPreview {
 }
 
 export interface RagIngestionTask {
+  id?: number;
   taskId: string;
   taskType?: string;
   status: string;
+  title?: string;
+  originalFilename?: string;
+  knowledgeBase?: KnowledgeBaseType | string;
   progress?: number;
   message?: string;
+  retryCount?: number;
+  maxRetries?: number;
+  canRetry?: boolean;
+  hasTextSnapshot?: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  completedAt?: string | null;
   result?: {
     document?: RagDocument;
     preview?: RagIngestionPreview;
@@ -89,6 +100,10 @@ export interface RagIngestionTask {
   error?: string;
   document?: RagDocument;
   preview?: RagIngestionPreview;
+}
+
+export interface RagIngestionTaskListResponse {
+  items: RagIngestionTask[];
 }
 
 export function fetchRagDocuments(knowledgeBase = ""): Promise<RagDocumentListResponse> {
@@ -139,4 +154,14 @@ export function uploadKnowledgeFile(formData: FormData): Promise<RagIngestionTas
 
 export function getIngestionTask(taskId: string): Promise<RagIngestionTask> {
   return apiRequest<RagIngestionTask>(`/api/rag/documents/ingestion-tasks/${encodeURIComponent(taskId)}`);
+}
+
+export function getIngestionTasks(): Promise<RagIngestionTaskListResponse> {
+  return apiRequest<RagIngestionTaskListResponse>("/api/rag/documents/ingestion-tasks");
+}
+
+export function retryIngestionTask(taskId: string): Promise<RagIngestionTask> {
+  return apiRequest<RagIngestionTask>(`/api/rag/documents/ingestion-tasks/${encodeURIComponent(taskId)}/retry`, {
+    method: "POST"
+  });
 }

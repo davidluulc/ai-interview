@@ -8,6 +8,7 @@ vi.mock("@/api/admin", () => ({
   fetchAdminUsers: vi.fn(),
   fetchAdminRagDocuments: vi.fn(),
   fetchAdminRagQuality: vi.fn(),
+  fetchAdminRagIngestionTasks: vi.fn(),
   fetchAdminAgentLogs: vi.fn(),
   fetchAdminConfig: vi.fn(),
   fetchAdminAiDebugRecent: vi.fn(),
@@ -21,6 +22,7 @@ describe("admin store", () => {
     vi.mocked(adminApi.fetchAdminUsers).mockReset();
     vi.mocked(adminApi.fetchAdminRagDocuments).mockReset();
     vi.mocked(adminApi.fetchAdminRagQuality).mockReset();
+    vi.mocked(adminApi.fetchAdminRagIngestionTasks).mockReset();
     vi.mocked(adminApi.fetchAdminAgentLogs).mockReset();
     vi.mocked(adminApi.fetchAdminConfig).mockReset();
     vi.mocked(adminApi.fetchAdminAiDebugRecent).mockReset();
@@ -64,6 +66,29 @@ describe("admin store", () => {
       },
       items: []
     });
+    vi.mocked(adminApi.fetchAdminRagIngestionTasks).mockResolvedValue({
+      summary: {
+        totalCount: 2,
+        runningCount: 0,
+        succeededCount: 1,
+        failedCount: 1,
+        retryableCount: 1
+      },
+      items: [
+        {
+          taskId: "rag_ingestion-failed",
+          userEmail: "demo@ai-interview.com",
+          title: "失败导入",
+          originalFilename: "failed.md",
+          knowledgeBase: "role_knowledge",
+          status: "failed",
+          error: "document create failed",
+          retryCount: 0,
+          maxRetries: 2,
+          canRetry: true
+        }
+      ]
+    });
     vi.mocked(adminApi.fetchAdminAgentLogs).mockResolvedValue({ items: [] });
     vi.mocked(adminApi.fetchAdminConfig).mockResolvedValue({
       modelName: "qwen-plus",
@@ -104,6 +129,8 @@ describe("admin store", () => {
     expect(store.summary?.userCount).toBe(2);
     expect(store.users).toHaveLength(2);
     expect(store.ragQuality?.summary.emptyRecallCount).toBe(1);
+    expect(store.ragIngestionTasks?.summary.failedCount).toBe(1);
+    expect(store.ragIngestionTasks?.items[0].canRetry).toBe(true);
     expect(store.config?.modelName).toBe("qwen-plus");
     expect(store.aiDebugRecent).toHaveLength(1);
     expect(store.aiDebugRecent[0].nextActionLabel).toBe("降低难度");
@@ -224,6 +251,16 @@ describe("admin store", () => {
         emptyRecallCount: 0,
         weakRecallCount: 0,
         unusedInPromptCount: 0
+      },
+      items: []
+    });
+    vi.mocked(adminApi.fetchAdminRagIngestionTasks).mockResolvedValue({
+      summary: {
+        totalCount: 0,
+        runningCount: 0,
+        succeededCount: 0,
+        failedCount: 0,
+        retryableCount: 0
       },
       items: []
     });

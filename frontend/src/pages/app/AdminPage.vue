@@ -309,6 +309,56 @@
         </div>
       </section>
 
+      <section v-if="admin.ragIngestionTasks" class="section">
+        <div class="section-title">
+          <h2>RAG 摄取任务监控</h2>
+          <span>{{ admin.ragIngestionTasks.summary.totalCount }} 个任务</span>
+        </div>
+        <p class="section-help">
+          用于观察文档有没有成功进入知识库。若这里频繁失败，应先排查文件类型、文本解析、metadata 和入库逻辑。
+        </p>
+        <div class="quality-grid">
+          <article>
+            <span>处理中</span>
+            <strong>{{ admin.ragIngestionTasks.summary.runningCount }}</strong>
+            <small>正在解析或入库的任务</small>
+          </article>
+          <article>
+            <span>已完成</span>
+            <strong>{{ admin.ragIngestionTasks.summary.succeededCount }}</strong>
+            <small>已经生成 RAG 文档</small>
+          </article>
+          <article>
+            <span>失败任务</span>
+            <strong>{{ admin.ragIngestionTasks.summary.failedCount }}</strong>
+            <small>需要查看失败原因</small>
+          </article>
+          <article>
+            <span>可重试</span>
+            <strong>{{ admin.ragIngestionTasks.summary.retryableCount }}</strong>
+            <small>已有文本快照，可重新入库</small>
+          </article>
+        </div>
+        <div class="list">
+          <article v-for="task in admin.ragIngestionTasks.items" :key="task.taskId" class="log-item">
+            <div class="log-heading">
+              <strong>{{ task.title || task.originalFilename || task.taskId }}</strong>
+              <span class="warning-pill">{{ ingestionStatusLabel(task.status) }}</span>
+            </div>
+            <p>
+              {{ retrieverLabel(task.knowledgeBase) }} · 文件 {{ task.originalFilename || "未知文件" }} · 用户
+              {{ task.userEmail || "未知用户" }}
+            </p>
+            <p>
+              重试 {{ task.retryCount || 0 }}/{{ task.maxRetries || 0 }} ·
+              {{ task.canRetry ? "可重试" : "不可重试" }}
+            </p>
+            <p v-if="task.error" class="risk-line">{{ task.error }}</p>
+          </article>
+          <p v-if="admin.ragIngestionTasks.items.length === 0" class="muted">暂无 RAG 摄取任务。</p>
+        </div>
+      </section>
+
       <section class="section">
         <div class="section-title">
           <h2>RAG 文档概览</h2>
@@ -676,6 +726,17 @@ function documentVisibilityLabel(value = ""): string {
     private: "仅自己可用"
   };
   return map[value] || value || "未知可见性";
+}
+
+function ingestionStatusLabel(value = ""): string {
+  const map: Record<string, string> = {
+    pending: "等待中",
+    running: "处理中",
+    succeeded: "已完成",
+    success: "已完成",
+    failed: "失败"
+  };
+  return map[value] || value || "未知状态";
 }
 
 function documentRiskHint(document: AdminRagDocument): string {

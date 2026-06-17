@@ -5,7 +5,9 @@ import {
   deleteRagDocument,
   fetchRagDocumentDetail,
   fetchRagDocuments,
+  getIngestionTasks,
   getIngestionTask,
+  retryIngestionTask,
   updateRagDocumentStatus,
   uploadKnowledgeFile
 } from "./knowledge";
@@ -118,6 +120,20 @@ describe("knowledge api", () => {
     await getIngestionTask("rag_ingestion-1");
 
     expect(fetchMock).toHaveBeenCalledWith("/api/rag/documents/ingestion-tasks/rag_ingestion-1", expect.any(Object));
+  });
+
+  it("loads and retries rag ingestion tasks", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.resolve(jsonResponse({ items: [] })));
+
+    await getIngestionTasks();
+    await retryIngestionTask("rag_ingestion-1");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/rag/documents/ingestion-tasks", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/rag/documents/ingestion-tasks/rag_ingestion-1/retry",
+      expect.objectContaining({ method: "POST" })
+    );
   });
 });
 

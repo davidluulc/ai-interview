@@ -67,6 +67,22 @@ const knowledgeStore = {
     preview: { textLength: 128, chunkCount: 2, warnings: [] },
     document: { id: 2, title: "文件导入资料" }
   },
+  ingestionTasks: [
+    {
+      taskId: "rag_ingestion-failed",
+      title: "失败资料",
+      originalFilename: "failed.md",
+      knowledgeBase: "role_knowledge",
+      status: "failed",
+      error: "document create failed",
+      retryCount: 0,
+      maxRetries: 2,
+      canRetry: true,
+      preview: { textLength: 80, chunkCount: 1, warnings: [] }
+    }
+  ],
+  ingestionTasksLoading: false,
+  retryingTaskId: "",
   knowledgeBaseFilter: "all",
   statusFilter: "all",
   visibilityFilter: "all",
@@ -76,6 +92,8 @@ const knowledgeStore = {
   loadDocuments: vi.fn(),
   createDocumentFromForm: vi.fn(),
   uploadFile: vi.fn(),
+  loadIngestionTasks: vi.fn(),
+  retryTask: vi.fn(),
   loadDocumentDetail: vi.fn(),
   updateStatus: vi.fn(),
   removeDocument: vi.fn(),
@@ -92,6 +110,8 @@ describe("knowledge page", () => {
     knowledgeStore.loadDocuments.mockReset();
     knowledgeStore.createDocumentFromForm.mockReset();
     knowledgeStore.uploadFile.mockReset();
+    knowledgeStore.loadIngestionTasks.mockReset();
+    knowledgeStore.retryTask.mockReset();
     knowledgeStore.loadDocumentDetail.mockReset();
     knowledgeStore.updateStatus.mockReset();
     knowledgeStore.removeDocument.mockReset();
@@ -181,6 +201,20 @@ describe("knowledge page", () => {
     });
     expect(wrapper.text()).toContain("导入状态：success");
     expect(wrapper.text()).toContain("文本长度 128");
+  });
+
+  it("renders ingestion task history and retries failed tasks", async () => {
+    const wrapper = mountPage();
+
+    expect(knowledgeStore.loadIngestionTasks).toHaveBeenCalled();
+    expect(wrapper.text()).toContain("最近导入任务");
+    expect(wrapper.text()).toContain("失败资料");
+    expect(wrapper.text()).toContain("document create failed");
+    expect(wrapper.text()).toContain("重试 0/2");
+
+    await wrapper.get('[data-testid="retry-ingestion-task-rag_ingestion-failed"]').trigger("click");
+
+    expect(knowledgeStore.retryTask).toHaveBeenCalledWith("rag_ingestion-failed");
   });
 
   it("opens detail, updates status and deletes with confirmation", async () => {

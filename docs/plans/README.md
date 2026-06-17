@@ -9,25 +9,25 @@
 当前 active plan：
 
 ```text
-docs/plans/active/production-rag-v3-ingestion-quality.md
+暂无。
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/production-rag-v3-ingestion-quality-design.md
+暂无。
 ```
 
 当前阶段状态：
 
 ```text
-Production RAG V3 已进入 active plan：摄取任务持久化、失败重试与质量监控增强。本阶段优先按 TDD 开发后端任务模型、任务接口、管理员监控接口和 Vue3 可读展示。
+Production RAG V3 已完成并归档。当前没有 active plan，下一阶段需要先讨论方向，再写新的 active plan。
 ```
 
 最近完成并归档的 plan：
 
 ```text
-docs/plans/completed/langgraph-agent-workflow-v6.md
+docs/plans/completed/production-rag-v3-ingestion-quality.md
 ```
 
 阶段主题：

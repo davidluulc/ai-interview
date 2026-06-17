@@ -66,6 +66,29 @@ const adminStore: any = {
       }
     ]
   },
+  ragIngestionTasks: {
+    summary: {
+      totalCount: 2,
+      runningCount: 0,
+      succeededCount: 1,
+      failedCount: 1,
+      retryableCount: 1
+    },
+    items: [
+      {
+        taskId: "rag_ingestion-failed",
+        userEmail: "demo@ai-interview.com",
+        title: "失败导入资料",
+        originalFilename: "failed.md",
+        knowledgeBase: "role_knowledge",
+        status: "failed",
+        error: "document create failed",
+        retryCount: 0,
+        maxRetries: 2,
+        canRetry: true
+      }
+    ]
+  },
   agentLogs: [
     {
       id: 1,
@@ -256,6 +279,9 @@ describe("admin page", () => {
     expect(wrapper.text()).toContain("账号管理");
     expect(wrapper.text()).toContain("admin@ai-interview.com");
     expect(wrapper.text()).toContain("RAG 质量诊断");
+    expect(wrapper.text()).toContain("RAG 摄取任务监控");
+    expect(wrapper.text()).toContain("失败导入资料");
+    expect(wrapper.text()).toContain("document create failed");
     expect(wrapper.text()).toContain("补充岗位知识库或题库内容");
     expect(wrapper.text()).toContain("Agent 决策日志");
     expect(wrapper.text()).toContain("连续弱回答");

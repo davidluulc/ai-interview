@@ -302,6 +302,61 @@ def ensure_sqlite_compatibility_schema() -> None:
                 )
             connection.execute(text("CREATE INDEX IF NOT EXISTS ix_rag_chunks_chunk_hash ON rag_chunks (chunk_hash)"))
 
+        if "rag_ingestion_tasks" not in table_names:
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE rag_ingestion_tasks (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        task_id VARCHAR(120) NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        document_id INTEGER,
+                        knowledge_base VARCHAR(50) NOT NULL DEFAULT '',
+                        title VARCHAR(200) NOT NULL DEFAULT '',
+                        original_filename VARCHAR(255) NOT NULL DEFAULT '',
+                        source_extension VARCHAR(20) NOT NULL DEFAULT '',
+                        status VARCHAR(40) NOT NULL DEFAULT 'pending',
+                        progress INTEGER NOT NULL DEFAULT 0,
+                        message VARCHAR(255) NOT NULL DEFAULT '',
+                        error_message TEXT NOT NULL DEFAULT '',
+                        retry_count INTEGER NOT NULL DEFAULT 0,
+                        max_retries INTEGER NOT NULL DEFAULT 2,
+                        can_retry INTEGER NOT NULL DEFAULT 0,
+                        preview_json TEXT NOT NULL DEFAULT '{}',
+                        result_json TEXT NOT NULL DEFAULT '{}',
+                        input_json TEXT NOT NULL DEFAULT '{}',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        completed_at DATETIME,
+                        FOREIGN KEY(user_id) REFERENCES users (id),
+                        FOREIGN KEY(document_id) REFERENCES rag_documents (id)
+                    )
+                    """
+                )
+            )
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_rag_ingestion_tasks_id ON rag_ingestion_tasks (id)"))
+            connection.execute(
+                text("CREATE UNIQUE INDEX IF NOT EXISTS ix_rag_ingestion_tasks_task_id ON rag_ingestion_tasks (task_id)")
+            )
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_rag_ingestion_tasks_user_id ON rag_ingestion_tasks (user_id)")
+            )
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_rag_ingestion_tasks_document_id ON rag_ingestion_tasks (document_id)")
+            )
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_rag_ingestion_tasks_status ON rag_ingestion_tasks (status)")
+            )
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_rag_ingestion_tasks_can_retry ON rag_ingestion_tasks (can_retry)")
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_rag_ingestion_tasks_knowledge_base "
+                    "ON rag_ingestion_tasks (knowledge_base)"
+                )
+            )
+
         if "training_tasks" not in table_names:
             connection.execute(
                 text(

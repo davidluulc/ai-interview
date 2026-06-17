@@ -7,6 +7,7 @@ export const useAdminStore = defineStore("admin", () => {
   const users = ref<adminApi.AdminUser[]>([]);
   const ragDocuments = ref<adminApi.AdminRagDocument[]>([]);
   const ragQuality = ref<adminApi.AdminRagQuality | null>(null);
+  const ragIngestionTasks = ref<adminApi.AdminRagIngestionTasks | null>(null);
   const agentLogs = ref<adminApi.AdminAgentLog[]>([]);
   const aiDebugRecent = ref<adminApi.AdminAiDebugRecentItem[]>([]);
   const selectedAiDebugTraceId = ref<number | null>(null);
@@ -35,12 +36,22 @@ export const useAdminStore = defineStore("admin", () => {
     loading.value = true;
     error.value = "";
     try {
-      const [summaryResult, usersResult, documentsResult, qualityResult, logsResult, aiDebugResult, configResult] =
+      const [
+        summaryResult,
+        usersResult,
+        documentsResult,
+        qualityResult,
+        ingestionTasksResult,
+        logsResult,
+        aiDebugResult,
+        configResult
+      ] =
         await Promise.all([
           adminApi.fetchAdminSummary(),
           adminApi.fetchAdminUsers(),
           adminApi.fetchAdminRagDocuments(),
           adminApi.fetchAdminRagQuality(),
+          adminApi.fetchAdminRagIngestionTasks(),
           adminApi.fetchAdminAgentLogs(),
           adminApi.fetchAdminAiDebugRecent(),
           adminApi.fetchAdminConfig()
@@ -50,6 +61,7 @@ export const useAdminStore = defineStore("admin", () => {
       users.value = usersResult.items;
       ragDocuments.value = documentsResult.items;
       ragQuality.value = qualityResult;
+      ragIngestionTasks.value = ingestionTasksResult;
       agentLogs.value = logsResult.items;
       aiDebugRecent.value = aiDebugResult.items;
       config.value = configResult;
@@ -81,6 +93,7 @@ export const useAdminStore = defineStore("admin", () => {
     users,
     ragDocuments,
     ragQuality,
+    ragIngestionTasks,
     agentLogs,
     aiDebugRecent,
     selectedAiDebugTraceId,

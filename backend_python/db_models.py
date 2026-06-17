@@ -49,6 +49,10 @@ class User(Base):
     agent_decision_logs: Mapped[list["AgentDecisionLog"]] = relationship(back_populates="user")
     rag_documents: Mapped[list["RagDocument"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     rag_chunks: Mapped[list["RagChunk"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    rag_ingestion_tasks: Mapped[list["RagIngestionTask"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
     training_tasks: Mapped[list["TrainingTask"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
@@ -182,6 +186,33 @@ class RagChunk(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     user: Mapped[User] = relationship(back_populates="rag_chunks")
     document: Mapped[RagDocument] = relationship(back_populates="chunks")
+
+
+class RagIngestionTask(Base):
+    __tablename__ = "rag_ingestion_tasks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    task_id: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("rag_documents.id"), nullable=True, index=True)
+    knowledge_base: Mapped[str] = mapped_column(String(50), default="", index=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    original_filename: Mapped[str] = mapped_column(String(255), default="")
+    source_extension: Mapped[str] = mapped_column(String(20), default="")
+    status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    message: Mapped[str] = mapped_column(String(255), default="")
+    error_message: Mapped[str] = mapped_column(Text, default="")
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    max_retries: Mapped[int] = mapped_column(Integer, default=2)
+    can_retry: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    preview_json: Mapped[str] = mapped_column(Text, default="{}")
+    result_json: Mapped[str] = mapped_column(Text, default="{}")
+    input_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    user: Mapped[User] = relationship(back_populates="rag_ingestion_tasks")
 
 
 class TrainingTask(Base):

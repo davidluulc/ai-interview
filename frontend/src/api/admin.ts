@@ -63,6 +63,33 @@ export interface AdminRagQuality {
   items: AdminRagQualityItem[];
 }
 
+export interface AdminRagIngestionTaskSummary {
+  totalCount: number;
+  runningCount: number;
+  succeededCount: number;
+  failedCount: number;
+  retryableCount: number;
+}
+
+export interface AdminRagIngestionTask {
+  taskId: string;
+  userEmail?: string;
+  title: string;
+  originalFilename: string;
+  knowledgeBase: string;
+  status: string;
+  error?: string;
+  retryCount?: number;
+  maxRetries?: number;
+  canRetry?: boolean;
+  updatedAt?: string | null;
+}
+
+export interface AdminRagIngestionTasks {
+  summary: AdminRagIngestionTaskSummary;
+  items: AdminRagIngestionTask[];
+}
+
 export interface AdminAgentLog {
   id?: number;
   nextAction?: string;
@@ -212,6 +239,10 @@ export function fetchAdminRagDocuments(): Promise<AdminListResponse<AdminRagDocu
 
 export function fetchAdminRagQuality(): Promise<AdminRagQuality> {
   return apiRequest<AdminRagQuality>("/api/admin/rag/quality");
+}
+
+export function fetchAdminRagIngestionTasks(): Promise<AdminRagIngestionTasks> {
+  return apiRequest<AdminRagIngestionTasks>("/api/admin/rag/ingestion-tasks");
 }
 
 export function fetchAdminAgentLogs(): Promise<AdminListResponse<AdminAgentLog>> {

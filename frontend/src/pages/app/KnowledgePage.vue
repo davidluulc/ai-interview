@@ -136,6 +136,41 @@
           </span>
           <span v-if="ingestionDocument">生成文档：{{ ingestionDocument.title || `#${ingestionDocument.id}` }}</span>
         </div>
+        <div class="ingestion-history">
+          <div class="section-title compact">
+            <div>
+              <p class="section-kicker">Ingestion Tasks</p>
+              <h3>最近导入任务</h3>
+            </div>
+            <button type="button" class="secondary" @click="knowledge.loadIngestionTasks()">刷新</button>
+          </div>
+          <div v-if="knowledge.ingestionTasks.length" class="ingestion-task-list">
+            <article v-for="task in knowledge.ingestionTasks" :key="task.taskId" class="ingestion-task-row">
+              <div>
+                <strong>{{ task.title || task.originalFilename || task.taskId }}</strong>
+                <span>
+                  {{ knowledgeBaseLabel(task.knowledgeBase || "") }} · {{ ingestionStatusLabel(task.status) }} · 重试
+                  {{ task.retryCount || 0 }}/{{ task.maxRetries || 0 }}
+                </span>
+                <small v-if="task.error">{{ task.error }}</small>
+                <small v-if="task.preview">
+                  文本长度 {{ task.preview.textLength }}，chunk 数 {{ task.preview.chunkCount }}
+                </small>
+              </div>
+              <button
+                v-if="task.canRetry"
+                :data-testid="`retry-ingestion-task-${task.taskId}`"
+                type="button"
+                class="secondary"
+                :disabled="knowledge.retryingTaskId === task.taskId"
+                @click="knowledge.retryTask(task.taskId)"
+              >
+                {{ knowledge.retryingTaskId === task.taskId ? "重试中..." : "重试" }}
+              </button>
+            </article>
+          </div>
+          <p v-else class="empty">还没有文件导入任务。</p>
+        </div>
       </section>
 
       <section class="workspace-grid">
@@ -319,6 +354,7 @@ const ingestionDocument = computed<RagDocument | null>(
 
 onMounted(() => {
   void knowledge.loadDocuments();
+  void knowledge.loadIngestionTasks();
 });
 
 async function submitDocument(): Promise<void> {
@@ -414,6 +450,17 @@ function statusLabel(value: string): string {
     enabled: "启用中",
     disabled: "已禁用",
     archived: "已归档"
+  };
+  return labels[value] || value || "未知状态";
+}
+
+function ingestionStatusLabel(value: string): string {
+  const labels: Record<string, string> = {
+    pending: "等待中",
+    running: "处理中",
+    succeeded: "已完成",
+    success: "已完成",
+    failed: "失败"
   };
   return labels[value] || value || "未知状态";
 }
@@ -730,7 +777,8 @@ pre {
   border-color: #b9d7ff;
 }
 
-.ingestion-result {
+.ingestion-result,
+.ingestion-task-row {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -738,6 +786,34 @@ pre {
   border-radius: var(--radius-sm);
   background: var(--color-surface-muted);
   padding: 12px;
+}
+
+.ingestion-history,
+.ingestion-task-list,
+.ingestion-task-row > div {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.section-title.compact {
+  align-items: center;
+}
+
+button.secondary {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.ingestion-task-row {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ingestion-task-row span,
+.ingestion-task-row small {
+  color: var(--color-text-muted);
+  line-height: 1.6;
 }
 
 @media (max-width: 960px) {

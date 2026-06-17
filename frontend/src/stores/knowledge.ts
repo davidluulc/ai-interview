@@ -55,6 +55,9 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
   const uploadError = ref("");
   const metadataError = ref("");
   const ingestionTask = ref<knowledgeApi.RagIngestionTask | null>(null);
+  const ingestionTasks = ref<knowledgeApi.RagIngestionTask[]>([]);
+  const ingestionTasksLoading = ref(false);
+  const retryingTaskId = ref("");
   const knowledgeBaseFilter = ref<KnowledgeBaseFilter>("all");
   const statusFilter = ref<DocumentStatusFilter>("all");
   const visibilityFilter = ref<DocumentVisibilityFilter>("all");
@@ -158,6 +161,7 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
 
       const result = await knowledgeApi.uploadKnowledgeFile(formData);
       ingestionTask.value = result;
+      await loadIngestionTasks();
       const document = result.document || result.result?.document;
       if (document) {
         documents.value = [document, ...documents.value.filter((item) => item.id !== document.id)];
@@ -168,6 +172,32 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
       return false;
     } finally {
       uploading.value = false;
+    }
+  }
+
+  async function loadIngestionTasks(): Promise<void> {
+    ingestionTasksLoading.value = true;
+    try {
+      const result = await knowledgeApi.getIngestionTasks();
+      ingestionTasks.value = result.items;
+    } catch (err) {
+      uploadError.value = err instanceof Error ? err.message : "导入任务加载失败";
+      ingestionTasks.value = [];
+    } finally {
+      ingestionTasksLoading.value = false;
+    }
+  }
+
+  async function retryTask(taskId: string): Promise<void> {
+    retryingTaskId.value = taskId;
+    uploadError.value = "";
+    try {
+      ingestionTask.value = await knowledgeApi.retryIngestionTask(taskId);
+      await Promise.all([loadIngestionTasks(), loadDocuments()]);
+    } catch (err) {
+      uploadError.value = err instanceof Error ? err.message : "摄取任务重试失败";
+    } finally {
+      retryingTaskId.value = "";
     }
   }
 
@@ -230,6 +260,9 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
     uploadError,
     metadataError,
     ingestionTask,
+    ingestionTasks,
+    ingestionTasksLoading,
+    retryingTaskId,
     knowledgeBaseFilter,
     statusFilter,
     visibilityFilter,
@@ -240,6 +273,8 @@ export const useKnowledgeStore = defineStore("knowledge", () => {
     loadDocuments,
     createDocumentFromForm,
     uploadFile,
+    loadIngestionTasks,
+    retryTask,
     loadDocumentDetail,
     updateStatus,
     removeDocument,

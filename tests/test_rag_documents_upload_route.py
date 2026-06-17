@@ -1,7 +1,11 @@
+import json
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
+from backend_python.database import SessionLocal
+from backend_python.db_models import RagIngestionTask
 from backend_python.main import app
 
 
@@ -66,8 +70,16 @@ def test_upload_text_document_creates_rag_document(monkeypatch) -> None:
         headers=auth_headers(tokens),
     )
     assert task_response.status_code == 200
-    assert task_response.json()["status"] == "success"
+    assert task_response.json()["status"] == "succeeded"
     assert task_response.json()["result"]["document"]["id"] == body["document"]["id"]
+
+    with SessionLocal() as db:
+        persisted_task = db.scalar(select(RagIngestionTask).where(RagIngestionTask.task_id == body["taskId"]))
+        assert persisted_task is not None
+        assert persisted_task.status == "succeeded"
+        assert persisted_task.document_id == body["document"]["id"]
+        input_payload = json.loads(persisted_task.input_json)
+        assert input_payload["metadata"]["positionTag"] == "python_backend"
 
 
 def test_upload_markdown_document_preserves_heading_text(monkeypatch) -> None:
@@ -108,6 +120,20 @@ def test_upload_rejects_unsupported_file_type() -> None:
     assert response.status_code == 400
     assert "Unsupported file type" in response.json()["error"]["message"]
 
+    tasks_response = client.get("/api/rag/documents/ingestion-tasks", headers=auth_headers(tokens))
+    assert tasks_response.status_code == 200
+    tasks = tasks_response.json()["items"]
+    assert tasks
+    assert tasks[0]["status"] == "failed"
+    assert tasks[0]["canRetry"] is False
+    assert "Unsupported file type" in tasks[0]["error"]
+
+    retry_response = client.post(
+        f"/api/rag/documents/ingestion-tasks/{tasks[0]['taskId']}/retry",
+        headers=auth_headers(tokens),
+    )
+    assert retry_response.status_code == 409
+
 
 def test_upload_rejects_invalid_metadata_json() -> None:
     client = TestClient(app)
@@ -127,3 +153,35 @@ def test_upload_rejects_invalid_metadata_json() -> None:
 
     assert response.status_code == 400
     assert "metadata must be a JSON object" in response.json()["error"]["message"]
+
+    tasks_response = client.get("/api/rag/documents/ingestion-tasks", headers=auth_headers(tokens))
+    assert tasks_response.status_code == 200
+    tasks = tasks_response.json()["items"]
+    assert tasks
+    assert tasks[0]["status"] == "failed"
+    assert "metadata must be a JSON object" in tasks[0]["error"]
+
+
+def test_user_cannot_read_other_users_ingestion_task(monkeypatch) -> None:
+    async def fake_embed_text(text: str) -> list[float]:
+        return [0.7, 0.8, 0.9]
+
+    monkeypatch.setattr("backend_python.rag_store.embed_text", fake_embed_text)
+    client = TestClient(app)
+    owner_tokens = register_and_login(client, "rag_upload_owner")
+    other_tokens = register_and_login(client, "rag_upload_other")
+
+    response = client.post(
+        "/api/rag/documents/upload",
+        headers=auth_headers(owner_tokens),
+        data={"title": "Owner doc", "knowledgeBase": "role_knowledge", "visibility": "private"},
+        files={"file": ("owner.txt", b"Only the owner should see this ingestion task.", "text/plain")},
+    )
+
+    assert response.status_code == 200
+    task_id = response.json()["taskId"]
+    other_response = client.get(
+        f"/api/rag/documents/ingestion-tasks/{task_id}",
+        headers=auth_headers(other_tokens),
+    )
+    assert other_response.status_code == 404

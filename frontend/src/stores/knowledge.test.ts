@@ -9,7 +9,9 @@ vi.mock("@/api/knowledge", () => ({
   deleteRagDocument: vi.fn(),
   fetchRagDocumentDetail: vi.fn(),
   fetchRagDocuments: vi.fn(),
+  getIngestionTasks: vi.fn(),
   getIngestionTask: vi.fn(),
+  retryIngestionTask: vi.fn(),
   updateRagDocumentStatus: vi.fn(),
   uploadKnowledgeFile: vi.fn()
 }));
@@ -22,7 +24,9 @@ describe("knowledge store", () => {
     vi.mocked(knowledgeApi.deleteRagDocument).mockReset();
     vi.mocked(knowledgeApi.fetchRagDocumentDetail).mockReset();
     vi.mocked(knowledgeApi.fetchRagDocuments).mockReset();
+    vi.mocked(knowledgeApi.getIngestionTasks).mockReset();
     vi.mocked(knowledgeApi.getIngestionTask).mockReset();
+    vi.mocked(knowledgeApi.retryIngestionTask).mockReset();
     vi.mocked(knowledgeApi.updateRagDocumentStatus).mockReset();
     vi.mocked(knowledgeApi.uploadKnowledgeFile).mockReset();
   });
@@ -132,6 +136,45 @@ describe("knowledge store", () => {
     expect(store.ingestionTask?.status).toBe("success");
     expect(store.documents.map((item) => item.title)).toEqual(["FastAPI 文件导入", "已有文档"]);
     expect(store.uploading).toBe(false);
+  });
+
+  it("loads ingestion task history and retries retryable tasks", async () => {
+    vi.mocked(knowledgeApi.getIngestionTasks).mockResolvedValue({
+      items: [
+        {
+          taskId: "rag_ingestion-failed",
+          status: "failed",
+          title: "失败文档",
+          originalFilename: "failed.md",
+          knowledgeBase: "role_knowledge",
+          error: "document create failed",
+          retryCount: 0,
+          maxRetries: 2,
+          canRetry: true
+        }
+      ]
+    });
+    vi.mocked(knowledgeApi.retryIngestionTask).mockResolvedValue({
+      taskId: "rag_ingestion-failed",
+      status: "succeeded",
+      document: documentFixture({ id: 20, title: "重试成功文档", sourceType: "upload_retry" }),
+      preview: { textLength: 80, chunkCount: 1, warnings: [] }
+    });
+    vi.mocked(knowledgeApi.fetchRagDocuments).mockResolvedValue({
+      items: [documentFixture({ id: 20, title: "重试成功文档", sourceType: "upload_retry" })]
+    });
+
+    const store = useKnowledgeStore();
+    await store.loadIngestionTasks();
+    expect(store.ingestionTasks).toHaveLength(1);
+    expect(store.ingestionTasks[0].canRetry).toBe(true);
+
+    await store.retryTask("rag_ingestion-failed");
+
+    expect(knowledgeApi.retryIngestionTask).toHaveBeenCalledWith("rag_ingestion-failed");
+    expect(store.ingestionTask?.status).toBe("succeeded");
+    expect(store.documents[0].title).toBe("重试成功文档");
+    expect(store.retryingTaskId).toBe("");
   });
 
   it("records upload errors and rejects invalid upload metadata", async () => {

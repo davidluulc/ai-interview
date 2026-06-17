@@ -10,9 +10,10 @@ from ..agent_logging import serialize_agent_decision_log
 from ..ai_debug import build_ai_debug_detail, build_ai_debug_recent_item
 from ..config import DASHSCOPE_EMBEDDING_MODEL, DASHSCOPE_RERANK_MODEL, QWEN_MODEL
 from ..database import DATABASE_URL, get_db
-from ..db_models import AgentDecisionLog, InterviewRecord, RagDocument, RagRetrievalLog, User
+from ..db_models import AgentDecisionLog, InterviewRecord, RagDocument, RagIngestionTask, RagRetrievalLog, User
 from ..langgraph_agent.checkpoint import summarize_checkpoint
 from ..langgraph_agent.checkpoint_persistence import get_latest_checkpoint_summary, list_checkpoint_summaries
+from ..rag_ingestion_tasks import serialize_ingestion_task
 from ..rag_logging import serialize_rag_log
 from ..rag_store import serialize_document
 
@@ -82,6 +83,31 @@ def build_rag_quality_payload(logs: list[RagRetrievalLog]) -> dict[str, Any]:
             }
         )
     return {"summary": summary, "items": low_quality_items}
+
+
+def build_ingestion_task_quality_payload(tasks: list[RagIngestionTask]) -> dict[str, Any]:
+    summary = {
+        "totalCount": len(tasks),
+        "runningCount": 0,
+        "succeededCount": 0,
+        "failedCount": 0,
+        "retryableCount": 0,
+    }
+    items: list[dict[str, Any]] = []
+    for task in tasks:
+        item = serialize_ingestion_task(task)
+        item["userEmail"] = task.user.email if task.user else ""
+        status_value = item.get("status")
+        if status_value == "running":
+            summary["runningCount"] += 1
+        elif status_value == "succeeded":
+            summary["succeededCount"] += 1
+        elif status_value == "failed":
+            summary["failedCount"] += 1
+        if item.get("canRetry"):
+            summary["retryableCount"] += 1
+        items.append(item)
+    return {"summary": summary, "items": items}
 
 
 def list_rag_logs_for_agent_log(db: Session, log: AgentDecisionLog) -> list[RagRetrievalLog]:
@@ -196,6 +222,20 @@ async def admin_rag_quality(
         .limit(bounded_limit(limit))
     ).all()
     return build_rag_quality_payload(list(logs))
+
+
+@router.get("/rag/ingestion-tasks")
+async def admin_rag_ingestion_tasks(
+    limit: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin_user),
+) -> dict[str, Any]:
+    tasks = db.scalars(
+        select(RagIngestionTask)
+        .order_by(RagIngestionTask.updated_at.desc(), RagIngestionTask.id.desc())
+        .limit(bounded_limit(limit))
+    ).all()
+    return build_ingestion_task_quality_payload(list(tasks))
 
 
 @router.get("/agent/logs")

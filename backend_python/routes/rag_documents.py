@@ -8,8 +8,19 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
 from ..database import get_db
-from ..db_models import RagChunk, RagDocument, User
+from ..db_models import RagChunk, RagDocument, RagIngestionTask, User
 from ..rag_ingestion import IngestionError, build_ingestion_preview, extract_text_from_upload
+from ..rag_ingestion_tasks import (
+    can_retry_ingestion_task,
+    create_ingestion_task,
+    fail_ingestion_task,
+    json_loads,
+    mark_ingestion_text_ready,
+    merge_ingestion_task_input,
+    serialize_ingestion_task,
+    succeed_ingestion_task,
+    update_ingestion_task,
+)
 from ..rag_store import (
     VALID_KNOWLEDGE_BASES,
     create_rag_document_with_embeddings,
@@ -18,7 +29,6 @@ from ..rag_store import (
     serialize_chunk,
     serialize_document,
 )
-from ..task_status import create_task_status, fail_task_status, get_task_status, succeed_task_status, update_task_status
 
 router = APIRouter(prefix="/api/rag/documents", tags=["rag documents"])
 
@@ -111,50 +121,118 @@ async def upload_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
-    task = create_task_status(task_type="rag_ingestion", message="RAG document ingestion task created.")
-    task_id = task["taskId"]
+    knowledge_base = validate_knowledge_base(knowledgeBase)
+    task = create_ingestion_task(
+        db,
+        user_id=current_user.id,
+        title=title,
+        knowledge_base=knowledge_base,
+        original_filename=file.filename or title,
+        visibility=normalize_document_visibility(visibility),
+        metadata={},
+    )
     try:
-        update_task_status(task_id, status="running", progress=20, message="Parsing uploaded file.")
-        content = await file.read()
-        text = await extract_text_from_upload(filename=file.filename or title, content=content)
-        preview = build_ingestion_preview(text, title=title)
-
-        update_task_status(task_id, status="running", progress=60, message="Creating RAG document.")
         parsed_metadata = json.loads(metadata or "{}")
         if not isinstance(parsed_metadata, dict):
             raise IngestionError("metadata must be a JSON object.")
+        merge_ingestion_task_input(db, task, {"metadata": parsed_metadata})
+
+        update_ingestion_task(db, task, status="running", progress=20, message="Parsing uploaded file.")
+        content = await file.read()
+        text = await extract_text_from_upload(filename=file.filename or title, content=content)
+        preview = build_ingestion_preview(text, title=title)
+        mark_ingestion_text_ready(db, task, text_snapshot=text, preview=preview)
 
         document = await create_rag_document_with_embeddings(
             db,
             user_id=current_user.id,
             title=title,
-            knowledge_base=validate_knowledge_base(knowledgeBase),
+            knowledge_base=knowledge_base,
             source_type="upload",
             content=text,
             metadata={
                 **parsed_metadata,
                 "originalFilename": file.filename or "",
-                "ingestionTaskId": task_id,
+                "ingestionTaskId": task.task_id,
             },
             visibility=normalize_document_visibility(visibility),
         )
         result = {"document": serialize_document(document), "preview": preview}
-        succeed_task_status(task_id, result=result, message="RAG document ingestion finished.")
-        return {"taskId": task_id, "status": "success", **result}
+        succeed_ingestion_task(db, task, document_id=document.id, result=result)
+        return {"taskId": task.task_id, "status": "success", **result}
     except (IngestionError, json.JSONDecodeError) as exc:
-        fail_task_status(task_id, error=str(exc), message="RAG document ingestion failed.")
+        fail_ingestion_task(db, task, error_message=str(exc))
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/ingestion-tasks")
+async def list_ingestion_tasks(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, list[dict[str, Any]]]:
+    tasks = db.scalars(
+        select(RagIngestionTask)
+        .where(RagIngestionTask.user_id == current_user.id)
+        .order_by(RagIngestionTask.updated_at.desc(), RagIngestionTask.id.desc())
+        .limit(30)
+    ).all()
+    return {"items": [serialize_ingestion_task(task) for task in tasks]}
 
 
 @router.get("/ingestion-tasks/{task_id}")
 async def get_ingestion_task(
     task_id: str,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> dict[str, Any]:
-    task = get_task_status(task_id)
-    if not task or task.get("taskType") != "rag_ingestion":
+    task = db.scalar(
+        select(RagIngestionTask).where(
+            RagIngestionTask.task_id == task_id,
+            RagIngestionTask.user_id == current_user.id,
+        )
+    )
+    if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RAG ingestion task not found")
-    return task
+    return serialize_ingestion_task(task)
+
+
+@router.post("/ingestion-tasks/{task_id}/retry")
+async def retry_ingestion_task(
+    task_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    task = db.scalar(
+        select(RagIngestionTask).where(
+            RagIngestionTask.task_id == task_id,
+            RagIngestionTask.user_id == current_user.id,
+        )
+    )
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RAG ingestion task not found")
+    if not can_retry_ingestion_task(task):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This ingestion task cannot be retried. Upload the file again.",
+        )
+
+    payload = json_loads(task.input_json)
+    task.retry_count += 1
+    update_ingestion_task(db, task, status="running", progress=60, message="Retrying RAG document ingestion.")
+    preview = json_loads(task.preview_json)
+    document = await create_rag_document_with_embeddings(
+        db,
+        user_id=current_user.id,
+        title=payload.get("title") or task.title,
+        knowledge_base=validate_knowledge_base(payload.get("knowledgeBase") or task.knowledge_base),
+        source_type="upload_retry",
+        content=payload.get("textSnapshot") or "",
+        metadata={**(payload.get("metadata") or {}), "retryOfIngestionTaskId": task.task_id},
+        visibility=normalize_document_visibility(payload.get("visibility") or "private"),
+    )
+    result = {"document": serialize_document(document), "preview": preview}
+    succeed_ingestion_task(db, task, document_id=document.id, result=result)
+    return serialize_ingestion_task(task)
 
 
 @router.get("/{document_id}")
