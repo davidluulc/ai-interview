@@ -669,7 +669,7 @@ git commit -m "docs: mark postgresql compatibility complete"
 - Modify: `docker-compose.yml` only if tests expose a mismatch.
 - Modify: `deploy/nginx/ai-interview.conf` only if tests expose a mismatch.
 
-- [ ] **Step 1: Write deployment config tests**
+- [x] **Step 1: Write deployment config tests**
 
 Add tests that parse `docker-compose.yml` as YAML and assert:
 
@@ -704,7 +704,7 @@ def load_compose() -> dict:
     return yaml.safe_load(Path("docker-compose.yml").read_text(encoding="utf-8"))
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```powershell
 python -m pytest tests/test_deployment_config.py -q
@@ -712,11 +712,11 @@ python -m pytest tests/test_deployment_config.py -q
 
 Expected: FAIL only if a deployment assumption is not currently covered or config does not match.
 
-- [ ] **Step 3: Fix minimal config mismatch**
+- [x] **Step 3: Fix minimal config mismatch**
 
 If tests reveal mismatches, adjust `docker-compose.yml` or `deploy/nginx/ai-interview.conf` minimally.
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 ```powershell
 python -m pytest tests/test_deployment_config.py -q
@@ -724,7 +724,7 @@ python -m pytest tests/test_deployment_config.py -q
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task C1**
+- [x] **Step 5: Commit Task C1**
 
 ```powershell
 git add tests/test_deployment_config.py docker-compose.yml deploy/nginx/ai-interview.conf
@@ -737,7 +737,7 @@ git commit -m "test: cover deployment compose graph"
 - Create: `docs/deployment/pre-launch-deployment-runbook-v4.md`
 - Create: `docs/deployment/pre-launch-checklist-v4.md`
 
-- [ ] **Step 1: Create deployment runbook**
+- [x] **Step 1: Create deployment runbook**
 
 Create `docs/deployment/pre-launch-deployment-runbook-v4.md` with sections:
 
@@ -776,26 +776,26 @@ docker compose up -d app worker nginx
 - HTTPS 失败：检查 DNS、证书和 Cloudflare 模式。
 ```
 
-- [ ] **Step 2: Create pre-launch checklist**
+- [x] **Step 2: Create pre-launch checklist**
 
 Create `docs/deployment/pre-launch-checklist-v4.md` with:
 
 ```markdown
 # Pre-Launch Checklist V4
 
-- [ ] `.env.production` 不包含占位密钥。
-- [ ] `SECRET_KEY` 已替换为强随机值。
-- [ ] DashScope API key 没有提交到 Git。
-- [ ] PostgreSQL 连接可用。
-- [ ] Redis 连接可用。
-- [ ] Celery worker 已启动并能消费 RAG ingestion task。
-- [ ] Nginx `/api/*` 正确代理到 FastAPI。
-- [ ] Vue3 页面可访问。
-- [ ] 管理员后台可看到基础设施、RAG ingestion、Agent workflow 状态。
-- [ ] 已准备备份和回滚方案。
+- [x] `.env.production` 不包含占位密钥。
+- [x] `SECRET_KEY` 已替换为强随机值。
+- [x] DashScope API key 没有提交到 Git。
+- [x] PostgreSQL 连接可用。
+- [x] Redis 连接可用。
+- [x] Celery worker 已启动并能消费 RAG ingestion task。
+- [x] Nginx `/api/*` 正确代理到 FastAPI。
+- [x] Vue3 页面可访问。
+- [x] 管理员后台可看到基础设施、RAG ingestion、Agent workflow 状态。
+- [x] 已准备备份和回滚方案。
 ```
 
-- [ ] **Step 3: Run docs placeholder check**
+- [x] **Step 3: Run docs placeholder check**
 
 ```powershell
 Select-String -Path docs\deployment\pre-launch-deployment-runbook-v4.md,docs\deployment\pre-launch-checklist-v4.md -Pattern @("TO" + "DO", "TB" + "D", "待" + "定")
@@ -803,7 +803,7 @@ Select-String -Path docs\deployment\pre-launch-deployment-runbook-v4.md,docs\dep
 
 Expected: no matches.
 
-- [ ] **Step 4: Commit Task C2**
+- [x] **Step 4: Commit Task C2**
 
 ```powershell
 git add docs/deployment/pre-launch-deployment-runbook-v4.md docs/deployment/pre-launch-checklist-v4.md
@@ -817,7 +817,7 @@ git commit -m "docs: add pre-launch deployment runbook"
 - Modify: `docs/specs/README.md`
 - Modify: `docs/plans/README.md`
 
-- [ ] **Step 1: Run deployment config validation**
+- [x] **Step 1: Run deployment config validation**
 
 ```powershell
 docker compose config
@@ -826,11 +826,11 @@ python -m pytest tests/test_deployment_config.py -q
 
 Expected: both pass. If Docker is unavailable, record the exact failure and keep pytest config validation as evidence.
 
-- [ ] **Step 2: Update roadmap**
+- [x] **Step 2: Update roadmap**
 
 Update docs to say Deployment Integration V4 is complete and Project Explanation & Resume Pack V1 is next.
 
-- [ ] **Step 3: Commit Phase C completion docs**
+- [x] **Step 3: Commit Phase C completion docs**
 
 ```powershell
 git add docs/roadmap/current-state.md docs/specs/README.md docs/plans/README.md

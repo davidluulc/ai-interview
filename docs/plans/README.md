@@ -27,7 +27,7 @@ docs/plans/completed/production-hardening-v3-2-v3-3.md
 最近完成阶段主题：
 
 ```text
-Pre-Launch Delivery Roadmap V4 / PostgreSQL Compatibility V4：已完成 PostgreSQL URL 识别、脱敏字段补强和 PostgreSQL 兼容路线文档。下一步继续执行 Deployment Integration V4。
+Pre-Launch Delivery Roadmap V4 / Deployment Integration V4：已完成 Docker Compose 结构化验证、稳定 project name、上线 runbook 和 pre-launch checklist。下一步继续执行 Project Explanation & Resume Pack V1。
 ```
 
 ## 追求目标模式建议
