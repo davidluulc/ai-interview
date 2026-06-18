@@ -9,25 +9,25 @@
 当前 active plan：
 
 ```text
-docs/plans/active/pre-launch-delivery-roadmap-v4.md
+暂无。
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/pre-launch-delivery-roadmap-v4-design.md
+暂无。
 ```
 
 最近完成并归档的 plan：
 
 ```text
-docs/plans/completed/production-hardening-v3-2-v3-3.md
+docs/plans/completed/pre-launch-delivery-roadmap-v4.md
 ```
 
 最近完成阶段主题：
 
 ```text
-Pre-Launch Delivery Roadmap V4 / Deployment Integration V4：已完成 Docker Compose 结构化验证、稳定 project name、上线 runbook 和 pre-launch checklist。下一步继续执行 Project Explanation & Resume Pack V1。
+Pre-Launch Delivery Roadmap V4：已完成异步 worker readiness、PostgreSQL 兼容、部署集成、上线 runbook、项目讲解和简历材料。
 ```
 
 ## 追求目标模式建议
@@ -37,7 +37,7 @@ Pre-Launch Delivery Roadmap V4 / Deployment Integration V4：已完成 Docker Co
 推荐流程：
 
 ```text
-先确认 active spec：docs/specs/active/pre-launch-delivery-roadmap-v4-design.md
+先确认 active spec
 -> 再写 active plan
 -> 按 plan 分阶段测试驱动开发或审计
 -> 完成后把 spec 和 plan 移到 completed

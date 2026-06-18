@@ -9,25 +9,25 @@
 当前 active spec：
 
 ```text
-docs/specs/active/pre-launch-delivery-roadmap-v4-design.md
+暂无。
 ```
 
 最近完成并归档的 spec：
 
 ```text
-docs/specs/completed/production-hardening-v3-2-v3-3-design.md
+docs/specs/completed/pre-launch-delivery-roadmap-v4-design.md
 ```
 
 最近完成阶段主题：
 
 ```text
-Production Hardening V3.2 + V3.3：已完成 token blacklist、基础限流、provider 错误脱敏、RAG upload 幂等、retry 并发保护、管理员安全摘要和 ingestion 异常聚合。SQLite 仍为本地默认数据库，Redis 保持 disabled / memory fallback 测试路径。
+Pre-Launch Delivery Roadmap V4：已完成异步 worker readiness、PostgreSQL 兼容、部署集成、上线 runbook、项目讲解和简历材料。
 ```
 
 当前准备执行阶段：
 
 ```text
-Pre-Launch Delivery Roadmap V4：Async Worker Readiness V4、PostgreSQL Compatibility V4 和 Deployment Integration V4 已完成，下一步执行 Project Explanation & Resume Pack V1。
+暂无。
 ```
 
 ## 使用规则
