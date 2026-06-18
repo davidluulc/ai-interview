@@ -9,7 +9,7 @@
 当前 active plan：
 
 ```text
-暂无。
+docs/plans/active/pre-launch-delivery-roadmap-v4.md
 ```
 
 当前 active spec：

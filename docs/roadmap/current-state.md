@@ -19,7 +19,7 @@ docs/specs/active/pre-launch-delivery-roadmap-v4-design.md
 当前 active plan：
 
 ```text
-暂无。下一步应根据 active spec 创建 implementation plan。
+docs/plans/active/pre-launch-delivery-roadmap-v4.md
 ```
 
 当前实现进度：
