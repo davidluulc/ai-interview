@@ -232,6 +232,10 @@ def test_admin_config_returns_masked_infrastructure_status() -> None:
     assert body["infrastructure"]["celery"]["status"] in {"eager", "configured"}
     assert body["infrastructure"]["celery"]["mode"] in {"eager", "worker"}
     assert body["infrastructure"]["celery"]["workerCommand"]
+    assert "workerReadiness" in body["infrastructure"]["celery"]
+    assert body["infrastructure"]["celery"]["workerReadiness"]["mode"] in {"eager", "worker"}
+    assert isinstance(body["infrastructure"]["celery"]["workerReadiness"]["missingRequirements"], list)
+    assert "secret" not in str(body["infrastructure"]["celery"]["workerReadiness"]).lower()
     assert "password" not in str(body).lower()
 
 

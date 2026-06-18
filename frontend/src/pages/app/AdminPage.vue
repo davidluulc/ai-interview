@@ -498,6 +498,11 @@
               <small v-if="celeryInfraModeLabel">{{ celeryInfraModeLabel }}</small>
               <small v-if="celeryWorkerCommandLabel">{{ celeryWorkerCommandLabel }}</small>
             </p>
+            <p v-if="celeryWorkerReadinessLabel">
+              <span>异步任务 Worker</span>
+              <strong>{{ celeryWorkerReadinessStatusLabel }}</strong>
+              <small>{{ celeryWorkerReadinessLabel }}</small>
+            </p>
           </div>
         </div>
         <div v-if="admin.config.security" class="infra-panel">
@@ -624,6 +629,14 @@ const celeryWorkerCommandLabel = computed(() => {
   const command = infrastructure.value?.celery?.workerCommand;
   return command ? `Worker：${command}` : "";
 });
+const celeryWorkerReadiness = computed(() => infrastructure.value?.celery?.workerReadiness || null);
+const celeryWorkerReadinessStatusLabel = computed(() => {
+  const readiness = celeryWorkerReadiness.value;
+  if (!readiness) return "";
+  if (readiness.mode === "eager") return "本地同步模式";
+  return readiness.readyForWorker ? "Worker 配置就绪" : "Worker 配置不完整";
+});
+const celeryWorkerReadinessLabel = computed(() => celeryWorkerReadiness.value?.message || "");
 const debugInterruptReason = computed(() => {
   const langgraph = admin.selectedAiDebugDetail?.langgraph as DebugRecord | undefined;
   const interrupt = langgraph?.interrupt as DebugRecord | undefined;

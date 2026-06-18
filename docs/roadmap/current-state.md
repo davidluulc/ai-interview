@@ -28,6 +28,12 @@ docs/plans/active/pre-launch-delivery-roadmap-v4.md
 Production Hardening V3.2 + V3.3 已完成：系统新增 token blacklist、基础限流、provider 错误脱敏、RAG upload 幂等、retry 并发保护、管理员安全摘要和 ingestion 异常聚合。SQLite 仍是本地默认数据库，Redis 保持 disabled / memory fallback 测试能力，未做 Docker/Nginx/VPS/HTTPS 上线。
 ```
 
+当前补充记录：
+
+```text
+Async Worker Readiness V4 开始执行：本阶段聚焦 RAG 文档摄取的 Celery worker readiness、管理员可观测性和运行说明，不重复已完成的 RAG ingestion / Production Hardening 能力。
+```
+
 下一阶段候选方向：
 
 ```text

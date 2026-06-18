@@ -57,3 +57,44 @@ def test_celery_status_exposes_worker_mode_when_not_eager() -> None:
     assert status["workerRequired"] is True
     assert status["brokerConfigured"] is True
     assert "backend_python.tasks.rag_ingestion" in status["registeredTaskModules"]
+
+
+def test_celery_status_exposes_worker_readiness_when_eager() -> None:
+    status = build_celery_status(
+        broker_url="redis://localhost:6379/1",
+        result_backend="redis://localhost:6379/2",
+        task_always_eager=True,
+    )
+
+    assert status["workerReadiness"]["mode"] == "eager"
+    assert status["workerReadiness"]["readyForWorker"] is False
+    assert status["workerReadiness"]["requiresExternalWorker"] is False
+    assert "当前为 eager/test 模式" in status["workerReadiness"]["message"]
+    assert status["workerReadiness"]["missingRequirements"] == []
+
+
+def test_celery_status_exposes_worker_readiness_when_worker_configured() -> None:
+    status = build_celery_status(
+        broker_url="redis://localhost:6379/1",
+        result_backend="redis://localhost:6379/2",
+        task_always_eager=False,
+    )
+
+    assert status["workerReadiness"]["mode"] == "worker"
+    assert status["workerReadiness"]["readyForWorker"] is True
+    assert status["workerReadiness"]["requiresExternalWorker"] is True
+    assert status["workerReadiness"]["missingRequirements"] == []
+    assert "Celery worker" in status["workerReadiness"]["message"]
+
+
+def test_celery_status_exposes_missing_worker_requirements() -> None:
+    status = build_celery_status(
+        broker_url="",
+        result_backend="",
+        task_always_eager=False,
+    )
+
+    assert status["workerReadiness"]["mode"] == "worker"
+    assert status["workerReadiness"]["readyForWorker"] is False
+    assert "broker_url" in status["workerReadiness"]["missingRequirements"]
+    assert "result_backend" in status["workerReadiness"]["missingRequirements"]

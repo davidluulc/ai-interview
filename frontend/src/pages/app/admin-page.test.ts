@@ -258,7 +258,14 @@ const adminStore: any = {
         brokerUrl: "redis://localhost:6379/1",
         resultBackend: "redis://localhost:6379/2",
         healthTask: "backend_python.tasks.health.ping_task",
-        registeredTaskModules: ["backend_python.tasks.rag_ingestion"]
+        registeredTaskModules: ["backend_python.tasks.rag_ingestion"],
+        workerReadiness: {
+          mode: "worker",
+          readyForWorker: true,
+          requiresExternalWorker: true,
+          missingRequirements: [],
+          message: "Celery worker 模式已具备 broker/result backend 配置，需要单独启动 Celery worker。"
+        }
       }
     },
     security: {
@@ -345,6 +352,8 @@ describe("admin page", () => {
     expect(wrapper.text()).toContain("Celery eager");
     expect(wrapper.text()).toContain("模式：eager 本地测试");
     expect(wrapper.text()).toContain("Worker：celery -A backend_python.celery_app.celery_app worker");
+    expect(wrapper.text()).toContain("异步任务 Worker");
+    expect(wrapper.text()).toContain("需要单独启动 Celery worker");
     expect(wrapper.text()).toContain("安全与流量保护");
     expect(wrapper.text()).toContain("Token blacklist");
     expect(wrapper.text()).toContain("限流");

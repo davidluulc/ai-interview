@@ -273,6 +273,13 @@ export interface AdminCeleryInfrastructure {
   resultBackend?: string;
   healthTask?: string;
   registeredTaskModules?: string[];
+  workerReadiness?: {
+    mode: string;
+    readyForWorker: boolean;
+    requiresExternalWorker: boolean;
+    missingRequirements: string[];
+    message: string;
+  };
 }
 
 export interface AdminInfrastructureStatus {
