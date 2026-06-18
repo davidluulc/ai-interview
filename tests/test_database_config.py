@@ -22,6 +22,20 @@ def test_postgresql_database_url_does_not_use_sqlite_connect_args() -> None:
     assert description["usesExternalService"] is True
 
 
+def test_postgresql_url_is_identified_without_exposing_password() -> None:
+    result = describe_database_url(
+        "postgresql+psycopg://ai_interview:super-secret@localhost:5432/ai_interview",
+        auto_init=False,
+    )
+
+    assert result["dialect"] == "postgresql+psycopg"
+    assert result["isPostgres"] is True
+    assert result["isSqlite"] is False
+    assert result["isLocalSqlite"] is False
+    assert "super-secret" not in result["maskedUrl"]
+    assert result["autoInitEnabled"] is False
+
+
 def test_database_description_masks_password_and_marks_alembic_path() -> None:
     url = "postgresql+psycopg://app_user:secret@db:5432/interview"
 

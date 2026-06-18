@@ -27,9 +27,12 @@ def describe_database_url(database_url: str, *, auto_init: bool = AUTO_INIT_DB) 
     raw = str(database_url or "")
     dialect = raw.split(":", 1)[0] if ":" in raw else raw
     is_local_sqlite = raw.startswith("sqlite")
+    is_postgres = dialect.startswith("postgresql") or dialect.startswith("postgres")
     auto_init_enabled = should_auto_init_db(auto_init=auto_init, database_url=raw)
     return {
         "dialect": dialect,
+        "isSqlite": is_local_sqlite,
+        "isPostgres": is_postgres,
         "isLocalSqlite": is_local_sqlite,
         "usesExternalService": not is_local_sqlite,
         "autoInitEnabled": auto_init_enabled,
