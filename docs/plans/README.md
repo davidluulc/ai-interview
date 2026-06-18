@@ -27,7 +27,7 @@ docs/plans/completed/production-hardening-v3-2-v3-3.md
 最近完成阶段主题：
 
 ```text
-Production Hardening V3.2 + V3.3：已完成 token blacklist、基础限流、provider 错误脱敏、RAG upload 幂等、retry 并发保护、管理员安全摘要和 ingestion 异常聚合。后续不要重复执行本轮 plan，应重新讨论下一阶段目标。
+Pre-Launch Delivery Roadmap V4 / Async Worker Readiness V4：已完成 Celery worker readiness 摘要、管理员后台异步任务 Worker 展示和 Celery worker 运行说明。下一步继续执行 PostgreSQL Compatibility V4。
 ```
 
 ## 追求目标模式建议

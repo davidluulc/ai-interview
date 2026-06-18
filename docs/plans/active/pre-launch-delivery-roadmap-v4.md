@@ -1,4 +1,4 @@
-# Pre-Launch Delivery Roadmap V4 Implementation Plan
+﻿# Pre-Launch Delivery Roadmap V4 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -115,7 +115,7 @@
 - Modify: `backend_python/celery_app.py`
 - Test: `tests/test_celery_app.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append these tests to `tests/test_celery_app.py`:
 
@@ -161,7 +161,7 @@ def test_celery_status_exposes_missing_worker_requirements() -> None:
     assert "result_backend" in status["workerReadiness"]["missingRequirements"]
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 Run:
 
@@ -171,7 +171,7 @@ python -m pytest tests/test_celery_app.py -q
 
 Expected: FAIL with `KeyError: 'workerReadiness'`.
 
-- [ ] **Step 3: Implement minimal worker readiness helper**
+- [x] **Step 3: Implement minimal worker readiness helper**
 
 In `backend_python/celery_app.py`, add this helper above `build_celery_status`:
 
@@ -221,7 +221,7 @@ Then add this key to the dictionary returned by `build_celery_status`:
 ),
 ```
 
-- [ ] **Step 4: Run the tests and verify GREEN**
+- [x] **Step 4: Run the tests and verify GREEN**
 
 Run:
 
@@ -231,7 +231,7 @@ python -m pytest tests/test_celery_app.py -q
 
 Expected: all tests in `tests/test_celery_app.py` pass.
 
-- [ ] **Step 5: Commit Task A1**
+- [x] **Step 5: Commit Task A1**
 
 ```powershell
 git add backend_python/celery_app.py tests/test_celery_app.py
@@ -244,7 +244,7 @@ git commit -m "feat: expose celery worker readiness"
 - Modify: `tests/test_admin_routes.py`
 - Modify: `backend_python/routes/admin.py` only if existing `/api/admin/config` does not already expose the new nested field through infrastructure.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Extend `test_admin_config_returns_masked_infrastructure_status` in `tests/test_admin_routes.py` with:
 
@@ -255,7 +255,7 @@ Extend `test_admin_config_returns_masked_infrastructure_status` in `tests/test_a
     assert "secret" not in str(body["infrastructure"]["celery"]["workerReadiness"]).lower()
 ```
 
-- [ ] **Step 2: Run the test and verify RED or already covered**
+- [x] **Step 2: Run the test and verify RED or already covered**
 
 Run:
 
@@ -266,7 +266,7 @@ python -m pytest tests/test_admin_routes.py::test_admin_config_returns_masked_in
 Expected if Task A1 has not been implemented: FAIL with missing `workerReadiness`.
 Expected if Task A1 is already implemented and `/api/admin/config` passes through infrastructure: PASS.
 
-- [ ] **Step 3: Implement only if needed**
+- [x] **Step 3: Implement only if needed**
 
 If the test fails after Task A1, inspect `backend_python/routes/admin.py` and ensure `admin_config()` returns:
 
@@ -276,7 +276,7 @@ If the test fails after Task A1, inspect `backend_python/routes/admin.py` and en
 
 If it already does, do not change production code.
 
-- [ ] **Step 4: Run the focused admin test**
+- [x] **Step 4: Run the focused admin test**
 
 Run:
 
@@ -286,7 +286,7 @@ python -m pytest tests/test_admin_routes.py::test_admin_config_returns_masked_in
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task A2**
+- [x] **Step 5: Commit Task A2**
 
 ```powershell
 git add tests/test_admin_routes.py backend_python/routes/admin.py
@@ -300,7 +300,7 @@ git commit -m "test: cover admin worker readiness summary"
 - Modify: `frontend/src/pages/app/AdminPage.vue`
 - Modify: `frontend/src/api/admin.ts` if types need updating.
 
-- [ ] **Step 1: Write the failing frontend test**
+- [x] **Step 1: Write the failing frontend test**
 
 In `frontend/src/pages/app/admin-page.test.ts`, add a test that mounts the admin page with config containing:
 
@@ -331,7 +331,7 @@ expect(screen.getByText(/异步任务 Worker/)).toBeTruthy()
 expect(screen.getByText(/需要单独启动 Celery worker/)).toBeTruthy()
 ```
 
-- [ ] **Step 2: Run the frontend test and verify RED**
+- [x] **Step 2: Run the frontend test and verify RED**
 
 Run:
 
@@ -342,7 +342,7 @@ npm.cmd run test -- src/pages/app/admin-page.test.ts
 
 Expected: FAIL because the UI does not render the new worker readiness text yet.
 
-- [ ] **Step 3: Implement minimal UI rendering**
+- [x] **Step 3: Implement minimal UI rendering**
 
 In `frontend/src/pages/app/AdminPage.vue`, in the infrastructure/system config section, add a compact worker readiness row:
 
@@ -365,7 +365,7 @@ workerReadiness?: {
 }
 ```
 
-- [ ] **Step 4: Run the frontend test and verify GREEN**
+- [x] **Step 4: Run the frontend test and verify GREEN**
 
 Run:
 
@@ -376,7 +376,7 @@ npm.cmd run test -- src/pages/app/admin-page.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task A3**
+- [x] **Step 5: Commit Task A3**
 
 ```powershell
 git add frontend/src/pages/app/admin-page.test.ts frontend/src/pages/app/AdminPage.vue frontend/src/api/admin.ts
@@ -389,7 +389,7 @@ git commit -m "feat: show async worker readiness in admin"
 - Create: `docs/deployment/celery-worker-readiness.md`
 - Modify: `docs/roadmap/current-state.md`
 
-- [ ] **Step 1: Create worker readiness docs**
+- [x] **Step 1: Create worker readiness docs**
 
 Create `docs/deployment/celery-worker-readiness.md` with:
 
@@ -428,7 +428,7 @@ scripts\start-celery-worker.cmd
 我没有把文件解析和 chunk 入库放在 HTTP 请求里长时间阻塞，而是把它设计为异步任务。上传接口返回 taskId，任务状态记录 pending、queued、running、succeeded、failed，失败后可以基于 textSnapshot retry，管理员后台能看到任务健康状态和失败原因。
 ```
 
-- [ ] **Step 2: Update roadmap current state**
+- [x] **Step 2: Update roadmap current state**
 
 In `docs/roadmap/current-state.md`, under the current active phase or a new dated note, add:
 
@@ -436,7 +436,7 @@ In `docs/roadmap/current-state.md`, under the current active phase or a new date
 Async Worker Readiness V4 开始执行：本阶段聚焦 RAG 文档摄取的 Celery worker readiness、管理员可观测性和运行说明，不重复已完成的 RAG ingestion / Production Hardening 能力。
 ```
 
-- [ ] **Step 3: Run markdown/reference check**
+- [x] **Step 3: Run markdown/reference check**
 
 Run:
 
@@ -446,7 +446,7 @@ Select-String -Path docs\deployment\celery-worker-readiness.md -Pattern @("TO" +
 
 Expected: no matches.
 
-- [ ] **Step 4: Commit Task A4**
+- [x] **Step 4: Commit Task A4**
 
 ```powershell
 git add docs/deployment/celery-worker-readiness.md docs/roadmap/current-state.md
@@ -458,7 +458,7 @@ git commit -m "docs: explain celery worker readiness"
 **Files:**
 - No production file changes unless a test failure requires a fix.
 
-- [ ] **Step 1: Run backend focused tests**
+- [x] **Step 1: Run backend focused tests**
 
 ```powershell
 python -m pytest tests/test_celery_app.py tests/test_admin_routes.py tests/test_rag_ingestion_celery.py -q
@@ -466,7 +466,7 @@ python -m pytest tests/test_celery_app.py tests/test_admin_routes.py tests/test_
 
 Expected: PASS.
 
-- [ ] **Step 2: Run frontend focused tests**
+- [x] **Step 2: Run frontend focused tests**
 
 ```powershell
 cd frontend
@@ -475,7 +475,7 @@ npm.cmd run test -- src/pages/app/admin-page.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 3: Run full backend tests**
+- [x] **Step 3: Run full backend tests**
 
 ```powershell
 python -m pytest -q
@@ -483,7 +483,7 @@ python -m pytest -q
 
 Expected: PASS.
 
-- [ ] **Step 4: Run full frontend tests and build**
+- [x] **Step 4: Run full frontend tests and build**
 
 ```powershell
 cd frontend
@@ -493,11 +493,11 @@ npm.cmd run build
 
 Expected: PASS.
 
-- [ ] **Step 5: Update roadmap after Phase A**
+- [x] **Step 5: Update roadmap after Phase A**
 
 Modify `docs/roadmap/current-state.md`, `docs/specs/README.md`, and `docs/plans/README.md` to say Phase A is complete and Phase B is next.
 
-- [ ] **Step 6: Commit Phase A completion docs**
+- [x] **Step 6: Commit Phase A completion docs**
 
 ```powershell
 git add docs/roadmap/current-state.md docs/specs/README.md docs/plans/README.md

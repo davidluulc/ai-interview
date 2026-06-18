@@ -25,19 +25,19 @@ docs/plans/active/pre-launch-delivery-roadmap-v4.md
 当前实现进度：
 
 ```text
-Production Hardening V3.2 + V3.3 已完成：系统新增 token blacklist、基础限流、provider 错误脱敏、RAG upload 幂等、retry 并发保护、管理员安全摘要和 ingestion 异常聚合。SQLite 仍是本地默认数据库，Redis 保持 disabled / memory fallback 测试能力，未做 Docker/Nginx/VPS/HTTPS 上线。
+Production Hardening V3.2 + V3.3 已完成；Pre-Launch Delivery Roadmap V4 的 Async Worker Readiness V4 已完成：系统新增 Celery worker readiness 摘要、管理员后台异步任务 Worker 展示和 Celery worker 运行说明。SQLite 仍是本地默认数据库，Redis/Celery 保持本地 eager/fallback 与生产 worker 配置兼容，未做真实 VPS/HTTPS 上线。
 ```
 
 当前补充记录：
 
 ```text
-Async Worker Readiness V4 开始执行：本阶段聚焦 RAG 文档摄取的 Celery worker readiness、管理员可观测性和运行说明，不重复已完成的 RAG ingestion / Production Hardening 能力。
+Async Worker Readiness V4 已完成：后端 `build_celery_status()` 暴露 workerReadiness，`/api/admin/config` 透传基础设施状态，Vue3 管理员后台展示“异步任务 Worker”，并新增 `docs/deployment/celery-worker-readiness.md`。下一步进入 PostgreSQL Compatibility V4。
 ```
 
 下一阶段候选方向：
 
 ```text
-当前已有 active spec：Pre-Launch Delivery Roadmap V4。推荐按 Async Worker Readiness V4 -> PostgreSQL Compatibility V4 -> Deployment Integration V4 -> Project Explanation & Resume Pack V1 的顺序推进。不要重复执行 Backend Production Infrastructure V1、Async RAG Ingestion V2、Production Hardening V3.1 或 V3.2+V3.3。
+当前已有 active spec 和 active plan：Pre-Launch Delivery Roadmap V4。Async Worker Readiness V4 已完成，下一步按 PostgreSQL Compatibility V4 -> Deployment Integration V4 -> Project Explanation & Resume Pack V1 的顺序推进。不要重复执行 Backend Production Infrastructure V1、Async RAG Ingestion V2、Production Hardening V3.1 或 V3.2+V3.3。
 ```
 
 本文档是当前项目的可信路线入口。判断项目进度时，优先看本文档，再看 `docs/project-baseline.md` 和 `project-progress.md` 的历史执行记录。旧 spec、旧 plan、旧学习手册只作为背景资料，不再直接决定下一步开发路线。
