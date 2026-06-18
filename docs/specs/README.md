@@ -9,25 +9,25 @@
 当前 active spec：
 
 ```text
-docs/specs/active/production-hardening-v3-design.md
+docs/specs/active/pre-launch-delivery-roadmap-v4-design.md
 ```
 
 最近完成并归档的 spec：
 
 ```text
-docs/specs/completed/async-rag-ingestion-v2-design.md
+docs/specs/completed/production-hardening-v3-2-v3-3-design.md
 ```
 
 最近完成阶段主题：
 
 ```text
-Async RAG Ingestion V2：RAG 文档上传和 retry 通过 taskId 派发 Celery ingestion task，任务状态、进度、失败原因和 documentId 写回数据库。
+Production Hardening V3.2 + V3.3：已完成 token blacklist、基础限流、provider 错误脱敏、RAG upload 幂等、retry 并发保护、管理员安全摘要和 ingestion 异常聚合。SQLite 仍为本地默认数据库，Redis 保持 disabled / memory fallback 测试路径。
 ```
 
 当前准备执行阶段：
 
 ```text
-Production Hardening V3：后端可靠性与安全加固。优先执行 V3.1 Celery worker 真实运行与任务可靠性。
+Pre-Launch Delivery Roadmap V4：生产化收口、上线交付、项目讲解与简历材料。
 ```
 
 ## 使用规则

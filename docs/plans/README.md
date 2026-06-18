@@ -15,19 +15,19 @@
 当前 active spec：
 
 ```text
-docs/specs/active/production-hardening-v3-design.md
+docs/specs/active/pre-launch-delivery-roadmap-v4-design.md
 ```
 
 最近完成并归档的 plan：
 
 ```text
-docs/plans/completed/async-rag-ingestion-v2.md
+docs/plans/completed/production-hardening-v3-2-v3-3.md
 ```
 
 最近完成阶段主题：
 
 ```text
-Async RAG Ingestion V2：RAG 文档入库从同步 HTTP 逻辑迁移为 Celery taskId 派发和数据库状态回写。
+Production Hardening V3.2 + V3.3：已完成 token blacklist、基础限流、provider 错误脱敏、RAG upload 幂等、retry 并发保护、管理员安全摘要和 ingestion 异常聚合。后续不要重复执行本轮 plan，应重新讨论下一阶段目标。
 ```
 
 ## 追求目标模式建议
@@ -37,7 +37,7 @@ Async RAG Ingestion V2：RAG 文档入库从同步 HTTP 逻辑迁移为 Celery t
 推荐流程：
 
 ```text
-先确认 active spec
+先确认 active spec：docs/specs/active/pre-launch-delivery-roadmap-v4-design.md
 -> 再写 active plan
 -> 按 plan 分阶段测试驱动开发或审计
 -> 完成后把 spec 和 plan 移到 completed

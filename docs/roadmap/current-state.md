@@ -1,37 +1,37 @@
 # AI 模拟面试系统当前状态与下一阶段路线
 
-更新时间：2026-06-17
+更新时间：2026-06-18
 
 ## 0. 当前执行焦点
 
 当前 active 开发阶段：
 
 ```text
-Production Hardening V3：后端可靠性与安全加固
+Pre-Launch Delivery Roadmap V4：生产化收口、上线交付、项目讲解与简历材料。
 ```
 
 当前 active spec：
 
 ```text
-docs/specs/active/production-hardening-v3-design.md
+docs/specs/active/pre-launch-delivery-roadmap-v4-design.md
 ```
 
 当前 active plan：
 
 ```text
-暂无。
+暂无。下一步应根据 active spec 创建 implementation plan。
 ```
 
 当前实现进度：
 
 ```text
-Async RAG Ingestion V2 已完成：RAG 文档上传和 retry 已从路由内同步入库收敛为 Celery taskId 派发，task service 从数据库读取 RagIngestionTask.input_json 快照执行入库，并把 queued/running/succeeded/failed、progress、documentId、result/error 写回任务表。SQLite 本地开发和 Celery eager mode 仍可直接跑测试，不强制启动 Redis worker。
+Production Hardening V3.2 + V3.3 已完成：系统新增 token blacklist、基础限流、provider 错误脱敏、RAG upload 幂等、retry 并发保护、管理员安全摘要和 ingestion 异常聚合。SQLite 仍是本地默认数据库，Redis 保持 disabled / memory fallback 测试能力，未做 Docker/Nginx/VPS/HTTPS 上线。
 ```
 
 下一阶段候选方向：
 
 ```text
-当前下一步应根据 active spec 创建 docs/plans/active/production-hardening-v3.md，并优先执行 V3.1：Celery worker 真实运行与任务可靠性。不要重复执行 Backend Production Infrastructure V1 或 Async RAG Ingestion V2。
+当前已有 active spec：Pre-Launch Delivery Roadmap V4。推荐按 Async Worker Readiness V4 -> PostgreSQL Compatibility V4 -> Deployment Integration V4 -> Project Explanation & Resume Pack V1 的顺序推进。不要重复执行 Backend Production Infrastructure V1、Async RAG Ingestion V2、Production Hardening V3.1 或 V3.2+V3.3。
 ```
 
 本文档是当前项目的可信路线入口。判断项目进度时，优先看本文档，再看 `docs/project-baseline.md` 和 `project-progress.md` 的历史执行记录。旧 spec、旧 plan、旧学习手册只作为背景资料，不再直接决定下一步开发路线。
