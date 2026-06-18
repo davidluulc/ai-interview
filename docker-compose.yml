@@ -1,3 +1,5 @@
+name: ai-interview
+
 services:
   app:
     image: ai-interview-app:local

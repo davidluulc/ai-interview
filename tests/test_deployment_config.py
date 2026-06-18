@@ -1,11 +1,17 @@
 from pathlib import Path
 
+import yaml
+
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
 
 def read_text(relative_path: str) -> str:
     return (ROOT_DIR / relative_path).read_text(encoding="utf-8")
+
+
+def load_compose() -> dict:
+    return yaml.safe_load(read_text("docker-compose.yml"))
 
 
 def test_production_env_template_uses_placeholders_only() -> None:
@@ -80,6 +86,37 @@ def test_compose_defines_deployment_services() -> None:
     assert "deploy/nginx/ai-interview.conf" in content
     assert "5432" in content
     assert "6379" in content
+
+
+def test_compose_contains_app_worker_db_redis_nginx_services() -> None:
+    compose = load_compose()
+
+    assert {"app", "worker", "db", "redis", "nginx"}.issubset(set(compose["services"]))
+
+
+def test_compose_sets_stable_project_name_for_non_ascii_workspace_path() -> None:
+    compose = load_compose()
+
+    assert compose["name"] == "ai-interview"
+
+
+def test_worker_uses_same_image_and_celery_command() -> None:
+    compose = load_compose()
+    app = compose["services"]["app"]
+    worker = compose["services"]["worker"]
+
+    assert worker["image"] == app["image"]
+    assert "celery" in worker["command"]
+    assert "backend_python.celery_app.celery_app" in worker["command"]
+    assert worker["environment"]["CELERY_TASK_ALWAYS_EAGER"] == "${CELERY_TASK_ALWAYS_EAGER:-false}"
+
+
+def test_nginx_mounts_project_reverse_proxy_config() -> None:
+    compose = load_compose()
+    nginx = compose["services"]["nginx"]
+
+    assert any("deploy/nginx/ai-interview.conf" in volume for volume in nginx["volumes"])
+    assert "8080:80" in nginx["ports"]
 
 
 def test_nginx_config_proxies_frontend_api_and_docs() -> None:
