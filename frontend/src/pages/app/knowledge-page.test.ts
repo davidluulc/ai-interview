@@ -192,6 +192,8 @@ describe("knowledge page", () => {
 
     expect(wrapper.text()).toContain("文件导入");
     expect(wrapper.text()).toContain("支持 txt、md、pdf");
+    expect(wrapper.text()).toContain("上传后会创建入库任务");
+    expect(wrapper.text()).not.toContain("当前阶段先做小文件同步导入");
     expect(wrapper.find('[data-testid="knowledge-upload-file"]').exists()).toBe(true);
 
     await wrapper.get('[data-testid="knowledge-upload-title"]').setValue("FastAPI 文件导入");
@@ -229,6 +231,17 @@ describe("knowledge page", () => {
     await wrapper.get('[data-testid="retry-ingestion-task-rag_ingestion-failed"]').trigger("click");
 
     expect(knowledgeStore.retryTask).toHaveBeenCalledWith("rag_ingestion-failed");
+  });
+
+  it("shows friendly upload and retry protection errors", () => {
+    knowledgeStore.uploadError = "请求过于频繁，请稍后重试。任务正在处理时不能重复重试。";
+
+    const wrapper = mountPage();
+
+    expect(wrapper.text()).toContain("请求过于频繁");
+    expect(wrapper.text()).toContain("任务正在处理");
+
+    knowledgeStore.uploadError = "";
   });
 
   it("opens detail, updates status and deletes with confirmation", async () => {

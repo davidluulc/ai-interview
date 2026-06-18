@@ -4,6 +4,7 @@ import httpx
 from fastapi import HTTPException
 
 from .config import DASHSCOPE_API_KEY, DASHSCOPE_RERANK_MODEL, LLM_TIMEOUT_SECONDS
+from .security import redact_error_detail
 
 
 DEFAULT_RERANK_INSTRUCT = "根据用户问题判断候选文档与 AI 模拟面试场景的相关性。"
@@ -85,16 +86,17 @@ async def rerank_documents(
                     "Content-Type": "application/json",
                 },
                 json=payload,
-            )
+        )
         if response.status_code >= 400:
-            safe_body = response.text[:500].replace(DASHSCOPE_API_KEY, mask_secret(DASHSCOPE_API_KEY))
-            raise HTTPException(status_code=502, detail=f"Rerank provider request failed: {safe_body}")
+            _safe_body = redact_error_detail(response.text.replace(DASHSCOPE_API_KEY, mask_secret(DASHSCOPE_API_KEY)))
+            raise HTTPException(status_code=502, detail="Rerank provider request failed.")
         return extract_rerank_results(response.json())
     except HTTPException:
         raise
     except httpx.TimeoutException as exc:
-        raise HTTPException(status_code=504, detail="Rerank request timed out.") from exc
+        raise HTTPException(status_code=504, detail="External provider request timed out.") from exc
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Rerank network error: {exc}") from exc
+        _ = redact_error_detail(str(exc))
+        raise HTTPException(status_code=502, detail="Rerank provider request failed.") from exc
     except ValueError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

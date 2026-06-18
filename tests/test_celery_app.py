@@ -31,3 +31,29 @@ def test_build_celery_status_masks_urls_and_marks_eager_mode() -> None:
     assert status["brokerUrl"] == "redis://:***@localhost:6379/1"
     assert status["resultBackend"] == "redis://:***@localhost:6379/2"
     assert status["healthTask"] == "backend_python.tasks.health.ping_task"
+
+
+def test_celery_status_exposes_eager_mode_and_worker_command() -> None:
+    status = build_celery_status(task_always_eager=True)
+
+    assert status["status"] == "eager"
+    assert status["mode"] == "eager"
+    assert status["taskAlwaysEager"] is True
+    assert status["workerRequired"] is False
+    assert "celery" in status["workerCommand"]
+    assert "backend_python.celery_app.celery_app" in status["workerCommand"]
+
+
+def test_celery_status_exposes_worker_mode_when_not_eager() -> None:
+    status = build_celery_status(
+        broker_url="redis://localhost:6379/1",
+        result_backend="redis://localhost:6379/2",
+        task_always_eager=False,
+    )
+
+    assert status["status"] == "configured"
+    assert status["mode"] == "worker"
+    assert status["taskAlwaysEager"] is False
+    assert status["workerRequired"] is True
+    assert status["brokerConfigured"] is True
+    assert "backend_python.tasks.rag_ingestion" in status["registeredTaskModules"]

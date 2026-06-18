@@ -54,6 +54,13 @@ async function readResponseBody(response: Response): Promise<unknown> {
 }
 
 function getErrorMessage(body: unknown): string {
+  if (typeof body === "object" && body && "error" in body) {
+    const error = (body as { error?: unknown }).error;
+    if (typeof error === "object" && error && "message" in error) {
+      const message = String((error as { message?: unknown }).message || "");
+      if (message.trim()) return message;
+    }
+  }
   if (typeof body === "object" && body && "detail" in body) {
     return String(body.detail);
   }

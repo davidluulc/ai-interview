@@ -4,7 +4,13 @@ from sqlalchemy import select
 
 from backend_python.database import SessionLocal, init_db
 from backend_python.db_models import RagDocument, RagIngestionTask
-from backend_python.rag_ingestion_tasks import create_ingestion_task, execute_rag_ingestion_task, merge_ingestion_task_input
+from backend_python.rag_ingestion_tasks import (
+    create_ingestion_task,
+    dispatch_rag_ingestion_task,
+    execute_rag_ingestion_task,
+    merge_ingestion_task_input,
+    serialize_ingestion_task,
+)
 from backend_python.tasks.rag_ingestion import run_rag_ingestion_task
 from tests.test_rag_ingestion_tasks import create_user
 
@@ -87,3 +93,94 @@ def test_celery_rag_ingestion_task_runs_in_eager_mode(monkeypatch) -> None:
     assert result["taskId"] == task_id
     assert result["status"] == "succeeded"
     assert result["documentId"]
+
+
+def test_dispatch_rag_ingestion_task_keeps_task_queued_when_not_eager(monkeypatch) -> None:
+    with SessionLocal() as db:
+        user = create_user(db, "dispatch-queued")
+        task = create_ingestion_task(
+            db,
+            user_id=user.id,
+            title="Queued task",
+            knowledge_base="role_knowledge",
+            original_filename="queued.txt",
+            visibility="private",
+            metadata={},
+        )
+        merge_ingestion_task_input(db, task, {"textSnapshot": "Queued worker mode content."})
+
+        dispatched: list[str] = []
+
+        class FakeAsyncResult:
+            id = "celery-result-1"
+
+        def fake_delay(task_id: str) -> FakeAsyncResult:
+            dispatched.append(task_id)
+            return FakeAsyncResult()
+
+        monkeypatch.setattr(run_rag_ingestion_task, "delay", fake_delay)
+        monkeypatch.setattr(run_rag_ingestion_task.app.conf, "task_always_eager", False)
+
+        result = dispatch_rag_ingestion_task(db, task)
+
+        assert dispatched == [task.task_id]
+        assert result.status == "queued"
+        serialized = serialize_ingestion_task(result)
+        assert serialized["dispatchMode"] == "worker"
+        assert serialized["celeryTaskId"] == "celery-result-1"
+
+
+def test_dispatch_rag_ingestion_task_marks_failed_when_broker_dispatch_fails(monkeypatch) -> None:
+    with SessionLocal() as db:
+        user = create_user(db, "dispatch-failed")
+        task = create_ingestion_task(
+            db,
+            user_id=user.id,
+            title="Dispatch failure",
+            knowledge_base="role_knowledge",
+            original_filename="failure.txt",
+            visibility="private",
+            metadata={},
+        )
+        merge_ingestion_task_input(db, task, {"textSnapshot": "Retryable content."})
+
+        def fake_delay(task_id: str) -> None:
+            raise RuntimeError("broker offline")
+
+        monkeypatch.setattr(run_rag_ingestion_task, "delay", fake_delay)
+
+        result = dispatch_rag_ingestion_task(db, task)
+
+        assert result.status == "failed"
+        assert result.can_retry == 1
+        assert "Celery dispatch failed: broker offline" in result.error_message
+        serialized = serialize_ingestion_task(result)
+        assert serialized["dispatchMode"] == "failed"
+
+
+def test_execute_rag_ingestion_task_records_started_at_and_duration(monkeypatch) -> None:
+    async def fake_embed_text(text: str) -> list[float]:
+        return [0.1, 0.2, 0.3]
+
+    monkeypatch.setattr("backend_python.rag_store.embed_text", fake_embed_text)
+
+    with SessionLocal() as db:
+        user = create_user(db, "timed-ingestion")
+        task = create_ingestion_task(
+            db,
+            user_id=user.id,
+            title="Timed task",
+            knowledge_base="role_knowledge",
+            original_filename="timed.txt",
+            visibility="private",
+            metadata={},
+        )
+        merge_ingestion_task_input(db, task, {"textSnapshot": "Timed RAG ingestion content."})
+        task_id = task.task_id
+
+    result = execute_rag_ingestion_task(task_id)
+
+    assert result["status"] == "succeeded"
+    assert result["startedAt"]
+    assert isinstance(result["durationMs"], int)
+    assert result["durationMs"] >= 0

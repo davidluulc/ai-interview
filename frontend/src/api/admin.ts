@@ -69,6 +69,10 @@ export interface AdminRagIngestionTaskSummary {
   succeededCount: number;
   failedCount: number;
   retryableCount: number;
+  failureStages?: Record<string, number>;
+  averageDurationMs?: number;
+  maxDurationMs?: number;
+  idempotencyHitCount?: number;
 }
 
 export interface AdminRagIngestionTask {
@@ -82,6 +86,10 @@ export interface AdminRagIngestionTask {
   retryCount?: number;
   maxRetries?: number;
   canRetry?: boolean;
+  durationMs?: number;
+  failureStage?: string;
+  idempotencyHit?: boolean;
+  retryLockedAt?: string | null;
   updatedAt?: string | null;
 }
 
@@ -255,10 +263,16 @@ export interface AdminRedisInfrastructure {
 
 export interface AdminCeleryInfrastructure {
   status?: "eager" | "configured" | string;
+  mode?: string;
   taskAlwaysEager?: boolean;
+  workerRequired?: boolean;
+  workerCommand?: string;
+  brokerConfigured?: boolean;
+  resultBackendConfigured?: boolean;
   brokerUrl?: string;
   resultBackend?: string;
   healthTask?: string;
+  registeredTaskModules?: string[];
 }
 
 export interface AdminInfrastructureStatus {
@@ -267,12 +281,25 @@ export interface AdminInfrastructureStatus {
   celery?: AdminCeleryInfrastructure;
 }
 
+export interface AdminSecurityFeature {
+  enabled?: boolean;
+  backend?: string;
+}
+
+export interface AdminSecurityStatus {
+  tokenBlacklist?: AdminSecurityFeature;
+  rateLimit?: AdminSecurityFeature;
+  idempotency?: AdminSecurityFeature;
+  errorRedaction?: AdminSecurityFeature;
+}
+
 export interface AdminConfig {
   modelName: string;
   embeddingModel: string;
   rerankModel: string;
   databaseUrl: string;
   infrastructure?: AdminInfrastructureStatus;
+  security?: AdminSecurityStatus;
 }
 
 export function fetchAdminSummary(): Promise<AdminSummary> {

@@ -373,6 +373,21 @@
             <strong>{{ admin.ragIngestionTasks.summary.retryableCount }}</strong>
             <small>已有文本快照，可重新入库</small>
           </article>
+          <article>
+            <span>最长耗时</span>
+            <strong>{{ ingestionMaxDurationMs }}ms</strong>
+            <small>最近任务中耗时最高的一次</small>
+          </article>
+          <article>
+            <span>幂等命中</span>
+            <strong>{{ ingestionIdempotencyHitCount }}</strong>
+            <small>重复上传时复用已有任务的次数</small>
+          </article>
+        </div>
+        <div v-if="ingestionFailureStageItems.length" class="failure-stage-list">
+          <span v-for="item in ingestionFailureStageItems" :key="item.stage">
+            {{ item.stage }} · {{ item.count }}
+          </span>
         </div>
         <div class="list">
           <article v-for="task in admin.ragIngestionTasks.items" :key="task.taskId" class="log-item">
@@ -480,6 +495,33 @@
               <span>Celery</span>
               <strong>{{ celeryInfraLabel }}</strong>
               <small>{{ celeryInfraDetail }}</small>
+              <small v-if="celeryInfraModeLabel">{{ celeryInfraModeLabel }}</small>
+              <small v-if="celeryWorkerCommandLabel">{{ celeryWorkerCommandLabel }}</small>
+            </p>
+          </div>
+        </div>
+        <div v-if="admin.config.security" class="infra-panel">
+          <h3>安全与流量保护</h3>
+          <div class="config-grid">
+            <p>
+              <span>Token blacklist</span>
+              <strong>{{ securityFeatureLabel("tokenBlacklist") }}</strong>
+              <small>退出登录后 access token 可被撤销</small>
+            </p>
+            <p>
+              <span>限流</span>
+              <strong>{{ securityFeatureLabel("rateLimit") }}</strong>
+              <small>保护登录、上传、重试和 AI 生成接口</small>
+            </p>
+            <p>
+              <span>幂等</span>
+              <strong>{{ securityFeatureLabel("idempotency") }}</strong>
+              <small>重复上传时优先复用已有入库任务</small>
+            </p>
+            <p>
+              <span>错误脱敏</span>
+              <strong>{{ securityFeatureLabel("errorRedaction") }}</strong>
+              <small>避免向前端暴露 provider 原始错误和敏感配置</small>
             </p>
           </div>
         </div>
@@ -556,6 +598,12 @@ const redisInfraDetail = computed(() => {
   if (redis.status === "error" && redis.error) return redis.error;
   return redis.url || "暂无 Redis URL";
 });
+const ingestionMaxDurationMs = computed(() => admin.ragIngestionTasks?.summary.maxDurationMs || 0);
+const ingestionIdempotencyHitCount = computed(() => admin.ragIngestionTasks?.summary.idempotencyHitCount || 0);
+const ingestionFailureStageItems = computed(() => {
+  const stages = admin.ragIngestionTasks?.summary.failureStages || {};
+  return Object.entries(stages).map(([stage, count]) => ({ stage, count }));
+});
 const celeryInfraLabel = computed(() => {
   const status = infrastructure.value?.celery?.status || "unknown";
   if (status === "eager") return "Celery eager";
@@ -566,6 +614,15 @@ const celeryInfraDetail = computed(() => {
   const celery = infrastructure.value?.celery;
   if (!celery) return "暂无 Celery 配置";
   return celery.taskAlwaysEager ? "测试/本地同步执行任务" : "通过 broker 投递后台任务";
+});
+const celeryInfraModeLabel = computed(() => {
+  const mode = infrastructure.value?.celery?.mode;
+  if (!mode) return "";
+  return `模式：${mode === "eager" ? "eager 本地测试" : "worker 异步模式"}`;
+});
+const celeryWorkerCommandLabel = computed(() => {
+  const command = infrastructure.value?.celery?.workerCommand;
+  return command ? `Worker：${command}` : "";
 });
 const debugInterruptReason = computed(() => {
   const langgraph = admin.selectedAiDebugDetail?.langgraph as DebugRecord | undefined;
@@ -748,6 +805,13 @@ function runtimeReportNumber(key: string): number {
   const value = runtimeReport.value[key];
   const numberValue = Number(value ?? 0);
   return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function securityFeatureLabel(key: "tokenBlacklist" | "rateLimit" | "idempotency" | "errorRedaction"): string {
+  const feature = admin.config?.security?.[key];
+  if (!feature) return "未记录";
+  const statusText = feature.enabled === false ? "未启用" : "已启用";
+  return feature.backend ? `${statusText} · ${feature.backend}` : statusText;
 }
 
 function reviewActionLabel(value: string): string {
@@ -1225,7 +1289,8 @@ th {
 }
 
 .workflow-node-list,
-.workflow-rag-list {
+.workflow-rag-list,
+.failure-stage-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -1233,7 +1298,8 @@ th {
 }
 
 .workflow-node-list span,
-.workflow-rag-list span {
+.workflow-rag-list span,
+.failure-stage-list span {
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-surface);

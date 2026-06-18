@@ -2,7 +2,7 @@ import json
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from ..agent_logging import create_agent_decision_log
@@ -33,6 +33,7 @@ from ..rag_quality import evaluate_retrieval_quality
 from ..runtime_audit import build_runtime_audit
 from ..runtime_policy import decide_runtime_policy
 from ..schemas import QuestionRequest, QuestionResponse, ReportRequest, ReportResponse
+from ..security import client_identity, enforce_rate_limit
 from ..training_tags import merge_weak_tags
 from ..training_tasks import list_candidate_training_tasks, select_agent_training_task
 
@@ -576,9 +577,11 @@ def build_training_plan(result: dict[str, Any], question_reviews: list[dict[str,
 @router.post("/next-question", response_model=QuestionResponse)
 async def next_question(
     payload: QuestionRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
+    enforce_rate_limit("interview.next_question", client_identity(request, user_id=current_user.id))
     runtime_policy = decide_runtime_policy(
         requested_runtime=payload.agentRuntime,
         user_role=current_user.role,

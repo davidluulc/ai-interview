@@ -13,6 +13,10 @@ from backend_python.auth import (
 from backend_python.main import app
 
 
+def auth_headers(tokens: dict) -> dict[str, str]:
+    return {"Authorization": f"Bearer {tokens['accessToken']}"}
+
+
 def test_password_hash_is_not_plaintext_and_can_be_verified() -> None:
     hashed = hash_password("password123")
 
@@ -113,3 +117,31 @@ def test_login_rejects_wrong_password() -> None:
     )
 
     assert response.status_code == 401
+
+
+def test_logout_blacklists_current_access_token() -> None:
+    client = TestClient(app)
+    suffix = uuid4().hex
+    email = f"blacklist-access-{suffix}@example.com"
+    username = f"blacklist_access_{suffix[:12]}"
+    client.post(
+        "/api/auth/register",
+        json={
+            "email": email,
+            "username": username,
+            "password": "password123",
+        },
+    )
+    login_response = client.post("/api/auth/login", json={"email": email, "password": "password123"})
+    tokens = login_response.json()
+
+    logout_response = client.post(
+        "/api/auth/logout",
+        headers=auth_headers(tokens),
+        json={"refreshToken": tokens["refreshToken"]},
+    )
+    assert logout_response.status_code == 200
+
+    me_response = client.get("/api/auth/me", headers=auth_headers(tokens))
+
+    assert me_response.status_code == 401

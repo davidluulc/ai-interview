@@ -4,6 +4,7 @@ import httpx
 from fastapi import HTTPException
 
 from .config import DASHSCOPE_API_KEY, DASHSCOPE_EMBEDDING_MODEL, LLM_TIMEOUT_SECONDS
+from .security import redact_error_detail
 
 
 EMBEDDING_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings"
@@ -50,16 +51,17 @@ async def embed_text(text: str, model_name: str = DASHSCOPE_EMBEDDING_MODEL) -> 
                     "Content-Type": "application/json",
                 },
                 json=payload,
-            )
+        )
         if response.status_code >= 400:
-            safe_body = response.text[:500].replace(DASHSCOPE_API_KEY, mask_secret(DASHSCOPE_API_KEY))
-            raise HTTPException(status_code=502, detail=f"Embedding provider request failed: {safe_body}")
+            _safe_body = redact_error_detail(response.text.replace(DASHSCOPE_API_KEY, mask_secret(DASHSCOPE_API_KEY)))
+            raise HTTPException(status_code=502, detail="Embedding provider request failed.")
         return extract_embedding(response.json())
     except HTTPException:
         raise
     except httpx.TimeoutException as exc:
-        raise HTTPException(status_code=504, detail="Embedding request timed out.") from exc
+        raise HTTPException(status_code=504, detail="External provider request timed out.") from exc
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Embedding network error: {exc}") from exc
+        _ = redact_error_detail(str(exc))
+        raise HTTPException(status_code=502, detail="Embedding provider request failed.") from exc
     except ValueError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

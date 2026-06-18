@@ -39,6 +39,17 @@ describe("api client", () => {
     await expect(apiRequest("/api/example")).rejects.toThrow("登录已过期");
   });
 
+  it("uses the unified backend error message when present", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ success: false, error: { code: "HTTP_429", message: "请求过于频繁，请稍后重试。" } }), {
+        status: 429,
+        headers: { "Content-Type": "application/json" }
+      })
+    );
+
+    await expect(apiRequest("/api/example")).rejects.toThrow("请求过于频繁，请稍后重试。");
+  });
+
   it("clears saved tokens", () => {
     setApiTokens({ accessToken: "access-1", refreshToken: "refresh-1" });
     clearApiTokens();

@@ -1,11 +1,18 @@
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from backend_python.database import SessionLocal
 from backend_python.db_models import AgentDecisionLog, InterviewRecord, RagDocument, RagIngestionTask, RagRetrievalLog, User
 from backend_python.main import app
+from backend_python.security import reset_security_state
+
+
+@pytest.fixture(autouse=True)
+def reset_security_between_tests() -> None:
+    reset_security_state()
 
 
 def register_and_login(client: TestClient, email: str, username: str) -> dict:
@@ -223,7 +230,67 @@ def test_admin_config_returns_masked_infrastructure_status() -> None:
     assert body["infrastructure"]["database"]["dialect"]
     assert body["infrastructure"]["redis"]["status"] in {"disabled", "ok", "error"}
     assert body["infrastructure"]["celery"]["status"] in {"eager", "configured"}
+    assert body["infrastructure"]["celery"]["mode"] in {"eager", "worker"}
+    assert body["infrastructure"]["celery"]["workerCommand"]
     assert "password" not in str(body).lower()
+
+
+def test_admin_config_exposes_security_summary_without_secrets() -> None:
+    client = TestClient(app)
+    suffix = uuid4().hex
+    email = f"admin-security-{suffix}@example.com"
+    register_and_login(client, email, f"admin_security_{suffix[:8]}")
+    promote_to_admin(email)
+    admin = client.post("/api/auth/login", json={"email": email, "password": "password123"}).json()
+
+    response = client.get("/api/admin/config", headers={"Authorization": f"Bearer {admin['accessToken']}"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["security"]["tokenBlacklist"]["enabled"] is True
+    assert body["security"]["rateLimit"]["enabled"] is True
+    assert body["security"]["idempotency"]["enabled"] is True
+    assert body["security"]["errorRedaction"]["enabled"] is True
+    assert "password" not in str(body).lower()
+
+
+def test_admin_rag_ingestion_tasks_include_failure_stage_summary() -> None:
+    client = TestClient(app)
+    suffix = uuid4().hex
+    email = f"admin-ingestion-stage-{suffix}@example.com"
+    register_and_login(client, email, f"admin_ingestion_stage_{suffix[:8]}")
+    promote_to_admin(email)
+    admin = client.post("/api/auth/login", json={"email": email, "password": "password123"}).json()
+
+    with SessionLocal() as db:
+        admin_user = db.scalar(select(User).where(User.email == email))
+        assert admin_user is not None
+        db.add(
+            RagIngestionTask(
+                task_id=f"rag_ingestion-stage-{suffix}",
+                user_id=admin_user.id,
+                title="Stage failure",
+                original_filename="stage.md",
+                knowledge_base="role_knowledge",
+                status="failed",
+                error_message="Embedding provider request failed.",
+                result_json='{"failureStage":"embedding","durationMs":1234,"idempotencyHit":true}',
+                can_retry=1,
+            )
+        )
+        db.commit()
+
+    response = client.get(
+        "/api/admin/rag/ingestion-tasks",
+        headers={"Authorization": f"Bearer {admin['accessToken']}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["summary"]["failureStages"]["embedding"] >= 1
+    assert body["summary"]["averageDurationMs"] >= 1
+    assert body["summary"]["maxDurationMs"] >= 1234
+    assert body["summary"]["idempotencyHitCount"] >= 1
 
 
 def test_admin_lists_reject_regular_user() -> None:

@@ -91,7 +91,7 @@
           <span>支持 txt、md、pdf</span>
         </div>
         <p class="empty">
-          上传后会解析文本、清洗内容、切分 chunk，并进入现有 RAG 检索链路。当前阶段先做小文件同步导入，后续可迁移到 Celery 异步任务。
+          上传后会创建入库任务，由 Celery eager 或 worker 模式执行文本解析、清洗、chunk 切分，并进入现有 RAG 检索链路。
         </p>
         <form class="upload-form" data-testid="knowledge-upload-form" @submit.prevent="submitUpload">
           <label>

@@ -1,7 +1,9 @@
 import json
+import hashlib
+from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,8 +17,11 @@ from ..rag_ingestion_tasks import (
     create_ingestion_task,
     dispatch_rag_ingestion_task,
     fail_ingestion_task,
+    find_ingestion_task_by_idempotency_key,
+    build_ingestion_idempotency_key,
     json_loads,
     mark_ingestion_text_ready,
+    merge_ingestion_task_result,
     merge_ingestion_task_input,
     serialize_ingestion_task,
     update_ingestion_task,
@@ -29,6 +34,7 @@ from ..rag_store import (
     serialize_chunk,
     serialize_document,
 )
+from ..security import client_identity, enforce_rate_limit
 
 router = APIRouter(prefix="/api/rag/documents", tags=["rag documents"])
 
@@ -113,6 +119,7 @@ async def update_document_status(
 
 @router.post("/upload")
 async def upload_document(
+    request: Request,
     title: str = Form(...),
     knowledgeBase: str = Form(...),
     visibility: str = Form("private"),
@@ -121,7 +128,26 @@ async def upload_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
+    enforce_rate_limit("rag.upload", client_identity(request, user_id=current_user.id))
     knowledge_base = validate_knowledge_base(knowledgeBase)
+    content = await file.read()
+    content_hash = hashlib.sha256(content).hexdigest()
+    idempotency_key = build_ingestion_idempotency_key(
+        user_id=current_user.id,
+        knowledge_base=knowledge_base,
+        title=title,
+        content_hash=content_hash,
+    )
+    existing_task = find_ingestion_task_by_idempotency_key(
+        db,
+        user_id=current_user.id,
+        idempotency_key=idempotency_key,
+    )
+    if existing_task is not None:
+        return {
+            **serialize_ingestion_task(existing_task),
+            "idempotencyHit": True,
+        }
     task = create_ingestion_task(
         db,
         user_id=current_user.id,
@@ -131,6 +157,7 @@ async def upload_document(
         visibility=normalize_document_visibility(visibility),
         metadata={},
     )
+    merge_ingestion_task_result(db, task, {"idempotencyKey": idempotency_key, "idempotencyHit": False})
     try:
         parsed_metadata = json.loads(metadata or "{}")
         if not isinstance(parsed_metadata, dict):
@@ -138,7 +165,6 @@ async def upload_document(
         merge_ingestion_task_input(db, task, {"metadata": parsed_metadata})
 
         update_ingestion_task(db, task, status="running", progress=20, message="Parsing uploaded file.")
-        content = await file.read()
         text = await extract_text_from_upload(filename=file.filename or title, content=content)
         preview = build_ingestion_preview(text, title=title)
         mark_ingestion_text_ready(db, task, text_snapshot=text, preview=preview)
@@ -184,9 +210,11 @@ async def get_ingestion_task(
 @router.post("/ingestion-tasks/{task_id}/retry")
 async def retry_ingestion_task(
     task_id: str,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
+    enforce_rate_limit("rag.retry", client_identity(request, user_id=current_user.id))
     task = db.scalar(
         select(RagIngestionTask).where(
             RagIngestionTask.task_id == task_id,
@@ -195,6 +223,11 @@ async def retry_ingestion_task(
     )
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RAG ingestion task not found")
+    if task.status in {"pending", "queued", "running"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This ingestion task is already processing.",
+        )
     if not can_retry_ingestion_task(task):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -203,7 +236,7 @@ async def retry_ingestion_task(
 
     task.retry_count += 1
     task.document_id = None
-    task.result_json = "{}"
+    task.result_json = json.dumps({"retryLockedAt": datetime.now(UTC).isoformat()}, ensure_ascii=False)
     task.error_message = ""
     db.add(task)
     db.commit()

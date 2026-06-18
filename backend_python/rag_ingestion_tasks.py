@@ -1,5 +1,6 @@
 import json
 import asyncio
+import hashlib
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
@@ -50,6 +51,30 @@ def json_loads(value: str) -> dict[str, Any]:
 
 def get_ingestion_task_by_task_id(db: Session, task_id: str) -> RagIngestionTask | None:
     return db.query(RagIngestionTask).filter_by(task_id=str(task_id or "")).one_or_none()
+
+
+def build_ingestion_idempotency_key(*, user_id: int, knowledge_base: str, title: str, content_hash: str) -> str:
+    raw = f"{user_id}:{knowledge_base}:{str(title or '').strip().lower()}:{content_hash}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def find_ingestion_task_by_idempotency_key(
+    db: Session,
+    *,
+    user_id: int,
+    idempotency_key: str,
+) -> RagIngestionTask | None:
+    tasks = (
+        db.query(RagIngestionTask)
+        .filter(RagIngestionTask.user_id == user_id)
+        .order_by(RagIngestionTask.updated_at.desc(), RagIngestionTask.id.desc())
+        .limit(50)
+        .all()
+    )
+    for task in tasks:
+        if json_loads(task.result_json).get("idempotencyKey") == idempotency_key:
+            return task
+    return None
 
 
 def create_ingestion_task(
@@ -132,14 +157,40 @@ def queue_ingestion_task(db: Session, task: RagIngestionTask) -> RagIngestionTas
     return update_ingestion_task(db, task, status="queued", progress=max(task.progress, 5), message="RAG ingestion task queued.")
 
 
+def merge_ingestion_task_result(
+    db: Session,
+    task: RagIngestionTask,
+    values: dict[str, Any],
+) -> RagIngestionTask:
+    result_payload = json_loads(task.result_json)
+    result_payload.update(values)
+    task.result_json = json_dumps(result_payload)
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return task
+
+
 def dispatch_rag_ingestion_task(db: Session, task: RagIngestionTask) -> RagIngestionTask:
     from .tasks.rag_ingestion import run_rag_ingestion_task
 
     queue_ingestion_task(db, task)
     try:
-        run_rag_ingestion_task.delay(task.task_id)
+        async_result = run_rag_ingestion_task.delay(task.task_id)
+        is_eager = bool(getattr(run_rag_ingestion_task.app.conf, "task_always_eager", False))
+        db.refresh(task)
+        return merge_ingestion_task_result(
+            db,
+            task,
+            {
+                "dispatchMode": "eager" if is_eager else "worker",
+                "celeryTaskId": getattr(async_result, "id", ""),
+                "queuedAt": datetime.now(UTC).isoformat(),
+            },
+        )
     except Exception as exc:
         task.can_retry = 1 if json_loads(task.input_json).get("textSnapshot") else 0
+        merge_ingestion_task_result(db, task, {"dispatchMode": "failed"})
         fail_ingestion_task(db, task, error_message=f"Celery dispatch failed: {exc}")
     db.refresh(task)
     return task
@@ -191,7 +242,9 @@ def execute_rag_ingestion_task(task_id: str) -> dict[str, Any]:
         if task is None:
             return {"taskId": task_id, "status": "failed", "error": "RAG ingestion task not found."}
 
+        started_at = datetime.now(UTC)
         try:
+            merge_ingestion_task_result(db, task, {"startedAt": started_at.isoformat()})
             update_ingestion_task(db, task, status="running", progress=max(task.progress, 10), message="Running RAG ingestion task.")
             payload = json_loads(task.input_json)
             text_snapshot = str(payload.get("textSnapshot") or "").strip()
@@ -216,10 +269,25 @@ def execute_rag_ingestion_task(task_id: str) -> dict[str, Any]:
                 )
             )
             preview = json_loads(task.preview_json)
-            result = {"document": serialize_document(document), "preview": preview}
+            duration_ms = int((datetime.now(UTC) - started_at).total_seconds() * 1000)
+            result = {
+                **json_loads(task.result_json),
+                "document": serialize_document(document),
+                "preview": preview,
+                "durationMs": duration_ms,
+            }
             succeed_ingestion_task(db, task, document_id=document.id, result=result)
         except Exception as exc:
             task.can_retry = 1 if json_loads(task.input_json).get("textSnapshot") else 0
+            merge_ingestion_task_result(
+                db,
+                task,
+                {
+                    "startedAt": started_at.isoformat(),
+                    "durationMs": int((datetime.now(UTC) - started_at).total_seconds() * 1000),
+                    "failureStage": "execute",
+                },
+            )
             fail_ingestion_task(db, task, error_message=str(exc))
 
         db.refresh(task)
@@ -259,6 +327,14 @@ def serialize_ingestion_task(task: RagIngestionTask) -> dict[str, Any]:
         "preview": preview,
         "result": result,
         "document": result.get("document") if isinstance(result.get("document"), dict) else None,
+        "dispatchMode": result.get("dispatchMode", ""),
+        "celeryTaskId": result.get("celeryTaskId", ""),
+        "queuedAt": result.get("queuedAt"),
+        "startedAt": result.get("startedAt"),
+        "durationMs": result.get("durationMs"),
+        "idempotencyKey": result.get("idempotencyKey", ""),
+        "idempotencyHit": bool(result.get("idempotencyHit", False)),
+        "retryLockedAt": result.get("retryLockedAt"),
         "createdAt": task.created_at.isoformat() if task.created_at else None,
         "updatedAt": task.updated_at.isoformat() if task.updated_at else None,
         "completedAt": task.completed_at.isoformat() if task.completed_at else None,

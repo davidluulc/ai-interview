@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ..auth import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
     create_refresh_token,
     find_user_by_email,
@@ -16,6 +17,7 @@ from ..auth import (
 )
 from ..database import get_db
 from ..db_models import RefreshToken, User
+from ..security import client_identity, enforce_rate_limit, hash_token, token_blacklist
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -86,7 +88,8 @@ async def register(payload: UserCreateRequest, db: Session = Depends(get_db)) ->
 
 
 @router.post("/login")
-async def login(payload: LoginRequest, db: Session = Depends(get_db)) -> dict:
+async def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)) -> dict:
+    enforce_rate_limit("auth.login", client_identity(request))
     user = find_user_by_email(db, payload.email)
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
@@ -110,12 +113,17 @@ async def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> dic
 
 
 @router.post("/logout")
-async def logout(payload: RefreshRequest, db: Session = Depends(get_db)) -> dict[str, bool]:
+async def logout(payload: RefreshRequest, request: Request, db: Session = Depends(get_db)) -> dict[str, bool]:
     token_hash = hash_refresh_token(payload.refreshToken)
     record = db.scalars(select(RefreshToken).where(RefreshToken.token_hash == token_hash)).first()
     if record and not record.revoked_at:
         record.revoked_at = datetime.now(timezone.utc).replace(tzinfo=None)
         db.commit()
+    authorization = request.headers.get("authorization", "")
+    if authorization.lower().startswith("bearer "):
+        access_token = authorization.split(" ", 1)[1].strip()
+        if access_token:
+            token_blacklist.add(hash_token(access_token), ttl_seconds=ACCESS_TOKEN_EXPIRE_MINUTES * 60)
     return {"ok": True}
 
 

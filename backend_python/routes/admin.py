@@ -17,6 +17,7 @@ from ..langgraph_agent.checkpoint_persistence import get_latest_checkpoint_summa
 from ..rag_ingestion_tasks import serialize_ingestion_task
 from ..rag_logging import serialize_rag_log
 from ..rag_store import serialize_document
+from ..security import build_security_status
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -93,21 +94,37 @@ def build_ingestion_task_quality_payload(tasks: list[RagIngestionTask]) -> dict[
         "succeededCount": 0,
         "failedCount": 0,
         "retryableCount": 0,
+        "failureStages": {},
+        "averageDurationMs": 0,
+        "maxDurationMs": 0,
+        "idempotencyHitCount": 0,
     }
     items: list[dict[str, Any]] = []
+    durations: list[int] = []
     for task in tasks:
         item = serialize_ingestion_task(task)
         item["userEmail"] = task.user.email if task.user else ""
         status_value = item.get("status")
+        result = item.get("result") if isinstance(item.get("result"), dict) else {}
         if status_value in {"queued", "running"}:
             summary["runningCount"] += 1
         elif status_value == "succeeded":
             summary["succeededCount"] += 1
         elif status_value == "failed":
             summary["failedCount"] += 1
+            failure_stage = str(result.get("failureStage") or "unknown")
+            summary["failureStages"][failure_stage] = summary["failureStages"].get(failure_stage, 0) + 1
         if item.get("canRetry"):
             summary["retryableCount"] += 1
+        if item.get("idempotencyHit"):
+            summary["idempotencyHitCount"] += 1
+        duration_ms = item.get("durationMs")
+        if isinstance(duration_ms, int):
+            durations.append(duration_ms)
+            summary["maxDurationMs"] = max(summary["maxDurationMs"], duration_ms)
         items.append(item)
+    if durations:
+        summary["averageDurationMs"] = int(sum(durations) / len(durations))
     return {"summary": summary, "items": items}
 
 
@@ -301,4 +318,5 @@ async def admin_config(_: User = Depends(require_admin_user)) -> dict[str, Any]:
         "rerankModel": DASHSCOPE_RERANK_MODEL,
         "databaseUrl": describe_database_url(DATABASE_URL)["maskedUrl"],
         "infrastructure": get_infrastructure_status(),
+        "security": build_security_status(),
     }

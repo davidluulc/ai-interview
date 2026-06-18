@@ -1,12 +1,19 @@
 import json
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from backend_python.database import SessionLocal
 from backend_python.db_models import RagIngestionTask
 from backend_python.main import app
+from backend_python.security import reset_security_state
+
+
+@pytest.fixture(autouse=True)
+def reset_security_between_tests() -> None:
+    reset_security_state()
 
 
 def register_and_login(client: TestClient, prefix: str) -> dict:
@@ -81,6 +88,69 @@ def test_upload_text_document_creates_rag_document(monkeypatch) -> None:
         input_payload = json.loads(persisted_task.input_json)
         assert input_payload["metadata"]["positionTag"] == "python_backend"
         assert input_payload["textSnapshot"].startswith("FastAPI Depends")
+
+
+def test_upload_returns_queued_in_worker_mode(monkeypatch) -> None:
+    client = TestClient(app)
+    tokens = register_and_login(client, "rag_upload_worker_mode")
+
+    from backend_python.tasks.rag_ingestion import run_rag_ingestion_task
+
+    class FakeAsyncResult:
+        id = "worker-mode-upload"
+
+    def fake_delay(task_id: str) -> FakeAsyncResult:
+        return FakeAsyncResult()
+
+    monkeypatch.setattr(run_rag_ingestion_task, "delay", fake_delay)
+    monkeypatch.setattr(run_rag_ingestion_task.app.conf, "task_always_eager", False)
+
+    response = client.post(
+        "/api/rag/documents/upload",
+        headers=auth_headers(tokens),
+        data={"title": "Worker mode", "knowledgeBase": "role_knowledge", "visibility": "private"},
+        files={"file": ("worker.txt", b"Worker mode should return queued.", "text/plain")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "queued"
+    assert body["dispatchMode"] == "worker"
+    assert body["document"] is None
+
+
+def test_upload_same_file_returns_existing_ingestion_task(monkeypatch) -> None:
+    reset_security_state()
+
+    async def fake_embed_text(text: str) -> list[float]:
+        return [0.1, 0.2, 0.3]
+
+    monkeypatch.setattr("backend_python.rag_store.embed_text", fake_embed_text)
+    client = TestClient(app)
+    tokens = register_and_login(client, "rag_upload_idempotent")
+    payload = {
+        "title": "Idempotent Upload",
+        "knowledgeBase": "role_knowledge",
+        "visibility": "private",
+    }
+
+    first = client.post(
+        "/api/rag/documents/upload",
+        headers=auth_headers(tokens),
+        data=payload,
+        files={"file": ("same.txt", b"same idempotent content", "text/plain")},
+    )
+    second = client.post(
+        "/api/rag/documents/upload",
+        headers=auth_headers(tokens),
+        data=payload,
+        files={"file": ("same.txt", b"same idempotent content", "text/plain")},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["taskId"] == first.json()["taskId"]
+    assert second.json()["idempotencyHit"] is True
 
 
 def test_upload_markdown_document_preserves_heading_text(monkeypatch) -> None:
@@ -217,6 +287,92 @@ def test_retry_ingestion_task_dispatches_celery_task(monkeypatch) -> None:
     assert body["status"] == "succeeded"
     assert body["retryCount"] == 1
     assert body["document"]["sourceType"] == "upload_retry"
+    assert body["retryLockedAt"]
+
+
+def test_retry_returns_queued_in_worker_mode(monkeypatch) -> None:
+    async def fake_embed_text(text: str) -> list[float]:
+        return [0.2, 0.3, 0.4]
+
+    monkeypatch.setattr("backend_python.rag_store.embed_text", fake_embed_text)
+    client = TestClient(app)
+    tokens = register_and_login(client, "rag_retry_worker_mode")
+
+    upload_response = client.post(
+        "/api/rag/documents/upload",
+        headers=auth_headers(tokens),
+        data={"title": "Retry worker", "knowledgeBase": "role_knowledge", "visibility": "private"},
+        files={"file": ("retry-worker.txt", b"Retry worker mode content.", "text/plain")},
+    )
+    assert upload_response.status_code == 200
+    task_id = upload_response.json()["taskId"]
+
+    with SessionLocal() as db:
+        task = db.scalar(select(RagIngestionTask).where(RagIngestionTask.task_id == task_id))
+        assert task is not None
+        task.status = "failed"
+        task.error_message = "temporary failure"
+        task.can_retry = 1
+        db.add(task)
+        db.commit()
+
+    from backend_python.tasks.rag_ingestion import run_rag_ingestion_task
+
+    class FakeAsyncResult:
+        id = "worker-mode-retry"
+
+    def fake_delay(task_id: str) -> FakeAsyncResult:
+        return FakeAsyncResult()
+
+    monkeypatch.setattr(run_rag_ingestion_task, "delay", fake_delay)
+    monkeypatch.setattr(run_rag_ingestion_task.app.conf, "task_always_eager", False)
+
+    retry_response = client.post(
+        f"/api/rag/documents/ingestion-tasks/{task_id}/retry",
+        headers=auth_headers(tokens),
+    )
+
+    assert retry_response.status_code == 200
+    body = retry_response.json()
+    assert body["status"] == "queued"
+    assert body["retryCount"] == 1
+    assert body["dispatchMode"] == "worker"
+    assert body["retryLockedAt"]
+
+
+def test_retry_running_ingestion_task_returns_409(monkeypatch) -> None:
+    async def fake_embed_text(text: str) -> list[float]:
+        return [0.2, 0.3, 0.4]
+
+    monkeypatch.setattr("backend_python.rag_store.embed_text", fake_embed_text)
+    client = TestClient(app)
+    tokens = register_and_login(client, "rag_retry_conflict")
+
+    upload_response = client.post(
+        "/api/rag/documents/upload",
+        headers=auth_headers(tokens),
+        data={"title": "Retry Conflict", "knowledgeBase": "role_knowledge", "visibility": "private"},
+        files={"file": ("retry-conflict.txt", b"Retry conflict content.", "text/plain")},
+    )
+    assert upload_response.status_code == 200
+    task_id = upload_response.json()["taskId"]
+
+    with SessionLocal() as db:
+        task = db.scalar(select(RagIngestionTask).where(RagIngestionTask.task_id == task_id))
+        assert task is not None
+        task.status = "running"
+        task.error_message = ""
+        task.can_retry = 1
+        db.add(task)
+        db.commit()
+
+    response = client.post(
+        f"/api/rag/documents/ingestion-tasks/{task_id}/retry",
+        headers=auth_headers(tokens),
+    )
+
+    assert response.status_code == 409
+    assert "processing" in response.text.lower() or "already" in response.text.lower()
 
 
 def test_user_cannot_read_other_users_ingestion_task(monkeypatch) -> None:

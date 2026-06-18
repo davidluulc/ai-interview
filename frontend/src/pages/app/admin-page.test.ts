@@ -72,7 +72,11 @@ const adminStore: any = {
       runningCount: 1,
       succeededCount: 1,
       failedCount: 1,
-      retryableCount: 1
+      retryableCount: 1,
+      failureStages: { embedding: 1 },
+      averageDurationMs: 800,
+      maxDurationMs: 1234,
+      idempotencyHitCount: 2
     },
     items: [
       {
@@ -245,11 +249,23 @@ const adminStore: any = {
       },
       celery: {
         status: "eager",
+        mode: "eager",
         taskAlwaysEager: true,
+        workerRequired: false,
+        workerCommand: "celery -A backend_python.celery_app.celery_app worker --loglevel=info --pool=solo",
+        brokerConfigured: true,
+        resultBackendConfigured: true,
         brokerUrl: "redis://localhost:6379/1",
         resultBackend: "redis://localhost:6379/2",
-        healthTask: "backend_python.tasks.health.ping_task"
+        healthTask: "backend_python.tasks.health.ping_task",
+        registeredTaskModules: ["backend_python.tasks.rag_ingestion"]
       }
+    },
+    security: {
+      tokenBlacklist: { enabled: true, backend: "memory" },
+      rateLimit: { enabled: true, backend: "memory" },
+      idempotency: { enabled: true, backend: "database" },
+      errorRedaction: { enabled: true }
     }
   },
   loading: false,
@@ -327,6 +343,15 @@ describe("admin page", () => {
     expect(wrapper.text()).toContain("SQLite 本地开发");
     expect(wrapper.text()).toContain("Redis 未启用");
     expect(wrapper.text()).toContain("Celery eager");
+    expect(wrapper.text()).toContain("模式：eager 本地测试");
+    expect(wrapper.text()).toContain("Worker：celery -A backend_python.celery_app.celery_app worker");
+    expect(wrapper.text()).toContain("安全与流量保护");
+    expect(wrapper.text()).toContain("Token blacklist");
+    expect(wrapper.text()).toContain("限流");
+    expect(wrapper.text()).toContain("幂等");
+    expect(wrapper.text()).toContain("最长耗时");
+    expect(wrapper.text()).toContain("1234ms");
+    expect(wrapper.text()).toContain("embedding");
     expect(wrapper.text()).not.toContain("undefined");
   });
 

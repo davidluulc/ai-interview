@@ -18,6 +18,7 @@ from .config import (
 )
 from .database import get_db
 from .db_models import User
+from .security import hash_token, token_blacklist
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -77,6 +78,8 @@ def verify_refresh_token(token: str, token_hash: str) -> bool:
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+    if token_blacklist.contains(hash_token(token)):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked.")
     payload = decode_token(token, expected_type="access")
     user_id = int(payload["sub"])
     user = db.get(User, user_id)

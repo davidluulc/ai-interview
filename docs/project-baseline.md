@@ -117,3 +117,57 @@ npm.cmd run build
 本阶段已把 RAG 文档上传和 retry 从“接口内同步创建文档”升级为“接口创建/更新 `RagIngestionTask`，保存文本快照，然后通过 Celery taskId 派发后台入库任务”。Celery task 会重新打开数据库 session，根据 `taskId` 读取 `input_json` 中的 `textSnapshot`、metadata、可见性和知识库类型，复用现有 `create_rag_document_with_embeddings()` 创建 `RagDocument` / `RagChunk`，并把 `document_id`、`result_json`、`status`、`progress` 和失败原因写回任务表。
 
 本阶段保持明确边界：未引入 Qdrant/pgvector、对象存储、OCR、Word/Excel/网页解析，也未做 Docker/Nginx/VPS/HTTPS 上线。前端只做最小状态兼容，知识库页和管理员后台能识别 `queued` 并显示为“排队中”。
+
+## 11. 2026-06-17 补充：Production Hardening V3.1 已完成
+
+Production Hardening V3.1 已完成：Celery worker mode 可观测，RAG ingestion dispatch 能区分 eager 完成、worker queued 和 dispatch failed，并记录 dispatch/timing metadata。
+
+本阶段新增或强化的生产化能力：
+
+- `/api/health` 和 `/api/admin/config` 的 Celery 摘要包含 `mode`、`taskAlwaysEager`、`workerRequired`、`workerCommand`、broker/result backend 配置状态和已注册任务模块。
+- 新增 `scripts/start-celery-worker.cmd`，用于本地真实 worker mode 演练，命令为 `celery -A backend_python.celery_app.celery_app worker --loglevel=info --pool=solo`。
+- RAG ingestion dispatch 明确区分 `dispatchMode=eager`、`dispatchMode=worker` 和 `dispatchMode=failed`。
+- worker mode 下 HTTP 上传/重试只返回 `queued`，不假装任务已经同步完成。
+- dispatch 失败时任务会进入 `failed`，保留错误原因，并在存在文本快照时保留可重试能力。
+- ingestion task 记录 `celeryTaskId`、`queuedAt`、`startedAt`、`durationMs` 和 `failureStage` 等排查字段。
+- Vue3 管理员后台最小展示 Celery 当前模式和 worker 启动命令。
+
+本阶段明确未做：
+
+- 未强制本地安装 PostgreSQL。
+- 未要求真实 Redis 或 Celery worker 才能运行测试。
+- 未做 Docker、Nginx、VPS、HTTPS 上线。
+- 未引入 Qdrant、pgvector 或对象存储。
+- 未做 OCR、Word/Excel、网页解析。
+- 未重构 RAG 检索、rerank、evaluation 算法。
+- 未重构 Agent、LangGraph 或 Vue3 主链路。
+
+后续仍待执行：
+
+- V3.2：安全与流量保护，包括 token blacklist、基础限流、敏感错误脱敏和管理员接口权限边界继续加固。
+- V3.3：缓存、幂等和可观测性增强，包括防重复提交、任务幂等、retry 并发保护和更完整的任务异常聚合。
+
+## 12. 2026-06-17 补充：Production Hardening V3.2 + V3.3 已完成
+
+Production Hardening V3.2 + V3.3 已完成：系统新增 token blacklist、基础限流、provider 错误脱敏、RAG upload 幂等、retry 并发保护、任务异常聚合和管理员安全摘要。
+
+本阶段新增或强化的生产化能力：
+
+- `/api/auth/logout` 会将当前 access token 写入 blacklist，退出后旧 access token 不能继续访问受保护接口。
+- 登录、RAG 文件上传、RAG retry 和 `/api/interview/next-question` 已接入基础限流；测试环境不依赖真实 Redis，使用 memory fallback。
+- embedding / rerank provider 对前端返回稳定脱敏错误，不再暴露 provider 原始响应体、API key、数据库 URL 或本地路径。
+- RAG 文件上传基于 `user_id + knowledge_base + title + file_hash` 生成幂等 key，同一用户重复上传同一文件会复用已有 ingestion task。
+- RAG retry 增加状态保护：queued/running/pending 任务不能重复 retry；成功进入 retry 时记录 `retryLockedAt`。
+- 管理员后台配置接口新增 `security` 摘要，展示 token blacklist、rate limit、idempotency、error redaction 的启用状态和 backend。
+- 管理员 RAG ingestion 监控新增失败阶段、平均耗时、最长耗时和幂等命中数聚合。
+- Vue3 管理员后台最小展示安全/限流/幂等摘要和 ingestion 异常聚合；知识库页兼容 409/429 友好错误提示。
+
+本阶段明确未做：
+
+- 未强制安装 PostgreSQL，SQLite 仍是本地默认开发数据库。
+- 未要求真实 Redis 才能运行测试。
+- 未做 Docker、Nginx、VPS、HTTPS 上线。
+- 未引入 Qdrant、pgvector 或对象存储。
+- 未做 OCR、Word / Excel / 网页解析。
+- 未重构 RAG 检索、hybrid search、rerank、evaluation 算法。
+- 未重构 Agent、LangGraph 或 Vue3 主链路。
