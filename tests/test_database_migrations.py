@@ -55,6 +55,22 @@ def test_rag_chunk_embedding_migration_exists() -> None:
     assert "embedding_status" in migration_text
 
 
+def test_rag_document_lifecycle_migration_exists() -> None:
+    migration_files = list(Path("alembic/versions").glob("*add_rag_document_lifecycle_columns.py"))
+
+    assert len(migration_files) == 1
+    migration_text = migration_files[0].read_text(encoding="utf-8")
+    for expected_column in [
+        "status",
+        "visibility",
+        "content_hash",
+        "duplicate_chunk_count",
+        "chunk_hash",
+        "is_duplicate",
+    ]:
+        assert expected_column in migration_text
+
+
 def test_agent_decision_log_model_declares_expected_columns() -> None:
     columns = AgentDecisionLog.__table__.columns
 
