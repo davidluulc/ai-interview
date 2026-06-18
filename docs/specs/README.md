@@ -27,7 +27,7 @@ Production Hardening V3.2 + V3.3：已完成 token blacklist、基础限流、pr
 当前准备执行阶段：
 
 ```text
-Pre-Launch Delivery Roadmap V4：Async Worker Readiness V4 已完成，下一步执行 PostgreSQL Compatibility V4。
+Pre-Launch Delivery Roadmap V4：Async Worker Readiness V4 和 PostgreSQL Compatibility V4 已完成，下一步执行 Deployment Integration V4。
 ```
 
 ## 使用规则

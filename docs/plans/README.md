@@ -27,7 +27,7 @@ docs/plans/completed/production-hardening-v3-2-v3-3.md
 最近完成阶段主题：
 
 ```text
-Pre-Launch Delivery Roadmap V4 / Async Worker Readiness V4：已完成 Celery worker readiness 摘要、管理员后台异步任务 Worker 展示和 Celery worker 运行说明。下一步继续执行 PostgreSQL Compatibility V4。
+Pre-Launch Delivery Roadmap V4 / PostgreSQL Compatibility V4：已完成 PostgreSQL URL 识别、脱敏字段补强和 PostgreSQL 兼容路线文档。下一步继续执行 Deployment Integration V4。
 ```
 
 ## 追求目标模式建议

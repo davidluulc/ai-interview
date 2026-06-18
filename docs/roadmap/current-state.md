@@ -25,19 +25,19 @@ docs/plans/active/pre-launch-delivery-roadmap-v4.md
 当前实现进度：
 
 ```text
-Production Hardening V3.2 + V3.3 已完成；Pre-Launch Delivery Roadmap V4 的 Async Worker Readiness V4 已完成：系统新增 Celery worker readiness 摘要、管理员后台异步任务 Worker 展示和 Celery worker 运行说明。SQLite 仍是本地默认数据库，Redis/Celery 保持本地 eager/fallback 与生产 worker 配置兼容，未做真实 VPS/HTTPS 上线。
+Production Hardening V3.2 + V3.3 已完成；Pre-Launch Delivery Roadmap V4 的 Async Worker Readiness V4 和 PostgreSQL Compatibility V4 已完成：系统新增 Celery worker readiness 摘要、管理员后台异步任务 Worker 展示、Celery worker 运行说明、PostgreSQL 配置识别字段和 PostgreSQL 兼容路线文档。SQLite 仍是本地默认数据库，Redis/Celery 保持本地 eager/fallback 与生产 worker 配置兼容，未做真实 VPS/HTTPS 上线。
 ```
 
 当前补充记录：
 
 ```text
-Async Worker Readiness V4 已完成：后端 `build_celery_status()` 暴露 workerReadiness，`/api/admin/config` 透传基础设施状态，Vue3 管理员后台展示“异步任务 Worker”，并新增 `docs/deployment/celery-worker-readiness.md`。下一步进入 PostgreSQL Compatibility V4。
+PostgreSQL Compatibility V4 已完成：`describe_database_url()` 新增 isSqlite / isPostgres 兼容字段，测试覆盖 PostgreSQL URL 识别与脱敏，新增 `docs/deployment/postgresql-compatibility-v4.md`。下一步进入 Deployment Integration V4。
 ```
 
 下一阶段候选方向：
 
 ```text
-当前已有 active spec 和 active plan：Pre-Launch Delivery Roadmap V4。Async Worker Readiness V4 已完成，下一步按 PostgreSQL Compatibility V4 -> Deployment Integration V4 -> Project Explanation & Resume Pack V1 的顺序推进。不要重复执行 Backend Production Infrastructure V1、Async RAG Ingestion V2、Production Hardening V3.1 或 V3.2+V3.3。
+当前已有 active spec 和 active plan：Pre-Launch Delivery Roadmap V4。Async Worker Readiness V4 和 PostgreSQL Compatibility V4 已完成，下一步按 Deployment Integration V4 -> Project Explanation & Resume Pack V1 的顺序推进。不要重复执行 Backend Production Infrastructure V1、Async RAG Ingestion V2、Production Hardening V3.1 或 V3.2+V3.3。
 ```
 
 本文档是当前项目的可信路线入口。判断项目进度时，优先看本文档，再看 `docs/project-baseline.md` 和 `project-progress.md` 的历史执行记录。旧 spec、旧 plan、旧学习手册只作为背景资料，不再直接决定下一步开发路线。

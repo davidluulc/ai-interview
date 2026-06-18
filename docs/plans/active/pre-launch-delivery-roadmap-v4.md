@@ -514,7 +514,7 @@ git commit -m "docs: mark async worker readiness complete"
 - Modify: `tests/test_database_config.py`
 - Modify: `backend_python/database.py` only if tests expose a gap.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add tests that assert:
 
@@ -534,7 +534,7 @@ def test_postgresql_url_is_identified_without_exposing_password() -> None:
     assert result["autoInit"] is False
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```powershell
 python -m pytest tests/test_database_config.py -q
@@ -542,17 +542,17 @@ python -m pytest tests/test_database_config.py -q
 
 Expected: FAIL only if the current database summary lacks the asserted fields.
 
-- [ ] **Step 3: Implement minimal database summary compatibility**
+- [x] **Step 3: Implement minimal database summary compatibility**
 
 If needed, update `backend_python/database.py` so `describe_database_url()` returns `dialect`, `isPostgres`, `isSqlite`, `maskedUrl`, and `autoInit`.
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 ```powershell
 python -m pytest tests/test_database_config.py -q
 ```
 
-- [ ] **Step 5: Commit Task B1**
+- [x] **Step 5: Commit Task B1**
 
 ```powershell
 git add backend_python/database.py tests/test_database_config.py
@@ -566,7 +566,7 @@ git commit -m "test: cover postgresql database configuration"
 - Modify: `.env.production.example`
 - Create: `docs/deployment/postgresql-compatibility-v4.md`
 
-- [ ] **Step 1: Update env examples**
+- [x] **Step 1: Update env examples**
 
 Ensure `.env.example` keeps SQLite default:
 
@@ -582,7 +582,7 @@ DATABASE_URL=postgresql+psycopg://ai_interview:replace_with_postgres_password@db
 AUTO_INIT_DB=false
 ```
 
-- [ ] **Step 2: Add PostgreSQL compatibility doc**
+- [x] **Step 2: Add PostgreSQL compatibility doc**
 
 Create `docs/deployment/postgresql-compatibility-v4.md` explaining:
 
@@ -609,7 +609,7 @@ docker compose up -d db
 项目本地默认 SQLite，但数据库配置层支持 PostgreSQL。这样既保留日常开发效率，也具备生产数据库迁移路径。
 ```
 
-- [ ] **Step 3: Run docs placeholder check**
+- [x] **Step 3: Run docs placeholder check**
 
 ```powershell
 Select-String -Path .env.example,.env.production.example,docs\deployment\postgresql-compatibility-v4.md -Pattern @("TO" + "DO", "TB" + "D", "待" + "定")
@@ -617,7 +617,7 @@ Select-String -Path .env.example,.env.production.example,docs\deployment\postgre
 
 Expected: no matches.
 
-- [ ] **Step 4: Commit Task B2**
+- [x] **Step 4: Commit Task B2**
 
 ```powershell
 git add .env.example .env.production.example docs/deployment/postgresql-compatibility-v4.md
@@ -631,7 +631,7 @@ git commit -m "docs: explain postgresql compatibility path"
 - Modify: `docs/specs/README.md`
 - Modify: `docs/plans/README.md`
 
-- [ ] **Step 1: Run backend config tests**
+- [x] **Step 1: Run backend config tests**
 
 ```powershell
 python -m pytest tests/test_database_config.py tests/test_deployment_config.py -q
@@ -639,7 +639,7 @@ python -m pytest tests/test_database_config.py tests/test_deployment_config.py -
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full backend tests**
+- [x] **Step 2: Run full backend tests**
 
 ```powershell
 python -m pytest -q
@@ -647,11 +647,11 @@ python -m pytest -q
 
 Expected: PASS.
 
-- [ ] **Step 3: Update roadmap**
+- [x] **Step 3: Update roadmap**
 
 Update docs to say PostgreSQL Compatibility V4 is complete and Deployment Integration V4 is next.
 
-- [ ] **Step 4: Commit Phase B completion docs**
+- [x] **Step 4: Commit Phase B completion docs**
 
 ```powershell
 git add docs/roadmap/current-state.md docs/specs/README.md docs/plans/README.md
