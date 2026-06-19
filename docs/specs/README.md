@@ -7,27 +7,23 @@
 ## 当前状态
 
 当前 active spec：
-
 ```text
-docs/specs/active/public-demo-stabilization-rag-seed-v1-design.md
+暂无。下一阶段开始前再新建 active spec。
 ```
 
 最近完成并归档的 spec：
-
 ```text
-docs/specs/completed/pre-launch-delivery-roadmap-v4-design.md
+docs/specs/completed/public-demo-stabilization-rag-seed-v1-design.md
 ```
 
 最近完成阶段主题：
-
 ```text
-Pre-Launch Delivery Roadmap V4：已完成异步 worker readiness、PostgreSQL 兼容、部署集成、上线 runbook、项目讲解和简历材料。
+Public Demo Stabilization + Production RAG Seed V1：已完成生产 RAG seed、面试启动入口修复、结束复盘闭环、面试官 thinking loading、知识库用户页简化、档案归档/恢复、RAG 空召回提示和公网部署验证。
 ```
 
-当前准备执行阶段：
-
+推荐下一阶段：
 ```text
-Public Demo Stabilization + Production RAG Seed V1：修复公网演示闭环、生产 RAG seed、面试启动/结束链路、用户端知识库简化和档案归档。
+Pre-Launch Stabilization V1：安全收口、演示脚本、README/部署文档校准、密钥轮换、管理员账号加固、最终 HR 演示准备。
 ```
 
 ## 使用规则

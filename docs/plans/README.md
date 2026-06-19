@@ -7,27 +7,23 @@
 ## 当前状态
 
 当前 active plan：
-
 ```text
-docs/plans/active/public-demo-stabilization-rag-seed-v1.md
+暂无。下一阶段开始前再根据 active spec 编写。
 ```
 
 当前 active spec：
-
 ```text
-docs/specs/active/public-demo-stabilization-rag-seed-v1-design.md
+暂无。下一阶段开始前再新建 active spec。
 ```
 
 最近完成并归档的 plan：
-
 ```text
-docs/plans/completed/pre-launch-delivery-roadmap-v4.md
+docs/plans/completed/public-demo-stabilization-rag-seed-v1.md
 ```
 
 最近完成阶段主题：
-
 ```text
-Pre-Launch Delivery Roadmap V4：已完成异步 worker readiness、PostgreSQL 兼容、部署集成、上线 runbook、项目讲解和简历材料。
+Public Demo Stabilization + Production RAG Seed V1：已完成公网演示闭环稳定化和生产 RAG seed。
 ```
 
 ## 追求目标模式建议
