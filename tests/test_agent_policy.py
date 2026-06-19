@@ -106,3 +106,25 @@ def test_policy_is_json_serializable_shape() -> None:
         "policyReasons": ["回答不算完全不会，默认继续中等难度追问。"],
         "triggerRules": ["normal_follow_up"],
     }
+
+
+def test_policy_treats_empty_history_as_opening_question() -> None:
+    policy = apply_agent_policy(
+        {
+            "agentMode": "coach",
+            "answerStatus": "未开始",
+            "answerAnalysis": {
+                "answerStatus": "未开始",
+                "weakAnswerStreak": 0,
+                "repeatedQuestionCount": 0,
+                "topicLock": {"locked": False, "topic": "", "count": 0},
+            },
+            "history": [],
+        }
+    )
+
+    assert policy["recommendedAction"] == "deep_follow_up"
+    assert policy["difficulty"] == "medium"
+    assert policy["triggerRules"] == ["opening_question"]
+    assert "面试刚开始" in policy["policyReasons"][0]
+    assert "上一轮回答" not in policy["policyReasons"][0]

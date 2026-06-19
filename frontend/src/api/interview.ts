@@ -62,6 +62,7 @@ export interface ReportResponse extends Record<string, unknown> {
   actions: string[];
   questionReviews?: Record<string, unknown>[];
   trainingPlan?: Record<string, unknown>;
+  fallbackUsed?: boolean;
 }
 
 export async function nextQuestion(payload: NextQuestionPayload): Promise<NextQuestionResponse> {

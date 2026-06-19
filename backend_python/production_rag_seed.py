@@ -53,6 +53,29 @@ PRODUCTION_RAG_SEED_ITEMS: list[dict[str, Any]] = [
         },
     },
     {
+        "seedKey": "role-rag-log-fields-v1",
+        "knowledgeBase": "role_knowledge",
+        "title": "RAG 命中日志字段定位",
+        "content": (
+            "RAG 命中日志用于解释一次问题为什么会命中某些资料，也用于排查空召回和错召回。"
+            "核心字段包括 queryText、retrieverName、retrievalMode、matchedRetrievalModes、hitCount、hitsJson、usedInPrompt 和 qualityReason。"
+            "\n\nretrievalMode 表示本次检索总体采用 keyword、vector、hybrid 还是 rerank。"
+            "matchedRetrievalModes 用于说明某条命中结果来自 BM25 关键词召回、向量召回还是两者同时命中。"
+            "如果要区分 BM25 和向量召回，应优先查看 matchedRetrievalModes；排查排序时再看 bm25Score、vectorScore 和 rerankScore。"
+            "\n\nbm25Score 体现关键词匹配强度，适合排查岗位名、技术词、字段名是否命中；"
+            "vectorScore 体现语义相似度，适合排查同义表达是否命中；"
+            "rerankScore 体现重排模型最终判断。面试中回答这类问题时，应先说字段职责，再举一个日志排查例子。"
+        ),
+        "metadata": {
+            "seedKey": "role-rag-log-fields-v1",
+            "positionTag": "ai_app_intern",
+            "category": "technical",
+            "interviewStage": "RAG 日志定位",
+            "source": "production_seed",
+            "tags": ["rag", "bm25", "vector", "retrievalMode", "matchedRetrievalModes"],
+        },
+    },
+    {
         "seedKey": "question-rag-quality-v1",
         "knowledgeBase": "question_bank",
         "title": "RAG 质量评估题库",
@@ -68,6 +91,28 @@ PRODUCTION_RAG_SEED_ITEMS: list[dict[str, Any]] = [
             "difficulty": "standard",
             "interviewStage": "RAG 追问",
             "source": "production_seed",
+        },
+    },
+    {
+        "seedKey": "question-rag-log-fields-v1",
+        "knowledgeBase": "question_bank",
+        "title": "BM25 与向量召回日志字段题",
+        "content": (
+            "面试题：在 RAG 命中日志中，你会查看哪个字段来区分是 BM25 还是向量召回的结果？"
+            "参考回答：先看 matchedRetrievalModes，因为它记录每条 hit 是 keyword/BM25、vector 还是 hybrid 命中；"
+            "再结合 retrievalMode 判断本次检索链路整体模式。"
+            "\n\n如果需要进一步解释排序差异，可以补充 bm25Score、vectorScore、rerankScore："
+            "bm25Score 偏关键词覆盖，vectorScore 偏语义相似，rerankScore 是重排后的最终相关性判断。"
+            "最后说明 hitsJson 保存命中文档、chunk、score 和 metadata，usedInPrompt 表示是否真正进入提示词。"
+        ),
+        "metadata": {
+            "seedKey": "question-rag-log-fields-v1",
+            "positionTag": "ai_app_intern",
+            "category": "interview_question",
+            "difficulty": "standard",
+            "interviewStage": "RAG 日志定位",
+            "source": "production_seed",
+            "tags": ["rag", "bm25", "vector", "retrievalMode", "matchedRetrievalModes"],
         },
     },
     {

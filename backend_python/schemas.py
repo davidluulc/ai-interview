@@ -48,6 +48,7 @@ class ReportResponse(BaseModel):
     actions: list[str]
     questionReviews: list[dict[str, Any]] = Field(default_factory=list)
     trainingPlan: dict[str, Any] = Field(default_factory=dict)
+    fallbackUsed: bool = False
 
 
 class HistoryCreateRequest(BaseModel):

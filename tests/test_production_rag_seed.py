@@ -3,7 +3,7 @@ from pathlib import Path
 
 from backend_python.database import SessionLocal
 from backend_python.db_models import RagChunk, RagDocument, User
-from backend_python.production_rag_seed import run_production_rag_seed
+from backend_python.production_rag_seed import PRODUCTION_RAG_SEED_ITEMS, run_production_rag_seed
 from backend_python.rag_store import parse_json
 
 
@@ -100,3 +100,12 @@ def test_seed_cli_bootstraps_project_root_before_backend_imports() -> None:
 
     assert "sys.path.insert(0, str(ROOT_DIR))" in script_text
     assert script_text.index("sys.path.insert") < script_text.index("from backend_python.database")
+
+
+def test_seed_contains_specific_rag_log_retrieval_mode_fields() -> None:
+    seed_text = "\n".join(str(item["content"]) for item in PRODUCTION_RAG_SEED_ITEMS)
+
+    assert "retrievalMode" in seed_text
+    assert "matchedRetrievalModes" in seed_text
+    assert "bm25Score" in seed_text
+    assert "vectorScore" in seed_text

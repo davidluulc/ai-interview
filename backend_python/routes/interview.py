@@ -204,6 +204,48 @@ def build_question_strategy_payload(
     }
 
 
+OPENING_WEAK_PREFIXES = (
+    "我们先把难度降下来：",
+    "我们先把难度降下来:",
+    "我们先降低难度：",
+    "我们先降低难度:",
+    "先降低难度：",
+    "先降低难度:",
+)
+
+
+def apply_opening_question_guardrail(agent_decision: dict[str, Any], *, agent_mode: str) -> dict[str, Any]:
+    trigger_rules = agent_decision.get("triggerRules") if isinstance(agent_decision.get("triggerRules"), list) else []
+    if "opening_question" not in trigger_rules:
+        trigger_rules = [*trigger_rules, "opening_question"]
+    policy = agent_decision.get("policy") if isinstance(agent_decision.get("policy"), dict) else {}
+    return {
+        **agent_decision,
+        "nextAction": "deep_follow_up",
+        "difficulty": "medium",
+        "reason": "面试刚开始，系统先结合投递档案、岗位 JD 和知识库生成开场题。",
+        "decisionSummary": "学习辅导模式：面试刚开始，先生成贴合当前投递档案的开场题。"
+        if agent_mode == "coach"
+        else "真实面试模式：面试刚开始，先生成贴合当前投递档案的开场题。",
+        "triggerRules": trigger_rules,
+        "policy": {
+            **policy,
+            "recommendedAction": "deep_follow_up",
+            "difficulty": "medium",
+            "policyReasons": ["面试刚开始，先结合投递档案、岗位 JD 和知识库生成第一题。"],
+            "triggerRules": ["opening_question"],
+        },
+    }
+
+
+def sanitize_opening_prompt(prompt: str) -> str:
+    text = str(prompt or "").strip()
+    for prefix in OPENING_WEAK_PREFIXES:
+        if text.startswith(prefix):
+            return text[len(prefix) :].strip()
+    return text
+
+
 WEAK_ANSWER_MARKERS = ("不会", "不知道", "写不出来", "不清楚", "不了解", "没接触")
 ALLOWED_ANSWER_STATUSES = {"完整", "模糊", "不会", "跑题"}
 GENERIC_FOCUS_TITLES = {
@@ -350,6 +392,8 @@ def normalize_next_question_result(
 ) -> dict[str, str]:
     focus = normalize_next_question_focus(result, agent_decision, payload.profile)
     prompt = str(result.get("prompt") or "").strip()
+    if not payload.history:
+        prompt = sanitize_opening_prompt(prompt)
     last_answer = payload.history[-1] if payload.history else {}
     if classify_answer_status(str(last_answer.get("answer") or "")) == "不会":
         prompt = soften_prompt_for_weak_answer(prompt, focus, agent_decision)
@@ -574,6 +618,22 @@ def build_training_plan(result: dict[str, Any], question_reviews: list[dict[str,
     }
 
 
+def build_fallback_report(payload: ReportRequest, error: Exception | None = None) -> dict[str, Any]:
+    question_reviews = build_question_reviews({}, payload.answers)
+    timeout_note = "模型复盘暂时不可用，系统已先保存本轮面试记录。"
+    if error is not None:
+        timeout_note = f"{timeout_note} 可稍后重新生成更细的 AI 复盘。"
+    return {
+        "score": 60,
+        "strengths": ["已完成一轮真实问答，回答内容已保留。"],
+        "risks": [timeout_note, "本次复盘使用确定性兜底规则，细节评分偏保守。"],
+        "actions": ["先查看逐题记录，补充每题的背景、做法、结果和验证方式。", "稍后在模型服务稳定后重新进行复盘。"],
+        "questionReviews": question_reviews,
+        "trainingPlan": build_training_plan({}, question_reviews),
+        "fallbackUsed": True,
+    }
+
+
 @router.post("/next-question", response_model=QuestionResponse)
 async def next_question(
     payload: QuestionRequest,
@@ -610,6 +670,9 @@ async def next_question(
     memories = agent_result["memoryHits"]
     agent_state = agent_result["agentState"]
     agent_decision = agent_result["agentDecision"]
+    if not payload.history:
+        agent_decision = apply_opening_question_guardrail(agent_decision, agent_mode=payload.agentMode)
+        agent_state["policy"] = agent_decision["policy"]
     candidate_training_tasks = list_candidate_training_tasks(
         db,
         user_id=current_user.id,
@@ -906,26 +969,31 @@ async def interview_report(
     question_context = format_question_context(question_hits)
     candidate_context = format_candidate_memory(memories)
     candidate_profile_context = format_candidate_profile(build_candidate_profile(memories))
-    result = await call_model(
-        temperature=0.2,
-        messages=[
-            {
-                "role": "system",
-                "content": REPORT_SYSTEM_PROMPT,
-            },
-            build_context_message("岗位知识库 RAG 命中资料", role_context),
-            build_context_message("题库 RAG 命中资料", question_context),
-            build_context_message("候选人画像 RAG 命中资料", candidate_context),
-            build_context_message("候选人长期训练画像", candidate_profile_context),
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {"profile": payload.profile, "answers": payload.answers},
-                    ensure_ascii=False,
-                ),
-            },
-        ],
-    )
+    try:
+        result = await call_model(
+            temperature=0.2,
+            messages=[
+                {
+                    "role": "system",
+                    "content": REPORT_SYSTEM_PROMPT,
+                },
+                build_context_message("岗位知识库 RAG 命中资料", role_context),
+                build_context_message("题库 RAG 命中资料", question_context),
+                build_context_message("候选人画像 RAG 命中资料", candidate_context),
+                build_context_message("候选人长期训练画像", candidate_profile_context),
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {"profile": payload.profile, "answers": payload.answers},
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+        )
+    except HTTPException as exc:
+        if exc.status_code in {502, 504}:
+            return build_fallback_report(payload, error=exc)
+        raise
 
     question_reviews = build_question_reviews(result, payload.answers)
     return {
@@ -935,4 +1003,5 @@ async def interview_report(
         "actions": result.get("actions") or [],
         "questionReviews": question_reviews,
         "trainingPlan": build_training_plan(result, question_reviews),
+        "fallbackUsed": False,
     }

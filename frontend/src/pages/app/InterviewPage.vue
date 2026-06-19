@@ -86,6 +86,7 @@
           :error="interview.error"
           :loading="interview.loading"
           :messages="interview.messages"
+          :session-status="interview.sessionStatus"
           @submit="submit"
         />
         <InterviewFinishPanel
@@ -138,6 +139,43 @@ const profiles = useProfilesStore();
 const auth = useAuthStore();
 const finishingReport = ref(false);
 
+function buildFallbackReport(answers: Array<{ question: string; answer: string }>): interviewApi.ReportResponse {
+  const questionReviews = answers.map((item, index) => {
+    const question = item.question || `第 ${index + 1} 题`;
+    return {
+      index: index + 1,
+      focus: "综合能力",
+      question,
+      answerStatus: item.answer.trim().length >= 24 ? "模糊" : "不会",
+      whyAsked: "模型复盘暂时不可用，系统先根据本轮问答生成保守兜底复盘。",
+      missingPoints: ["概念解释", "项目例子", "验证方式"],
+      referenceDirection: "建议按背景、做法、原因、结果的顺序补充回答。",
+      trainingAction: `围绕「${question.slice(0, 18)}」准备一段 1 分钟回答。`,
+      weakTags: ["fallback_review"]
+    };
+  });
+  return {
+    score: 60,
+    strengths: ["已完成一轮真实问答，回答内容已保留。"],
+    risks: ["模型复盘暂时不可用，系统已先保存本轮面试记录。"],
+    actions: ["先查看逐题记录，补充每题的背景、做法、结果和验证方式。"],
+    questionReviews,
+    trainingPlan: {
+      weakTopics: questionReviews.map((review) => ({
+        focus: String(review.focus),
+        reason: "兜底复盘标记为需要继续训练。",
+        trainingAction: String(review.trainingAction),
+        weakTags: review.weakTags
+      })),
+      nextRoundPriority: questionReviews.map((review) => String(review.focus)),
+      practiceQuestions: questionReviews.map((review) => String(review.trainingAction)),
+      oneMinuteTemplates: ["背景：面试官追问；做法：解释概念并讲项目实现；结果：补充验证方式和改进点。"],
+      shouldRetry: true
+    },
+    fallbackUsed: true
+  };
+}
+
 function buildProfilePayload(): Record<string, unknown> {
   return {
     ...((profiles.currentProfile || {}) as Record<string, unknown>),
@@ -176,11 +214,16 @@ async function finishInterview(): Promise<void> {
     const applicationProfileId = profiles.currentProfileId || undefined;
     const profile = buildProfilePayload();
     const answers = [...interview.answeredHistory];
-    const report = await interviewApi.generateReport({
-      applicationProfileId,
-      profile,
-      answers
-    });
+    let report: interviewApi.ReportResponse;
+    try {
+      report = await interviewApi.generateReport({
+        applicationProfileId,
+        profile,
+        answers
+      });
+    } catch {
+      report = buildFallbackReport(answers);
+    }
     const record = await historyApi.createHistory({
       applicationProfileId,
       profile,

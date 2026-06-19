@@ -183,8 +183,9 @@ def build_agent_state(
     agent_mode: str = "interview",
 ) -> dict[str, Any]:
     last_answer = history[-1] if history else {}
-    answer_status = classify_answer_status(str(last_answer.get("answer") or ""))
+    answer_status = "未开始" if not history else classify_answer_status(str(last_answer.get("answer") or ""))
     answer_analysis = analyze_answer_history(history)
+    answer_analysis.setdefault("answerStatus", answer_status)
     mode = normalize_agent_mode(agent_mode)
     state = build_interview_agent_state(
         profile=profile,
@@ -223,7 +224,12 @@ def build_fallback_decision(state: dict[str, Any]) -> dict[str, Any]:
     weakness_strategy = state.get("weaknessStrategy") if isinstance(state.get("weaknessStrategy"), dict) else {}
     policy = apply_agent_policy(state)
 
-    if int(state.get("remainingRounds") or 0) <= 0:
+    if state.get("answerStatus") == "未开始":
+        action = "deep_follow_up"
+        difficulty = "medium"
+        trigger_rules.append("opening_question")
+        reason = "面试刚开始，Agent 先结合投递档案、岗位 JD 和知识库生成开场题。"
+    elif int(state.get("remainingRounds") or 0) <= 0:
         action = "finish_interview"
         difficulty = "medium"
         trigger_rules.append("round_limit")

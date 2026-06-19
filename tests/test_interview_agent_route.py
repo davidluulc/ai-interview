@@ -184,6 +184,58 @@ def test_next_question_normalizes_generic_focus_and_softens_hard_weak_answer_pro
     assert "query" in body["prompt"]
 
 
+def test_first_question_does_not_use_weak_answer_wording(monkeypatch) -> None:
+    from backend_python.routes import interview
+
+    async def fake_call_model(messages: list[dict], temperature: float, model_name: str = "") -> dict:
+        if temperature < 0.3:
+            return {
+                "nextAction": "lower_difficulty",
+                "stage": "开场问题",
+                "difficulty": "basic",
+                "focus": "RAG 基础",
+                "reason": "候选人上一轮回答偏弱，先降低难度确认基础概念。",
+                "tools": ["retrieve_context", "generate_question"],
+                "shouldUpdateMemory": False,
+                "agentMode": "coach",
+            }
+        return {
+            "stage": "开场问题",
+            "stability": "开场题",
+            "focus": "RAG 基础",
+            "prompt": "我们先把难度降下来：你能用自己的话解释 RAG 为什么需要检索、重排和引用来源吗？",
+        }
+
+    monkeypatch.setattr(interview, "call_model", fake_call_model)
+    client = TestClient(app)
+    suffix = uuid4().hex
+    email = f"opening-question-{suffix}@example.com"
+    username = f"opening_{suffix[:8]}"
+
+    client.post("/api/auth/register", json={"email": email, "username": username, "password": "password123"})
+    tokens = client.post("/api/auth/login", json={"email": email, "password": "password123"}).json()
+
+    response = client.post(
+        "/api/interview/next-question",
+        headers={"Authorization": f"Bearer {tokens['accessToken']}"},
+        json={
+            "applicationProfileId": None,
+            "profile": {"targetRole": "AI 应用开发实习生", "resume": "做过 RAG"},
+            "history": [],
+            "nextStage": "技术追问",
+            "agentMode": "coach",
+            "agentRuntime": "classic",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "难度降" not in body["prompt"]
+    assert "上一轮回答" not in body["decisionSummary"]
+    assert body["agentDecision"]["nextAction"] == "deep_follow_up"
+    assert "opening_question" in body["agentDecision"]["triggerRules"]
+
+
 def test_next_question_sends_mode_guidance_to_question_model(monkeypatch) -> None:
     from backend_python.routes import interview
 

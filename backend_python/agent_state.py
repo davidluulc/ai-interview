@@ -146,8 +146,9 @@ def build_interview_agent_state(
     remaining_rounds = max(max_rounds - round_count, 0)
     mode = _normalize_agent_mode(agent_mode)
     stage = str(next_stage or "综合追问")
-    status = answer_status or _classify_answer_status(str(last_answer.get("answer") or ""))
+    status = answer_status or ("未开始" if not safe_history else _classify_answer_status(str(last_answer.get("answer") or "")))
     analysis = dict(answer_analysis or _analyze_answer_history(safe_history))
+    analysis.setdefault("answerStatus", status)
 
     return {
         "session": {

@@ -5,9 +5,12 @@
         <span>{{ message.role === "interviewer" ? "AI 面试官" : "我" }}</span>
         <p>{{ message.content }}</p>
       </article>
-      <article v-if="loading" class="message interviewer thinking" data-testid="interviewer-thinking">
+      <article v-if="loading" class="message interviewer thinking" data-testid="interviewer-thinking" aria-live="polite">
         <span>AI 面试官</span>
-        <p>AI 面试官正在分析你的回答，检索岗位知识库和题库...</p>
+        <p>
+          <i data-testid="thinking-spinner" aria-hidden="true"></i>
+          {{ loadingText }}
+        </p>
       </article>
     </div>
 
@@ -30,6 +33,7 @@ const props = defineProps<{
   loading: boolean;
   error?: string;
   canSubmit?: boolean;
+  sessionStatus?: "idle" | "starting" | "ready" | "answering" | "reporting" | "completed";
 }>();
 const emit = defineEmits<{ "update:draft": [value: string]; submit: [] }>();
 
@@ -37,6 +41,12 @@ const draftProxy = computed({
   get: () => props.draft,
   set: (value: string) => emit("update:draft", value)
 });
+
+const loadingText = computed(() =>
+  props.sessionStatus === "starting"
+    ? "AI 面试官正在生成第一题，检索岗位知识库和题库..."
+    : "AI 面试官正在分析你的回答，检索岗位知识库和题库..."
+);
 </script>
 
 <style scoped>
@@ -80,7 +90,26 @@ const draftProxy = computed({
 }
 
 .message.thinking p {
+  align-items: center;
   color: var(--color-text-muted);
+  display: flex;
+  gap: 10px;
+}
+
+.message.thinking i {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(15, 23, 42, 0.18);
+  border-top-color: var(--color-accent);
+  border-radius: 999px;
+  flex: 0 0 auto;
+  animation: thinking-spin 0.8s linear infinite;
+}
+
+@keyframes thinking-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .message.candidate {

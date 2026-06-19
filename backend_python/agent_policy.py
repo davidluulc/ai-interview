@@ -60,7 +60,12 @@ def apply_agent_policy(state: dict[str, Any] | None) -> dict[str, Any]:
     should_ask_user_choice = False
     requires_human_review = False
 
-    if weak_streak >= 3:
+    if policy_input["answerStatus"] == "未开始":
+        recommended_action = "deep_follow_up"
+        difficulty = "medium"
+        _add_unique(trigger_rules, "opening_question")
+        reasons.append("面试刚开始，先结合投递档案、岗位 JD 和知识库生成第一题。")
+    elif weak_streak >= 3:
         recommended_action = "switch_topic"
         difficulty = "basic"
         should_switch_topic = True

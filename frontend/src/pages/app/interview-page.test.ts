@@ -254,6 +254,48 @@ describe("interview page", () => {
     expect(push).toHaveBeenCalledWith("/vue/app/reports/55");
   });
 
+  it("saves history with a fallback report when report generation times out", async () => {
+    interviewStore.canFinish = true;
+    interviewStore.answeredHistory = [
+      {
+        question: "请解释 RAG 命中日志怎么设计。",
+        answer: "我会记录 query 和命中结果。"
+      }
+    ];
+    vi.mocked(interviewApi.generateReport).mockRejectedValue(new Error("模型响应超时，请稍后重试。本轮回答已保留。"));
+
+    const wrapper = mount(InterviewPage, {
+      global: {
+        stubs: {
+          AppLayout: { template: "<main><slot /></main>" }
+        }
+      }
+    });
+
+    await wrapper.get('[data-testid="finish-interview"]').trigger("click");
+    await flushPromises();
+
+    expect(historyApi.createHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        applicationProfileId: 3,
+        answers: interviewStore.answeredHistory,
+        report: expect.objectContaining({
+          fallbackUsed: true,
+          score: 60,
+          questionReviews: expect.any(Array)
+        })
+      })
+    );
+    expect(trainingApi.generateTrainingTasksFromReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceInterviewRecordId: 55,
+        report: expect.objectContaining({ fallbackUsed: true })
+      })
+    );
+    expect(push).toHaveBeenCalledWith("/vue/app/reports/55");
+    expect(interviewStore.error).toBe("");
+  });
+
   it("guides users to create a profile before interviewing", async () => {
     profilesStore.currentProfileId = null;
     profilesStore.currentProfile = null;

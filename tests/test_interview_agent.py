@@ -28,6 +28,23 @@ def test_build_agent_state_extracts_round_and_last_answer() -> None:
     assert state["answerAnalysis"]["weakAnswerStreak"] == 1
 
 
+def test_build_agent_state_marks_empty_history_as_not_started() -> None:
+    state = build_agent_state(
+        profile={"targetRole": "AI 应用开发实习生"},
+        history=[],
+        next_stage="技术追问",
+        role_hits=[],
+        question_hits=[],
+        memory_hits=[],
+        agent_mode="coach",
+    )
+
+    assert state["roundCount"] == 0
+    assert state["answerStatus"] == "未开始"
+    assert state["answerAnalysis"]["answerStatus"] == "未开始"
+    assert state["answerAnalysis"]["weakAnswerStreak"] == 0
+
+
 def test_build_agent_state_tracks_coach_mode_and_weak_answer_streak() -> None:
     state = build_agent_state(
         profile={"targetRole": "AI 应用开发实习生"},
@@ -84,6 +101,25 @@ def test_build_fallback_decision_lowers_difficulty_for_weak_answer() -> None:
     assert decision["agentMode"] == "interview"
     assert decision["policy"]["recommendedAction"] == "lower_difficulty"
     assert decision["policy"]["policyReasons"]
+
+
+def test_build_fallback_decision_uses_opening_reason_before_any_answer() -> None:
+    decision = build_fallback_decision(
+        {
+            "nextStage": "技术追问",
+            "answerStatus": "未开始",
+            "roundCount": 0,
+            "remainingRounds": 8,
+            "agentMode": "coach",
+            "answerAnalysis": {"answerStatus": "未开始", "weakAnswerStreak": 0, "repeatedQuestionCount": 0},
+        }
+    )
+
+    assert decision["nextAction"] == "deep_follow_up"
+    assert decision["difficulty"] == "medium"
+    assert "opening_question" in decision["triggerRules"]
+    assert "面试刚开始" in decision["reason"]
+    assert "上一轮回答" not in decision["reason"]
 
 
 def test_build_fallback_decision_switches_topic_after_repeated_weak_answers() -> None:

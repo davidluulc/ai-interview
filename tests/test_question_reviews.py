@@ -1,5 +1,6 @@
 import time
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from backend_python.main import app
@@ -138,6 +139,40 @@ def test_report_preserves_model_question_reviews(monkeypatch) -> None:
     assert body["trainingPlan"]["weakTopics"][0]["focus"] == "后端模块设计"
     assert "backend_fastapi" in body["trainingPlan"]["weakTopics"][0]["weakTags"]
     assert body["trainingPlan"]["practiceQuestions"][0].startswith("请用 1 分钟")
+    assert body["trainingPlan"]["shouldRetry"] is True
+
+
+def test_report_returns_fallback_when_model_times_out(monkeypatch) -> None:
+    async def fake_call_model(*args, **kwargs):
+        raise HTTPException(status_code=504, detail="LLM request timed out or failed")
+
+    monkeypatch.setattr("backend_python.routes.interview.call_model", fake_call_model)
+    suffix = str(int(time.time() * 1000))
+    tokens = register_and_login(f"review-timeout-{suffix}@example.com", f"review_to_{suffix[-8:]}")
+
+    response = client.post(
+        "/api/interview/report",
+        headers=auth_headers(tokens),
+        json={
+            "applicationProfileId": None,
+            "profile": {"targetRole": "Python 后端实习生"},
+            "answers": [
+                {
+                    "stage": "技术追问",
+                    "focus": "RAG 命中日志",
+                    "question": "在 RAG 命中日志中如何区分 BM25 和向量召回？",
+                    "answer": "我不太清楚。",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["score"] == 60
+    assert body["fallbackUsed"] is True
+    assert "模型复盘暂时不可用" in body["risks"][0]
+    assert body["questionReviews"][0]["focus"] == "RAG 命中日志"
     assert body["trainingPlan"]["shouldRetry"] is True
 
 
