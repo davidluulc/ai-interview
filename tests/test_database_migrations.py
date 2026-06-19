@@ -71,6 +71,17 @@ def test_rag_document_lifecycle_migration_exists() -> None:
         assert expected_column in migration_text
 
 
+def test_user_role_migration_is_safe_when_column_was_hotfixed() -> None:
+    migration_files = list(Path("alembic/versions").glob("*add_user_role.py"))
+
+    assert len(migration_files) == 1
+    migration_text = migration_files[0].read_text(encoding="utf-8")
+    assert "_add_column_if_missing" in migration_text
+    assert "_create_index_if_missing" in migration_text
+    assert "_drop_column_if_exists" in migration_text
+    assert "_drop_index_if_exists" in migration_text
+
+
 def test_agent_decision_log_model_declares_expected_columns() -> None:
     columns = AgentDecisionLog.__table__.columns
 
