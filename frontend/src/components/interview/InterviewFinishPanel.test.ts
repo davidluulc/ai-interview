@@ -21,6 +21,15 @@ describe("InterviewFinishPanel", () => {
     expect(wrapper.emitted("finish")).toHaveLength(1);
   });
 
+  it("shows report generation state and prevents repeated clicks", () => {
+    const wrapper = mount(InterviewFinishPanel, {
+      props: { canFinish: true, complete: false, answeredCount: 2, submitting: true }
+    });
+
+    expect(wrapper.text()).toContain("正在生成复盘报告");
+    expect(wrapper.find('[data-testid="finish-interview"]').attributes("disabled")).toBeDefined();
+  });
+
   it("recommends review after completing configured rounds", () => {
     const wrapper = mount(InterviewFinishPanel, {
       props: { canFinish: true, complete: true, answeredCount: 8 }

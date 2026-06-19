@@ -33,6 +33,14 @@
         >
           开始面试
         </button>
+        <button
+          class="ghost"
+          type="button"
+          :data-testid="`archive-profile-${profile.id}`"
+          @click="$emit('archive', profile.id)"
+        >
+          归档
+        </button>
       </div>
     </article>
   </section>
@@ -50,6 +58,7 @@ defineProps<{
 defineEmits<{
   select: [id: number];
   start: [id: number];
+  archive: [id: number];
 }>();
 </script>
 
@@ -124,6 +133,11 @@ button.primary {
   border-color: var(--color-accent);
   background: var(--color-accent);
   color: white;
+}
+
+button.ghost {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 
 @media (max-width: 720px) {

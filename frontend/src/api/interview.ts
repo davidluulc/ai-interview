@@ -49,6 +49,21 @@ export interface NextQuestionResponse {
   fallbackSummary?: { used?: boolean; reason?: string };
 }
 
+export interface GenerateReportPayload {
+  applicationProfileId?: number | null;
+  profile?: Record<string, unknown>;
+  answers?: InterviewHistoryItem[];
+}
+
+export interface ReportResponse extends Record<string, unknown> {
+  score: number;
+  strengths: string[];
+  risks: string[];
+  actions: string[];
+  questionReviews?: Record<string, unknown>[];
+  trainingPlan?: Record<string, unknown>;
+}
+
 export async function nextQuestion(payload: NextQuestionPayload): Promise<NextQuestionResponse> {
   return apiRequest<NextQuestionResponse>("/api/interview/next-question", {
     method: "POST",
@@ -59,6 +74,17 @@ export async function nextQuestion(payload: NextQuestionPayload): Promise<NextQu
       agentMode: payload.agentMode || "coach",
       agentRuntime: payload.agentRuntime || "langgraph_mainline",
       applicationProfileId: payload.applicationProfileId
+    })
+  });
+}
+
+export async function generateReport(payload: GenerateReportPayload): Promise<ReportResponse> {
+  return apiRequest<ReportResponse>("/api/interview/report", {
+    method: "POST",
+    body: JSON.stringify({
+      applicationProfileId: payload.applicationProfileId,
+      profile: payload.profile || {},
+      answers: payload.answers || []
     })
   });
 }

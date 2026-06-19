@@ -30,7 +30,7 @@ def test_application_profiles_require_authentication() -> None:
     assert response.status_code == 401
 
 
-def test_user_can_create_list_get_and_delete_application_profile() -> None:
+def test_user_can_create_list_get_archive_and_restore_application_profile() -> None:
     client = TestClient(app)
     suffix = uuid4().hex
     tokens = register_and_login(client, f"profile-{suffix}@example.com", f"profile_{suffix[:10]}")
@@ -54,6 +54,7 @@ def test_user_can_create_list_get_and_delete_application_profile() -> None:
     assert created["id"]
     assert created["title"] == "Python AI 应用实习投递"
     assert created["targetRole"] == "AI 应用开发实习生"
+    assert created["status"] == "active"
 
     list_response = client.get("/api/application-profiles", headers=auth_headers(tokens))
 
@@ -68,12 +69,27 @@ def test_user_can_create_list_get_and_delete_application_profile() -> None:
     delete_response = client.delete(f"/api/application-profiles/{created['id']}", headers=auth_headers(tokens))
 
     assert delete_response.status_code == 200
-    assert delete_response.json()["ok"] is True
+    assert delete_response.json()["status"] == "archived"
 
     empty_response = client.get("/api/application-profiles", headers=auth_headers(tokens))
 
     assert empty_response.status_code == 200
     assert empty_response.json() == []
+
+    archived_response = client.get("/api/application-profiles?status=archived", headers=auth_headers(tokens))
+
+    assert archived_response.status_code == 200
+    assert [item["id"] for item in archived_response.json()] == [created["id"]]
+
+    restore_response = client.post(f"/api/application-profiles/{created['id']}/restore", headers=auth_headers(tokens))
+
+    assert restore_response.status_code == 200
+    assert restore_response.json()["status"] == "active"
+
+    restored_list_response = client.get("/api/application-profiles", headers=auth_headers(tokens))
+
+    assert restored_list_response.status_code == 200
+    assert [item["id"] for item in restored_list_response.json()] == [created["id"]]
 
 
 def test_application_profiles_are_isolated_by_user() -> None:

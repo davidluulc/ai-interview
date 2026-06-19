@@ -12,6 +12,7 @@ export interface ApplicationProfile {
   resume?: string;
   positionTag?: string;
   position_tag?: string;
+  status?: "active" | "archived" | string;
   createdAt?: string;
   created_at?: string;
   updatedAt?: string;
@@ -28,8 +29,9 @@ export interface CreateApplicationProfilePayload {
   positionTag?: string;
 }
 
-export async function listProfiles(): Promise<ApplicationProfile[]> {
-  return apiRequest<ApplicationProfile[]>("/api/application-profiles");
+export async function listProfiles(status = "active"): Promise<ApplicationProfile[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return apiRequest<ApplicationProfile[]>(`/api/application-profiles${query}`);
 }
 
 export async function createProfile(payload: CreateApplicationProfilePayload): Promise<ApplicationProfile> {
@@ -37,4 +39,12 @@ export async function createProfile(payload: CreateApplicationProfilePayload): P
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+export async function archiveProfile(profileId: number): Promise<ApplicationProfile> {
+  return apiRequest<ApplicationProfile>(`/api/application-profiles/${profileId}`, { method: "DELETE" });
+}
+
+export async function restoreProfile(profileId: number): Promise<ApplicationProfile> {
+  return apiRequest<ApplicationProfile>(`/api/application-profiles/${profileId}/restore`, { method: "POST" });
 }

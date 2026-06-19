@@ -80,6 +80,7 @@ class ApplicationProfile(Base):
     jd: Mapped[str] = mapped_column(Text, default="")
     company: Mapped[str] = mapped_column(Text, default="")
     position_tag: Mapped[str] = mapped_column(String(100), default="")
+    status: Mapped[str] = mapped_column(String(40), default="active", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
     user: Mapped[User] = relationship(back_populates="application_profiles")

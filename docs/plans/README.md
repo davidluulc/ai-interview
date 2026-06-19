@@ -9,13 +9,13 @@
 当前 active plan：
 
 ```text
-暂无。
+docs/plans/active/public-demo-stabilization-rag-seed-v1.md
 ```
 
 当前 active spec：
 
 ```text
-暂无。
+docs/specs/active/public-demo-stabilization-rag-seed-v1-design.md
 ```
 
 最近完成并归档的 plan：

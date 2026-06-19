@@ -16,6 +16,7 @@ export interface SubmitAnswerOptions {
 
 export type InterviewDifficulty = "basic" | "standard" | "pressure";
 export type InterviewFocusArea = "project_deep_dive" | "technical_basic" | "rag_agent" | "behavioral" | "mixed";
+export type InterviewSessionStatus = "idle" | "starting" | "ready" | "answering" | "reporting" | "completed";
 
 export interface InterviewSessionConfig {
   totalRounds: number;
@@ -35,6 +36,7 @@ export const useInterviewStore = defineStore("interview", () => {
   const draft = ref("");
   const loading = ref(false);
   const error = ref("");
+  const sessionStatus = ref<InterviewSessionStatus>("idle");
   const decisionSummary = ref("");
   const ragReasons = ref<string[]>([]);
   const agentMode = ref<interviewApi.AgentMode>("coach");
@@ -58,6 +60,8 @@ export const useInterviewStore = defineStore("interview", () => {
   });
 
   const canFinish = computed(() => answeredHistory.value.length > 0);
+  const hasStarted = computed(() => sessionStatus.value !== "idle");
+  const canSubmitAnswer = computed(() => sessionStatus.value === "ready" && !loading.value);
 
   function setAgentMode(mode: interviewApi.AgentMode): void {
     agentMode.value = mode;
@@ -80,6 +84,8 @@ export const useInterviewStore = defineStore("interview", () => {
     answeredHistory.value = [];
     draft.value = "";
     error.value = "";
+    loading.value = false;
+    sessionStatus.value = "idle";
     decisionSummary.value = "";
     ragReasons.value = [];
     lastRuntimeAudit.value = null;
@@ -88,9 +94,54 @@ export const useInterviewStore = defineStore("interview", () => {
     lastFallbackSummary.value = null;
   }
 
+  function applyResponseMetadata(response: interviewApi.NextQuestionResponse): void {
+    decisionSummary.value = response.decisionSummary || "";
+    ragReasons.value = response.ragReasons || [];
+    lastRuntimeAudit.value = response.runtimeAudit || null;
+    lastWorkflowTrace.value = response.workflowTrace || [];
+    lastCheckpointSummary.value = response.checkpointSummary || null;
+    lastFallbackSummary.value = response.fallbackSummary || null;
+  }
+
+  async function startInterview(options: SubmitAnswerOptions = {}): Promise<void> {
+    if (loading.value || sessionStatus.value !== "idle") {
+      return;
+    }
+
+    loading.value = true;
+    sessionStatus.value = "starting";
+    error.value = "";
+    messages.value = [];
+    answeredHistory.value = [];
+    draft.value = "";
+
+    try {
+      const response = await interviewApi.nextQuestion({
+        applicationProfileId: options.applicationProfileId,
+        agentMode: options.agentMode || agentMode.value,
+        agentRuntime: options.agentRuntime || agentRuntime.value,
+        profile: options.profile || {},
+        history: []
+      });
+      messages.value.push({ role: "interviewer", content: pickQuestion(response) });
+      applyResponseMetadata(response);
+      sessionStatus.value = "ready";
+    } catch (err) {
+      messages.value = [{ role: "interviewer", content: openingQuestion }];
+      sessionStatus.value = "idle";
+      error.value = err instanceof Error ? err.message : "生成第一题失败";
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function submitAnswer(options: SubmitAnswerOptions = {}): Promise<void> {
     const answer = draft.value.trim();
     if (!answer) {
+      return;
+    }
+    if (!canSubmitAnswer.value) {
+      error.value = "请先选择投递档案并点击开始面试。";
       return;
     }
 
@@ -101,6 +152,7 @@ export const useInterviewStore = defineStore("interview", () => {
     messages.value.push({ role: "candidate", content: answer });
     draft.value = "";
     loading.value = true;
+    sessionStatus.value = "answering";
     error.value = "";
 
     try {
@@ -114,14 +166,11 @@ export const useInterviewStore = defineStore("interview", () => {
       const question = pickQuestion(response);
       answeredHistory.value = nextHistory;
       messages.value.push({ role: "interviewer", content: question });
-      decisionSummary.value = response.decisionSummary || "";
-      ragReasons.value = response.ragReasons || [];
-      lastRuntimeAudit.value = response.runtimeAudit || null;
-      lastWorkflowTrace.value = response.workflowTrace || [];
-      lastCheckpointSummary.value = response.checkpointSummary || null;
-      lastFallbackSummary.value = response.fallbackSummary || null;
+      applyResponseMetadata(response);
+      sessionStatus.value = isSessionComplete.value ? "completed" : "ready";
     } catch (err) {
       error.value = err instanceof Error ? err.message : "生成下一题失败";
+      sessionStatus.value = "ready";
     } finally {
       loading.value = false;
     }
@@ -133,6 +182,7 @@ export const useInterviewStore = defineStore("interview", () => {
     draft,
     loading,
     error,
+    sessionStatus,
     decisionSummary,
     ragReasons,
     agentMode,
@@ -145,10 +195,13 @@ export const useInterviewStore = defineStore("interview", () => {
     currentRound,
     isSessionComplete,
     canFinish,
+    hasStarted,
+    canSubmitAnswer,
     setAgentMode,
     setAgentRuntime,
     updateSessionConfig,
     resetSession,
+    startInterview,
     submitAnswer
   };
 });

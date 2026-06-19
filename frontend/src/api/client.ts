@@ -53,21 +53,32 @@ async function readResponseBody(response: Response): Promise<unknown> {
   return response.text();
 }
 
-function getErrorMessage(body: unknown): string {
+export function normalizeApiErrorMessage(message: string, status = 0): string {
+  const text = String(message || "");
+  if (status === 504 || /504|Gateway Time-out|Gateway Timeout|timed out/i.test(text)) {
+    return "模型响应超时，请稍后重试。本轮回答已保留。";
+  }
+  if (status === 502 || /<html|<body|Bad Gateway|502/i.test(text)) {
+    return "服务暂时不可用，请稍后重试。";
+  }
+  return text || "请求失败";
+}
+
+function getErrorMessage(body: unknown, status = 0): string {
   if (typeof body === "object" && body && "error" in body) {
     const error = (body as { error?: unknown }).error;
     if (typeof error === "object" && error && "message" in error) {
       const message = String((error as { message?: unknown }).message || "");
-      if (message.trim()) return message;
+      if (message.trim()) return normalizeApiErrorMessage(message, status);
     }
   }
   if (typeof body === "object" && body && "detail" in body) {
-    return String(body.detail);
+    return normalizeApiErrorMessage(String(body.detail), status);
   }
   if (typeof body === "string" && body.trim()) {
-    return body;
+    return normalizeApiErrorMessage(body, status);
   }
-  return "请求失败";
+  return normalizeApiErrorMessage("", status);
 }
 
 async function refreshAccessToken(): Promise<boolean> {
@@ -119,5 +130,5 @@ export async function apiRequest<T = unknown>(
     }
   }
 
-  throw new Error(getErrorMessage(body));
+  throw new Error(getErrorMessage(body, response.status));
 }

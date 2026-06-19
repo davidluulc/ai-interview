@@ -145,6 +145,23 @@ describe("knowledge page", () => {
     expect(wrapper.text()).toContain("chunk 2");
   });
 
+  it("hides metadata json and rag debug by default behind advanced controls", async () => {
+    const wrapper = mountPage();
+
+    expect(wrapper.text()).not.toContain("metadata JSON");
+    expect(wrapper.text()).not.toContain("RAG 调试与解释");
+
+    await wrapper.get('[data-testid="toggle-create-document"]').trigger("click");
+    expect(wrapper.find('[data-testid="document-metadata"]').exists()).toBe(false);
+
+    await wrapper.get('[data-testid="document-advanced-toggle"]').trigger("click");
+    expect(wrapper.find('[data-testid="document-metadata"]').exists()).toBe(true);
+
+    expect(wrapper.find('[data-testid="run-rag-debug"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="rag-debug-toggle"]').trigger("click");
+    expect(wrapper.find('[data-testid="run-rag-debug"]').exists()).toBe(true);
+  });
+
   it("updates filters from controls", async () => {
     const wrapper = mountPage();
 
@@ -169,6 +186,7 @@ describe("knowledge page", () => {
     const wrapper = mountPage();
 
     await wrapper.get('[data-testid="toggle-create-document"]').trigger("click");
+    await wrapper.get('[data-testid="document-advanced-toggle"]').trigger("click");
     await wrapper.get('[data-testid="document-title"]').setValue("RAG 日志");
     await wrapper.get('[data-testid="document-content"]').setValue("RAG 日志用于观察召回质量。");
     await wrapper.get('[data-testid="document-metadata"]').setValue("{bad json");
@@ -197,6 +215,7 @@ describe("knowledge page", () => {
     expect(wrapper.find('[data-testid="knowledge-upload-file"]').exists()).toBe(true);
 
     await wrapper.get('[data-testid="knowledge-upload-title"]').setValue("FastAPI 文件导入");
+    await wrapper.get('[data-testid="upload-advanced-toggle"]').trigger("click");
     await wrapper.get('[data-testid="knowledge-upload-metadata"]').setValue('{"positionTag":"python_backend"}');
     const fileInput = wrapper.get<HTMLInputElement>('[data-testid="knowledge-upload-file"]');
     Object.defineProperty(fileInput.element, "files", {
@@ -262,6 +281,7 @@ describe("knowledge page", () => {
   it("runs rag debug and renders three retrieval groups", async () => {
     const wrapper = mountPage();
 
+    await wrapper.get('[data-testid="rag-debug-toggle"]').trigger("click");
     await wrapper.get('[data-testid="debug-role"]').setValue("Python 后端");
     await wrapper.get('[data-testid="debug-stage"]').setValue("技术基础");
     await wrapper.get('[data-testid="run-rag-debug"]').trigger("submit");

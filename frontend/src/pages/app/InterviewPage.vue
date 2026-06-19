@@ -65,8 +65,24 @@
           :mode="interview.agentMode"
           :total-rounds="interview.sessionConfig.totalRounds"
         />
+        <section v-if="!interview.hasStarted" class="start-panel">
+          <div>
+            <p class="eyebrow">Start</p>
+            <h2>生成第一道面试题</h2>
+            <p>系统会结合当前档案、岗位 JD 和知识库生成开场问题。</p>
+          </div>
+          <button
+            data-testid="start-interview"
+            type="button"
+            :disabled="interview.loading"
+            @click="startInterview"
+          >
+            {{ interview.loading ? "生成中" : "开始面试" }}
+          </button>
+        </section>
         <InterviewChatPanel
           v-model:draft="interview.draft"
+          :can-submit="interview.canSubmitAnswer"
           :error="interview.error"
           :loading="interview.loading"
           :messages="interview.messages"
@@ -76,6 +92,7 @@
           :answered-count="interview.answeredHistory.length"
           :can-finish="interview.canFinish"
           :complete="interview.isSessionComplete"
+          :submitting="finishingReport"
           @finish="finishInterview"
         />
       </section>
@@ -98,7 +115,11 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from "vue";
 import { useRouter } from "vue-router";
+import * as historyApi from "@/api/history";
+import * as interviewApi from "@/api/interview";
+import * as trainingApi from "@/api/training";
 import AppLayout from "@/layouts/AppLayout.vue";
 import CurrentProfileBanner from "@/components/interview/CurrentProfileBanner.vue";
 import InterviewChatPanel from "@/components/interview/InterviewChatPanel.vue";
@@ -115,21 +136,70 @@ const router = useRouter();
 const interview = useInterviewStore();
 const profiles = useProfilesStore();
 const auth = useAuthStore();
+const finishingReport = ref(false);
+
+function buildProfilePayload(): Record<string, unknown> {
+  return {
+    ...((profiles.currentProfile || {}) as Record<string, unknown>),
+    sessionConfig: interview.sessionConfig
+  };
+}
+
+function startInterview(): Promise<void> {
+  return interview.startInterview({
+    applicationProfileId: profiles.currentProfileId || undefined,
+    agentMode: interview.agentMode,
+    agentRuntime: interview.agentRuntime,
+    profile: buildProfilePayload()
+  });
+}
 
 function submit(): Promise<void> {
   return interview.submitAnswer({
     applicationProfileId: profiles.currentProfileId || undefined,
     agentMode: interview.agentMode,
     agentRuntime: interview.agentRuntime,
-    profile: {
-      ...((profiles.currentProfile || {}) as Record<string, unknown>),
-      sessionConfig: interview.sessionConfig
-    }
+    profile: buildProfilePayload()
   });
 }
 
-function finishInterview(): void {
-  void router.push("/vue/app/history");
+async function finishInterview(): Promise<void> {
+  if (!interview.canFinish || finishingReport.value) {
+    return;
+  }
+
+  finishingReport.value = true;
+  interview.error = "";
+  interview.sessionStatus = "reporting";
+
+  try {
+    const applicationProfileId = profiles.currentProfileId || undefined;
+    const profile = buildProfilePayload();
+    const answers = [...interview.answeredHistory];
+    const report = await interviewApi.generateReport({
+      applicationProfileId,
+      profile,
+      answers
+    });
+    const record = await historyApi.createHistory({
+      applicationProfileId,
+      profile,
+      answers,
+      report
+    });
+    await trainingApi.generateTrainingTasksFromReport({
+      applicationProfileId,
+      sourceInterviewRecordId: record.id,
+      report
+    });
+    interview.sessionStatus = "completed";
+    await router.push(`/vue/app/reports/${record.id}`);
+  } catch (err) {
+    interview.sessionStatus = interview.answeredHistory.length > 0 ? "ready" : "idle";
+    interview.error = err instanceof Error ? err.message : "生成复盘失败，请稍后重试。";
+  } finally {
+    finishingReport.value = false;
+  }
 }
 </script>
 
@@ -195,6 +265,49 @@ h1 {
 .subtitle {
   color: var(--color-text-muted);
   margin: 16px 0 22px;
+}
+
+.start-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  margin: 0 0 14px;
+  padding: 16px;
+}
+
+.start-panel h2,
+.start-panel p {
+  margin: 0;
+}
+
+.start-panel h2 {
+  font-size: 18px;
+}
+
+.start-panel p:not(.eyebrow) {
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin-top: 6px;
+}
+
+.start-panel button {
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: white;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-weight: 700;
+  padding: 11px 17px;
+}
+
+.start-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .runtime-panel {
@@ -272,6 +385,11 @@ h1 {
   }
 
   .runtime-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .start-panel {
     align-items: stretch;
     flex-direction: column;
   }

@@ -62,7 +62,7 @@ const adminStore: any = {
         retrieverName: "role_knowledge",
         hitCount: 0,
         issueType: "empty_recall",
-        recommendation: "补充知识库内容"
+        recommendation: "当前生产知识库尚未初始化，请执行 Production RAG Seed。"
       }
     ]
   },
@@ -342,7 +342,7 @@ describe("admin page", () => {
     expect(wrapper.text()).toContain("排队中");
     expect(wrapper.text()).toContain("失败导入资料");
     expect(wrapper.text()).toContain("document create failed");
-    expect(wrapper.text()).toContain("补充岗位知识库或题库内容");
+    expect(wrapper.text()).toContain("当前生产知识库尚未初始化，请执行 Production RAG Seed。");
     expect(wrapper.text()).toContain("Agent 决策日志");
     expect(wrapper.text()).toContain("连续弱回答");
     expect(wrapper.text()).toContain("系统配置");
@@ -371,7 +371,7 @@ describe("admin page", () => {
     expect(text).toContain("用于判断 RAG 是不是找到了合适资料");
     expect(text).toContain("空召回：没有找到资料");
     expect(text).toContain("岗位知识库");
-    expect(text).toContain("建议动作：补充岗位知识库或题库内容");
+    expect(text).toContain("建议动作：当前生产知识库尚未初始化，请执行 Production RAG Seed。");
     expect(text).toContain("启用中");
     expect(text).toContain("公共资料");
     expect(text).toContain("可能存在重复切片");

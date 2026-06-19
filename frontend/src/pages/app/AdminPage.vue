@@ -864,10 +864,10 @@ function issueLabel(issueType = ""): string {
 
 function issueAdvice(item: AdminRagQualityItem): string {
   const issueType = item.issueType || "";
+  if (item.recommendation) return item.recommendation;
   if (issueType === "empty_recall") return "补充岗位知识库或题库内容";
   if (issueType === "weak_recall") return "优化文档标题、metadata 或 chunk 内容";
   if (issueType === "unused_in_prompt") return "检查 Prompt 拼接逻辑或召回阈值";
-  if (item.recommendation) return item.recommendation;
   return "查看原始命中日志，判断是否需要补充资料";
 }
 

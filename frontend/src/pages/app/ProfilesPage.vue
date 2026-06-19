@@ -32,9 +32,26 @@
         :current-profile-id="profiles.currentProfileId"
         :loading="profiles.loading"
         :profiles="profiles.profiles"
+        @archive="profiles.archiveProfile"
         @select="profiles.selectProfile"
         @start="startInterview"
       />
+
+      <section v-if="profiles.archivedProfiles.length" class="archived-panel">
+        <div class="archived-head">
+          <h2>已归档档案</h2>
+          <span>{{ profiles.archivedProfiles.length }} 个</span>
+        </div>
+        <article v-for="profile in profiles.archivedProfiles" :key="profile.id" class="archived-row">
+          <div>
+            <strong>{{ profile.title }}</strong>
+            <p>{{ profile.targetRole || profile.target_role || "未填写目标岗位" }} · {{ profile.company || "未填写公司" }}</p>
+          </div>
+          <button :data-testid="`restore-profile-${profile.id}`" type="button" @click="profiles.restoreProfile(profile.id)">
+            恢复
+          </button>
+        </article>
+      </section>
     </section>
   </AppLayout>
 </template>
@@ -61,6 +78,7 @@ const form = reactive({
 
 onMounted(() => {
   void profiles.loadProfiles();
+  void profiles.loadArchivedProfiles();
 });
 
 async function submit(): Promise<void> {
@@ -118,6 +136,43 @@ small {
   grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
   gap: 22px;
   align-items: start;
+}
+
+.archived-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow-soft);
+  padding: 22px;
+}
+
+.archived-head,
+.archived-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.archived-head span,
+.archived-row p {
+  color: var(--color-text-muted);
+}
+
+.archived-row {
+  border-top: 1px solid var(--color-border);
+  padding-top: 12px;
+}
+
+.archived-row button {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  padding: 8px 12px;
 }
 
 .profile-form {

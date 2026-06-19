@@ -5,8 +5,8 @@
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
     </div>
-    <button data-testid="finish-interview" type="button" :disabled="!canFinish" @click="emit('finish')">
-      结束并复盘
+    <button data-testid="finish-interview" type="button" :disabled="!canFinish || submitting" @click="emit('finish')">
+      {{ submitting ? "生成中" : "结束并复盘" }}
     </button>
   </section>
 </template>
@@ -14,17 +14,24 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-const props = defineProps<{
-  canFinish: boolean;
-  complete: boolean;
-  answeredCount: number;
-}>();
+const props = withDefaults(
+  defineProps<{
+    canFinish: boolean;
+    complete: boolean;
+    answeredCount: number;
+    submitting?: boolean;
+  }>(),
+  { submitting: false }
+);
 
 const emit = defineEmits<{
   finish: [];
 }>();
 
 const title = computed(() => {
+  if (props.submitting) {
+    return "正在生成复盘报告";
+  }
   if (!props.canFinish) {
     return "至少完成 1 轮问答后再复盘";
   }
@@ -35,6 +42,9 @@ const title = computed(() => {
 });
 
 const description = computed(() => {
+  if (props.submitting) {
+    return "系统正在生成报告、保存历史记录并创建专项训练任务。";
+  }
   if (!props.canFinish) {
     return "先完成一次回答，系统才能根据你的表现生成有效复盘。";
   }

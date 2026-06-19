@@ -25,13 +25,25 @@ const profileFixtures = [
 
 const profilesStore = {
   profiles: [...profileFixtures],
+  archivedProfiles: [
+    {
+      id: 9,
+      title: "旧投递档案",
+      targetRole: "Java 后端开发实习生",
+      company: "Old AI",
+      status: "archived"
+    }
+  ],
   currentProfileId: 1 as number | null,
   currentProfile: profileFixtures[0] as (typeof profileFixtures)[number] | null,
   loading: false,
   error: "",
   loadProfiles: vi.fn(),
+  loadArchivedProfiles: vi.fn(),
   createProfile: vi.fn(),
-  selectProfile: vi.fn()
+  selectProfile: vi.fn(),
+  archiveProfile: vi.fn(),
+  restoreProfile: vi.fn()
 };
 
 vi.mock("vue-router", () => ({
@@ -46,9 +58,21 @@ describe("profiles page", () => {
   beforeEach(() => {
     push.mockReset();
     profilesStore.loadProfiles.mockReset();
+    profilesStore.loadArchivedProfiles.mockReset();
     profilesStore.selectProfile.mockReset();
     profilesStore.createProfile.mockReset();
+    profilesStore.archiveProfile.mockReset();
+    profilesStore.restoreProfile.mockReset();
     profilesStore.profiles = [...profileFixtures];
+    profilesStore.archivedProfiles = [
+      {
+        id: 9,
+        title: "旧投递档案",
+        targetRole: "Java 后端开发实习生",
+        company: "Old AI",
+        status: "archived"
+      }
+    ];
     profilesStore.currentProfileId = 1;
     profilesStore.currentProfile = profileFixtures[0];
   });
@@ -63,6 +87,7 @@ describe("profiles page", () => {
     });
 
     expect(profilesStore.loadProfiles).toHaveBeenCalled();
+    expect(profilesStore.loadArchivedProfiles).toHaveBeenCalled();
     expect(wrapper.text()).toContain("当前档案");
     expect(wrapper.text()).toContain("后端实习投递");
     expect(wrapper.text()).toContain("Python 后端开发实习生");
@@ -82,6 +107,24 @@ describe("profiles page", () => {
 
     expect(profilesStore.selectProfile).toHaveBeenCalledWith(2);
     expect(push).toHaveBeenCalledWith("/vue/app/interview");
+  });
+
+  it("archives and restores profiles from the page", async () => {
+    const wrapper = mount(ProfilesPage, {
+      global: {
+        stubs: {
+          AppLayout: { template: "<main><slot /></main>" }
+        }
+      }
+    });
+
+    await wrapper.get('[data-testid="archive-profile-2"]').trigger("click");
+    await wrapper.get('[data-testid="restore-profile-9"]').trigger("click");
+
+    expect(profilesStore.archiveProfile).toHaveBeenCalledWith(2);
+    expect(profilesStore.restoreProfile).toHaveBeenCalledWith(9);
+    expect(wrapper.text()).toContain("已归档档案");
+    expect(wrapper.text()).toContain("旧投递档案");
   });
 
   it("shows a clear empty state when there are no profiles", () => {

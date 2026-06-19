@@ -1,6 +1,6 @@
 # 当前项目状态与下一阶段路线
 
-更新时间：2026-06-18
+更新时间：2026-06-19
 
 本文件是当前项目路线的唯一可信入口。判断下一步开发方向时，以本文件为准；旧 spec、旧 plan 和历史学习材料只作为背景资料。
 
@@ -22,16 +22,16 @@
 当前 active spec：
 
 ```text
-无
+docs/specs/active/public-demo-stabilization-rag-seed-v1-design.md
 ```
 
 当前 active plan：
 
 ```text
-无
+docs/plans/active/public-demo-stabilization-rag-seed-v1.md
 ```
 
-如果继续开发，应先讨论并新写 spec，不要从 `docs/specs/completed/` 里拿旧文档重复执行。
+当前阶段进入 Public Demo Stabilization + Production RAG Seed V1。优先修复公网演示闭环：生产 RAG seed、面试启动状态、结束并复盘保存历史、训练任务生成、面试官思考 loading、知识库用户页简化、档案归档和 RAG 空召回提示。
 
 ## 3. 已真实落地的核心能力
 

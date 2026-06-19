@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -31,6 +31,7 @@ def serialize_profile(profile: ApplicationProfile) -> dict:
         "jd": profile.jd,
         "company": profile.company,
         "positionTag": profile.position_tag,
+        "status": profile.status,
         "createdAt": profile.created_at.isoformat() if profile.created_at else None,
         "updatedAt": profile.updated_at.isoformat() if profile.updated_at else None,
     }
@@ -49,12 +50,18 @@ def get_owned_profile(profile_id: int, current_user: User, db: Session) -> Appli
 
 @router.get("")
 async def list_application_profiles(
+    status_filter: str = Query("active", alias="status"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[dict]:
+    normalized_status = str(status_filter or "active").strip().lower()
+    if normalized_status not in {"active", "archived", "all"}:
+        normalized_status = "active"
+    query = db.query(ApplicationProfile).filter(ApplicationProfile.user_id == current_user.id)
+    if normalized_status != "all":
+        query = query.filter(ApplicationProfile.status == normalized_status)
     profiles = (
-        db.query(ApplicationProfile)
-        .filter(ApplicationProfile.user_id == current_user.id)
+        query
         .order_by(ApplicationProfile.updated_at.desc(), ApplicationProfile.id.desc())
         .all()
     )
@@ -107,7 +114,7 @@ async def update_application_profile(
     profile.jd = payload.jd.strip()
     profile.company = payload.company.strip()
     profile.position_tag = payload.positionTag.strip()
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(profile)
     return serialize_profile(profile)
@@ -120,6 +127,22 @@ async def delete_application_profile(
     db: Session = Depends(get_db),
 ) -> dict:
     profile = get_owned_profile(profile_id, current_user, db)
-    db.delete(profile)
+    profile.status = "archived"
+    profile.updated_at = datetime.now(UTC)
     db.commit()
-    return {"ok": True}
+    db.refresh(profile)
+    return serialize_profile(profile)
+
+
+@router.post("/{profile_id}/restore")
+async def restore_application_profile(
+    profile_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    profile = get_owned_profile(profile_id, current_user, db)
+    profile.status = "active"
+    profile.updated_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(profile)
+    return serialize_profile(profile)

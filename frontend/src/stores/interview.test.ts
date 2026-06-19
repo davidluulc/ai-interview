@@ -13,6 +13,11 @@ describe("interview store", () => {
     vi.mocked(interviewApi.nextQuestion).mockReset();
   });
 
+  function makeReadySession(store: ReturnType<typeof useInterviewStore>, question = "请解释 FastAPI Depends。"): void {
+    store.messages = [{ role: "interviewer", content: question }];
+    store.sessionStatus = "ready";
+  }
+
   it("uses coach mode by default and supports switching to interview mode", () => {
     const store = useInterviewStore();
 
@@ -23,6 +28,39 @@ describe("interview store", () => {
     expect(store.agentMode).toBe("interview");
   });
 
+  it("does not submit the placeholder prompt as answered history before the first backend question", async () => {
+    const store = useInterviewStore();
+    store.draft = "开始吧";
+
+    await store.submitAnswer({ applicationProfileId: 7, profile: { targetRole: "Python 后端开发实习生" } });
+
+    expect(interviewApi.nextQuestion).not.toHaveBeenCalled();
+    expect(store.answeredHistory).toEqual([]);
+  });
+
+  it("starts an interview by requesting the first question with empty history", async () => {
+    vi.mocked(interviewApi.nextQuestion).mockResolvedValue({
+      prompt: "请先介绍你最有代表性的后端项目。"
+    });
+    const store = useInterviewStore();
+
+    await store.startInterview({
+      applicationProfileId: 7,
+      profile: { targetRole: "Python 后端开发实习生" },
+      agentMode: "coach"
+    });
+
+    expect(interviewApi.nextQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        applicationProfileId: 7,
+        agentMode: "coach",
+        history: []
+      })
+    );
+    expect(store.answeredHistory).toEqual([]);
+    expect(store.messages.at(-1)?.content).toBe("请先介绍你最有代表性的后端项目。");
+  });
+
   it("sends the latest question and answer as backend history", async () => {
     vi.mocked(interviewApi.nextQuestion).mockResolvedValue({
       prompt: "你能继续讲讲 FastAPI 的 Depends 吗？",
@@ -30,6 +68,7 @@ describe("interview store", () => {
     });
 
     const store = useInterviewStore();
+    makeReadySession(store, "请解释 FastAPI Depends。");
     store.draft = "Depends 是依赖注入。";
     await store.submitAnswer({
       applicationProfileId: 7,
@@ -44,7 +83,7 @@ describe("interview store", () => {
         profile: { targetRole: "Python 后端开发实习生" },
         history: [
           {
-            question: "请选择投递档案，然后开始一次模拟面试。",
+            question: "请解释 FastAPI Depends。",
             answer: "Depends 是依赖注入。"
           }
         ]
@@ -69,6 +108,7 @@ describe("interview store", () => {
     });
 
     const store = useInterviewStore();
+    makeReadySession(store, "请讲讲你项目里的 RAG 质量评估。");
     store.draft = "我做了 Hit@K 和 MRR";
     store.setAgentMode("interview");
 
@@ -88,6 +128,7 @@ describe("interview store", () => {
     });
 
     const store = useInterviewStore();
+    makeReadySession(store, "请解释 LangGraph 灰度链路为什么需要 fallback。");
     store.draft = "为了保证主链路稳定。";
     store.setAgentRuntime("langgraph_canary");
 
@@ -117,6 +158,7 @@ describe("interview store", () => {
     });
 
     const store = useInterviewStore();
+    makeReadySession(store, "Explain LangGraph mainline.");
     store.draft = "I know a little about workflow orchestration.";
     await store.submitAnswer({ profile: { targetRole: "AI application developer" } });
 

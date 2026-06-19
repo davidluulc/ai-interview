@@ -68,7 +68,15 @@
               placeholder="写入岗位知识、题库样例或候选人画像内容"
             />
           </label>
-          <label class="wide">
+          <button
+            class="secondary wide"
+            data-testid="document-advanced-toggle"
+            type="button"
+            @click="showDocumentAdvanced = !showDocumentAdvanced"
+          >
+            {{ showDocumentAdvanced ? "收起高级设置" : "高级设置" }}
+          </button>
+          <label v-if="showDocumentAdvanced" class="wide">
             metadata JSON
             <textarea
               v-model="documentForm.metadataJson"
@@ -77,7 +85,7 @@
               placeholder='{"role":"Python 后端","level":"实习"}'
             />
           </label>
-          <p v-if="knowledge.metadataError" class="form-error">{{ knowledge.metadataError }}</p>
+          <p v-if="showDocumentAdvanced && knowledge.metadataError" class="form-error">{{ knowledge.metadataError }}</p>
           <button type="submit" :disabled="knowledge.saving">保存文档</button>
         </form>
       </section>
@@ -117,7 +125,15 @@
             选择文件
             <input data-testid="knowledge-upload-file" type="file" accept=".txt,.md,.pdf" @change="onUploadFileChange" />
           </label>
-          <label class="wide">
+          <button
+            class="secondary wide"
+            data-testid="upload-advanced-toggle"
+            type="button"
+            @click="showUploadAdvanced = !showUploadAdvanced"
+          >
+            {{ showUploadAdvanced ? "收起高级设置" : "高级设置" }}
+          </button>
+          <label v-if="showUploadAdvanced" class="wide">
             metadata JSON
             <textarea
               v-model="uploadForm.metadataJson"
@@ -238,9 +254,13 @@
                 暂无知识库文档。可以先手动录入一条岗位知识或题库样例。
               </p>
             </div>
-          </section>
+        </section>
 
-          <section class="panel">
+          <button class="secondary debug-toggle" data-testid="rag-debug-toggle" type="button" @click="showDebugPanel = !showDebugPanel">
+            {{ showDebugPanel ? "收起高级调试" : "高级调试" }}
+          </button>
+
+          <section v-if="showDebugPanel" class="panel">
             <div class="section-title">
               <h2>RAG 调试与解释</h2>
               <span>观察三类 RAG 如何进入面试上下文</span>
@@ -320,6 +340,9 @@ import type { KnowledgeBaseFilter, DocumentStatusFilter, DocumentVisibilityFilte
 
 const knowledge = useKnowledgeStore();
 const showCreateForm = ref(false);
+const showDocumentAdvanced = ref(false);
+const showUploadAdvanced = ref(false);
+const showDebugPanel = ref(false);
 
 const documentForm = reactive({
   title: "",

@@ -5,13 +5,17 @@
         <span>{{ message.role === "interviewer" ? "AI 面试官" : "我" }}</span>
         <p>{{ message.content }}</p>
       </article>
+      <article v-if="loading" class="message interviewer thinking" data-testid="interviewer-thinking">
+        <span>AI 面试官</span>
+        <p>AI 面试官正在分析你的回答，检索岗位知识库和题库...</p>
+      </article>
     </div>
 
     <p v-if="error" class="error">{{ error }}</p>
 
     <form class="composer" @submit.prevent="$emit('submit')">
       <textarea v-model="draftProxy" placeholder="输入你的回答..." />
-      <button :disabled="loading">{{ loading ? "生成中" : "提交回答" }}</button>
+      <button :disabled="loading || canSubmit === false">{{ loading ? "生成中" : "提交回答" }}</button>
     </form>
   </section>
 </template>
@@ -20,7 +24,13 @@
 import { computed } from "vue";
 import type { ChatMessage } from "@/stores/interview";
 
-const props = defineProps<{ messages: ChatMessage[]; draft: string; loading: boolean; error?: string }>();
+const props = defineProps<{
+  messages: ChatMessage[];
+  draft: string;
+  loading: boolean;
+  error?: string;
+  canSubmit?: boolean;
+}>();
 const emit = defineEmits<{ "update:draft": [value: string]; submit: [] }>();
 
 const draftProxy = computed({
@@ -67,6 +77,10 @@ const draftProxy = computed({
 
 .message.interviewer p {
   background: var(--color-surface);
+}
+
+.message.thinking p {
+  color: var(--color-text-muted);
 }
 
 .message.candidate {

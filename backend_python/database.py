@@ -96,6 +96,7 @@ def ensure_sqlite_compatibility_schema() -> None:
                         jd TEXT NOT NULL DEFAULT '',
                         company TEXT NOT NULL DEFAULT '',
                         position_tag VARCHAR(100) NOT NULL DEFAULT '',
+                        status VARCHAR(40) NOT NULL DEFAULT 'active',
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
                         FOREIGN KEY(user_id) REFERENCES users (id)
@@ -107,6 +108,18 @@ def ensure_sqlite_compatibility_schema() -> None:
             connection.execute(
                 text("CREATE INDEX IF NOT EXISTS ix_application_profiles_user_id ON application_profiles (user_id)")
             )
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_application_profiles_status ON application_profiles (status)")
+            )
+        else:
+            profile_columns = {column["name"] for column in inspector.get_columns("application_profiles")}
+            if "status" not in profile_columns:
+                connection.execute(
+                    text("ALTER TABLE application_profiles ADD COLUMN status VARCHAR(40) NOT NULL DEFAULT 'active'")
+                )
+                connection.execute(
+                    text("CREATE INDEX IF NOT EXISTS ix_application_profiles_status ON application_profiles (status)")
+                )
 
         if "rag_retrieval_logs" not in table_names:
             connection.execute(
