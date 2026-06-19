@@ -8,9 +8,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .config import DASHSCOPE_EMBEDDING_MODEL
 from .db_models import RagChunk, RagDocument
-from .embedding_client import embed_text
+from .embedding_client import current_embedding_model, embed_text
 from .knowledge_bases import VALID_KNOWLEDGE_BASES
 
 DOCUMENT_STATUSES = {"enabled", "disabled", "archived"}
@@ -283,7 +282,7 @@ async def create_rag_document_with_embeddings(
         chunk_content = str(chunk_record["content"])
         embedding: list[float] = []
         embedding_status = "pending"
-        embedding_model = DASHSCOPE_EMBEDDING_MODEL
+        embedding_model = current_embedding_model()
         try:
             embedding = await embed_text(chunk_content)
             embedding_status = "ready" if embedding else "empty"

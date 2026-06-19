@@ -8,7 +8,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from .db_models import RagChunk, RagDocument
-from .embedding_client import embed_text
+from .embedding_client import current_embedding_model, embed_text
 from .query_rewrite import build_query_variants
 from .rag_store import VALID_KNOWLEDGE_BASES, chunk_matches_metadata_filter, normalize_metadata_filter, parse_json
 from .rerank_client import rerank_documents
@@ -336,6 +336,7 @@ def retrieve_vector_chunks(
         user_id=user_id,
         knowledge_base=knowledge_base,
         query_embedding=query_embedding,
+        embedding_model=current_embedding_model(),
         limit=limit,
         metadata_filter=metadata_filter,
     )

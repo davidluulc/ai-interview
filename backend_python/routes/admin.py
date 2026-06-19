@@ -8,9 +8,10 @@ from sqlalchemy.orm import Session
 from ..auth import require_admin_user
 from ..agent_logging import serialize_agent_decision_log
 from ..ai_debug import build_ai_debug_detail, build_ai_debug_recent_item
-from ..config import DASHSCOPE_EMBEDDING_MODEL, DASHSCOPE_RERANK_MODEL, QWEN_MODEL
+from ..config import DASHSCOPE_RERANK_MODEL, QWEN_MODEL
 from ..database import DATABASE_URL, describe_database_url, get_db
 from ..db_models import AgentDecisionLog, InterviewRecord, RagDocument, RagIngestionTask, RagRetrievalLog, User
+from ..embedding_client import embedding_provider_summary
 from ..infrastructure import get_infrastructure_status
 from ..langgraph_agent.checkpoint import summarize_checkpoint
 from ..langgraph_agent.checkpoint_persistence import get_latest_checkpoint_summary, list_checkpoint_summaries
@@ -312,9 +313,11 @@ async def admin_ai_debug_detail(
 
 @router.get("/config")
 async def admin_config(_: User = Depends(require_admin_user)) -> dict[str, Any]:
+    embedding_provider = embedding_provider_summary()
     return {
         "modelName": QWEN_MODEL,
-        "embeddingModel": DASHSCOPE_EMBEDDING_MODEL,
+        "embeddingModel": embedding_provider["model"],
+        "embeddingProvider": embedding_provider,
         "rerankModel": DASHSCOPE_RERANK_MODEL,
         "databaseUrl": describe_database_url(DATABASE_URL)["maskedUrl"],
         "infrastructure": get_infrastructure_status(),

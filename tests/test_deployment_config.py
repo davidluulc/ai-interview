@@ -21,6 +21,10 @@ def test_production_env_template_uses_placeholders_only() -> None:
     content = path.read_text(encoding="utf-8")
 
     assert "DASHSCOPE_API_KEY=replace_with_dashscope_api_key" in content
+    assert "EMBEDDING_PROVIDER=dashscope" in content
+    assert "EMBEDDING_API_KEY=" in content
+    assert "EMBEDDING_MODEL=text-embedding-v4" in content
+    assert "EMBEDDING_REQUIRE_MODEL_MATCH=true" in content
     assert "SECRET_KEY=replace_with_long_random_secret" in content
     assert "DATABASE_URL=postgresql+psycopg://" in content
     assert "AUTO_INIT_DB=false" in content
@@ -71,6 +75,12 @@ def test_compose_defines_deployment_services() -> None:
         "QWEN_MODEL",
         "QWEN_VISION_MODEL",
         "DASHSCOPE_EMBEDDING_MODEL",
+        "EMBEDDING_PROVIDER",
+        "EMBEDDING_API_KEY",
+        "EMBEDDING_MODEL",
+        "EMBEDDING_BASE_URL",
+        "EMBEDDING_DIMENSIONS",
+        "EMBEDDING_REQUIRE_MODEL_MATCH",
         "DASHSCOPE_RERANK_MODEL",
         "SECRET_KEY",
         "JWT_ALGORITHM",
@@ -116,6 +126,7 @@ def test_nginx_mounts_project_reverse_proxy_config() -> None:
     nginx = compose["services"]["nginx"]
 
     assert any("deploy/nginx/ai-interview.conf" in volume for volume in nginx["volumes"])
+    assert any("frontend/dist:/usr/share/nginx/html/vue:ro" in volume for volume in nginx["volumes"])
     assert "8080:80" in nginx["ports"]
 
 
@@ -124,10 +135,12 @@ def test_nginx_config_proxies_frontend_api_and_docs() -> None:
 
     assert "upstream ai_interview_app" in content
     assert "server app:8000" in content
+    assert "return 302 /vue/auth/login" in content
+    assert "location /vue/" in content
+    assert "try_files $uri $uri/ /vue/index.html" in content
     assert "location /api/" in content
     assert "location /docs" in content
     assert "location /openapi.json" in content
-    assert "location /" in content
     assert "proxy_set_header Host $host" in content
     assert "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for" in content
     assert "proxy_read_timeout" in content

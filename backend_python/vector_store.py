@@ -35,6 +35,7 @@ class VectorStore(Protocol):
         user_id: int,
         knowledge_base: str,
         query_embedding: list[float],
+        embedding_model: str | None = None,
         limit: int,
         metadata_filter: dict[str, Any] | None = None,
     ) -> list[VectorSearchResult]:
@@ -85,20 +86,24 @@ class SQLiteVectorStore:
         user_id: int,
         knowledge_base: str,
         query_embedding: list[float],
+        embedding_model: str | None = None,
         limit: int,
         metadata_filter: dict[str, Any] | None = None,
     ) -> list[VectorSearchResult]:
         if not query_embedding:
             return []
+        conditions = [
+            RagChunk.knowledge_base == knowledge_base,
+            RagChunk.embedding_status == "ready",
+            RagDocument.status == "enabled",
+            or_(RagDocument.user_id == user_id, RagDocument.visibility == "public"),
+        ]
+        if embedding_model:
+            conditions.append(RagChunk.embedding_model == embedding_model)
         chunks = self.db.scalars(
             select(RagChunk)
             .join(RagDocument, RagChunk.document_id == RagDocument.id)
-            .where(
-                RagChunk.knowledge_base == knowledge_base,
-                RagChunk.embedding_status == "ready",
-                RagDocument.status == "enabled",
-                or_(RagDocument.user_id == user_id, RagDocument.visibility == "public"),
-            )
+            .where(*conditions)
             .order_by(RagChunk.created_at.desc(), RagChunk.id.desc())
             .limit(200)
         ).all()

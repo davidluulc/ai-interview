@@ -20,6 +20,7 @@ def create_vector_chunk(
     user_id: int,
     title: str,
     embedding_json: str = "[]",
+    embedding_model: str = "text-embedding-v4",
     embedding_status: str = "ready",
     metadata_json: str = '{"positionTag":"ai_app_intern","category":"technical"}',
     status: str = "enabled",
@@ -48,7 +49,7 @@ def create_vector_chunk(
         chunk_index=0,
         metadata_json=metadata_json,
         embedding_json=embedding_json,
-        embedding_model="text-embedding-v4",
+        embedding_model=embedding_model,
         embedding_status=embedding_status,
     )
     db.add(chunk)
@@ -141,3 +142,37 @@ def test_sqlite_vector_store_respects_visibility_status_and_metadata_filter() ->
         )
 
     assert [result.title for result in results] == [f"Public AI app vector chunk {marker}"]
+
+
+def test_sqlite_vector_store_filters_by_active_embedding_model() -> None:
+    marker = f"model_filter_{uuid4().hex}"
+    with SessionLocal() as db:
+        user = create_user(db, "vector_store_model")
+        create_vector_chunk(
+            db,
+            user_id=user.id,
+            title=f"Old DashScope vector chunk {marker}",
+            embedding_json="[0, 0, 1]",
+            embedding_model="text-embedding-v4",
+            metadata_json=f'{{"positionTag":"ai_app_intern","category":"{marker}"}}',
+        )
+        create_vector_chunk(
+            db,
+            user_id=user.id,
+            title=f"Active Zhipu vector chunk {marker}",
+            embedding_json="[0, 0, 1]",
+            embedding_model="embedding-3",
+            metadata_json=f'{{"positionTag":"ai_app_intern","category":"{marker}"}}',
+        )
+        store = SQLiteVectorStore(db)
+
+        results = store.search(
+            user_id=user.id,
+            knowledge_base="role_knowledge",
+            query_embedding=[0.0, 0.0, 1.0],
+            embedding_model="embedding-3",
+            limit=5,
+            metadata_filter={"category": marker},
+        )
+
+    assert [result.title for result in results] == [f"Active Zhipu vector chunk {marker}"]
