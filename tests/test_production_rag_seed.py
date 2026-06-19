@@ -1,4 +1,5 @@
 from uuid import uuid4
+from pathlib import Path
 
 from backend_python.database import SessionLocal
 from backend_python.db_models import RagChunk, RagDocument, User
@@ -92,3 +93,10 @@ def test_seed_production_rag_is_idempotent_by_seed_key(monkeypatch) -> None:
     assert second_summary["skippedDocuments"] == first_documents
     assert second_documents == first_documents
     assert len(seed_keys) == len(set(seed_keys))
+
+
+def test_seed_cli_bootstraps_project_root_before_backend_imports() -> None:
+    script_text = Path("scripts/seed_production_rag.py").read_text(encoding="utf-8")
+
+    assert "sys.path.insert(0, str(ROOT_DIR))" in script_text
+    assert script_text.index("sys.path.insert") < script_text.index("from backend_python.database")
