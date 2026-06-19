@@ -264,6 +264,28 @@ def make_select_action_v2_node(decide_action_fn):
 
 def generate_question_node(state: dict[str, Any]) -> dict[str, Any]:
     decision = dict(state.get("decision") or {})
+    draft_question = state.get("draftQuestion") if isinstance(state.get("draftQuestion"), dict) else {}
+    if draft_question.get("prompt"):
+        next_question = {
+            "stage": str(draft_question.get("stage") or decision.get("stage") or state.get("nextStage") or "综合追问"),
+            "focus": str(draft_question.get("focus") or decision.get("focus") or "综合追问"),
+            "stability": str(draft_question.get("stability") or "stable"),
+            "prompt": str(draft_question.get("prompt")),
+        }
+        return {
+            "nextQuestion": next_question,
+            "nodeTrace": [
+                *_trace_list(state),
+                build_node_trace(
+                    node_name="generate_question",
+                    input_summary={"nextAction": decision.get("nextAction", ""), "source": "draft_question"},
+                    output_summary={
+                        "stage": next_question["stage"],
+                        "focus": next_question["focus"],
+                    },
+                ),
+            ],
+        }
     prompt = "我们先把难度降下来：你能用自己的话解释 RAG 为什么需要检索、重排和引用来源吗？"
     if decision.get("nextAction") == "deep_follow_up":
         prompt = "你刚才的回答比较完整，继续追问：如果 RAG 召回结果质量差，你会怎么定位问题？"

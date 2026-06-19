@@ -13,6 +13,7 @@ class InterviewGraphState(TypedDict, total=False):
     remainingRounds: int
     useRealRag: bool
     useRealDecision: bool
+    draftQuestion: dict[str, Any]
     answerAnalysis: dict[str, Any]
     retrievalQuality: dict[str, Any]
     policy: dict[str, Any]
@@ -38,6 +39,7 @@ def build_initial_graph_state(
     agent_mode: str = "interview",
     use_real_rag: bool = False,
     use_real_decision: bool = False,
+    draft_question: dict[str, Any] | None = None,
 ) -> InterviewGraphState:
     history_items = list(history or [])
     round_count = len(history_items)
@@ -52,6 +54,7 @@ def build_initial_graph_state(
         "remainingRounds": max(8 - round_count, 0),
         "useRealRag": bool(use_real_rag),
         "useRealDecision": bool(use_real_decision),
+        "draftQuestion": dict(draft_question or {}),
         "answerAnalysis": {},
         "retrievalQuality": {},
         "policy": {},

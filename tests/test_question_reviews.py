@@ -74,6 +74,8 @@ def test_report_builds_question_reviews_when_model_omits_them(monkeypatch) -> No
     assert body["trainingPlan"]["weakTopics"][0]["trainingAction"]
     assert body["trainingPlan"]["nextRoundPriority"][0] == "RAG 召回链路"
     assert body["trainingPlan"]["practiceQuestions"]
+    assert body["decisionSummary"]
+    assert body["ragReasons"]
 
 
 def test_report_preserves_model_question_reviews(monkeypatch) -> None:
@@ -174,6 +176,74 @@ def test_report_returns_fallback_when_model_times_out(monkeypatch) -> None:
     assert "模型复盘暂时不可用" in body["risks"][0]
     assert body["questionReviews"][0]["focus"] == "RAG 命中日志"
     assert body["trainingPlan"]["shouldRetry"] is True
+    assert body["decisionSummary"]
+    assert body["ragReasons"]
+
+
+def test_report_preserves_model_explanation_fields(monkeypatch) -> None:
+    async def fake_call_model(*args, **kwargs):
+        return {
+            "score": 82,
+            "strengths": ["能结合项目回答"],
+            "risks": ["RAG 证据链还不完整"],
+            "actions": ["补充 RAG 命中日志字段"],
+            "decisionSummary": "本轮围绕候选人项目中的 RAG 日志设计继续追问。",
+            "ragReasons": ["命中岗位知识库：RAG 日志字段定位"],
+            "questionReviews": [
+                {
+                    "index": 1,
+                    "focus": "RAG 日志字段",
+                    "question": "你会看哪个字段区分 BM25 和向量召回？",
+                    "answerStatus": "模糊",
+                    "whyAsked": "用于确认你是否真的理解 RAG 召回证据链。",
+                    "missingPoints": ["matchedRetrievalModes", "bm25Score", "vectorScore"],
+                    "referenceDirection": "先说字段，再说定位流程。",
+                    "trainingAction": "用 1 分钟解释 RAG 命中日志字段。",
+                    "weakTags": ["rag_retrieval"],
+                }
+            ],
+            "trainingPlan": {
+                "weakTopics": [
+                    {
+                        "focus": "RAG 日志字段",
+                        "reason": "字段解释不够完整。",
+                        "trainingAction": "整理 matchedRetrievalModes、bm25Score、vectorScore 的区别。",
+                        "weakTags": ["rag_retrieval"],
+                    }
+                ],
+                "nextRoundPriority": ["RAG 日志字段"],
+                "practiceQuestions": ["请说明 RAG 命中日志如何区分 BM25 和向量召回。"],
+                "oneMinuteTemplates": ["背景：需要定位召回质量；做法：查看 matchedRetrievalModes；结果：区分召回来源。"],
+                "shouldRetry": True,
+            },
+        }
+
+    monkeypatch.setattr("backend_python.routes.interview.call_model", fake_call_model)
+    suffix = str(int(time.time() * 1000))
+    tokens = register_and_login(f"review-explain-{suffix}@example.com", f"review_ex_{suffix[-8:]}")
+
+    response = client.post(
+        "/api/interview/report",
+        headers=auth_headers(tokens),
+        json={
+            "applicationProfileId": None,
+            "profile": {"targetRole": "AI 应用开发实习生", "resume": "做过 RAG 日志"},
+            "answers": [
+                {
+                    "focus": "RAG 日志字段",
+                    "question": "你会看哪个字段区分 BM25 和向量召回？",
+                    "answer": "看日志里的字段，但我说不太全。",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["decisionSummary"] == "本轮围绕候选人项目中的 RAG 日志设计继续追问。"
+    assert body["ragReasons"] == ["命中岗位知识库：RAG 日志字段定位"]
+    assert body["questionReviews"][0]["whyAsked"] == "用于确认你是否真的理解 RAG 召回证据链。"
+    assert body["questionReviews"][0]["referenceDirection"] == "先说字段，再说定位流程。"
 
 
 def test_report_prompt_requests_question_reviews() -> None:

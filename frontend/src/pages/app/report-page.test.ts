@@ -29,9 +29,27 @@ const reportStore = {
           question: "Agent 和普通 LLM 有什么区别？",
           answer: "Agent 会观察状态并决策。",
           feedback: "方向正确，需要补充工具和记忆。",
+          whyAsked: "用于确认你是否理解 Agent 和普通 LLM 的边界。",
+          missingPoints: ["工具调用", "状态管理"],
+          referenceDirection: "按观察状态、选择工具、生成回答的顺序讲。",
+          trainingAction: "用 1 分钟讲清楚一次工具调用流程。",
           weakTags: ["agent_tool_calling"]
         }
       ],
+      trainingPlan: {
+        weakTopics: [
+          {
+            focus: "Agent 工具调用",
+            reason: "工具调用链路解释不完整。",
+            trainingAction: "画出 observe、decide、act 三步流程。",
+            weakTags: ["agent_tool_calling"]
+          }
+        ],
+        nextRoundPriority: ["Agent 工具调用"],
+        practiceQuestions: ["请用 1 分钟说明 Agent 如何决定是否调用工具。"],
+        oneMinuteTemplates: ["背景：用户问题需要外部信息；做法：先观察状态再调用工具；结果：把工具结果整合进回答。"],
+        shouldRetry: true
+      },
       decisionSummary: "上一轮提到 Agent 状态，因此追问工具调用。",
       ragReasons: ["命中 Agent 工程化知识库"]
     }
@@ -61,6 +79,7 @@ describe("report page", () => {
     reportStore.loadReport.mockReset();
     reportStore.generateTrainingTasks.mockReset();
     reportStore.trainingGeneratedMessage = "";
+    reportStore.weakTags = ["agent_tool_calling"];
   });
 
   it("renders interview report summary, reviews, evidence and training entry", async () => {
@@ -79,6 +98,14 @@ describe("report page", () => {
     expect(wrapper.text()).toContain("88");
     expect(wrapper.text()).toContain("表达有结构");
     expect(wrapper.text()).toContain("Agent 和普通 LLM 有什么区别");
+    expect(wrapper.text()).toContain("用于确认你是否理解 Agent 和普通 LLM 的边界。");
+    expect(wrapper.text()).toContain("工具调用");
+    expect(wrapper.text()).toContain("按观察状态、选择工具、生成回答的顺序讲。");
+    expect(wrapper.text()).toContain("用 1 分钟讲清楚一次工具调用流程。");
+    expect(wrapper.text()).toContain("Agent 工具调用");
+    expect(wrapper.text()).toContain("工具调用链路解释不完整。");
+    expect(wrapper.text()).toContain("请用 1 分钟说明 Agent 如何决定是否调用工具。");
+    expect(wrapper.text()).toContain("背景：用户问题需要外部信息");
     expect(wrapper.text()).toContain("agent_tool_calling");
     expect(wrapper.text()).toContain("上一轮提到 Agent 状态");
     expect(wrapper.text()).toContain("建议优先训练");
@@ -116,6 +143,21 @@ describe("report page", () => {
       path: "/vue/app/training",
       query: { recordId: "12", weakTag: "agent_tool_calling" }
     });
+  });
+
+  it("derives priority training tags from the report training plan when top-level weak tags are missing", () => {
+    reportStore.weakTags = [];
+
+    const wrapper = mount(ReportPage, {
+      global: {
+        stubs: {
+          AppLayout: { template: "<main><slot /></main>" }
+        }
+      }
+    });
+
+    expect(wrapper.text()).toContain("Agent 工具调用");
+    expect(wrapper.text()).not.toContain("待训练");
   });
 
   it("returns users to the interview workbench for another session", async () => {

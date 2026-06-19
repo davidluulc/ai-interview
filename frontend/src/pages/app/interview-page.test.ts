@@ -350,7 +350,7 @@ describe("interview page", () => {
     expect(wrapper.find('[data-testid="runtime-langgraph-canary"]').exists()).toBe(false);
   });
 
-  it("shows friendly fallback note without raw workflow json", () => {
+  it("does not show a duplicate workflow explanation panel on the interview page", () => {
     interviewStore.decisionSummary = "候选人回答偏弱，先降低难度。";
     interviewStore.lastRuntimeAudit = { visibleRuntime: "classic", fallbackUsed: true };
     interviewStore.lastFallbackSummary = { used: true, reason: "quality gate failed" };
@@ -364,8 +364,10 @@ describe("interview page", () => {
       }
     });
 
-    expect(wrapper.text()).toContain("为什么这么问");
-    expect(wrapper.text()).toContain("系统已使用稳定兜底策略保证面试继续");
+    expect(wrapper.text()).toContain("为什么这样问");
+    expect(wrapper.text()).not.toContain("为什么这么问");
+    expect(wrapper.text()).not.toContain("Workflow Insight");
+    expect(wrapper.text()).not.toContain("系统已使用稳定兜底策略保证面试继续");
     expect(wrapper.text()).not.toContain("quality gate failed");
     expect(wrapper.text()).not.toContain("observe_state");
   });

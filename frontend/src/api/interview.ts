@@ -62,6 +62,8 @@ export interface ReportResponse extends Record<string, unknown> {
   actions: string[];
   questionReviews?: Record<string, unknown>[];
   trainingPlan?: Record<string, unknown>;
+  decisionSummary?: string;
+  ragReasons?: string[];
   fallbackUsed?: boolean;
 }
 

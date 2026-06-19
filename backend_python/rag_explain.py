@@ -23,6 +23,48 @@ def build_user_rag_reason(*, retriever_name: str, hits: list[dict[str, Any]], fo
     return f"这道题围绕「{focus_text}」展开，主要参考了{label}中的「{title}」，命中词包括：{matched_text}。"
 
 
+def _normalize_relevance_text(value: str) -> str:
+    return str(value or "").lower().replace("_", "").replace("-", "")
+
+
+def _hit_matches_question(hit: dict[str, Any], *, focus: str, prompt: str) -> bool:
+    question_text = _normalize_relevance_text(f"{focus} {prompt}")
+    normalized_hit = normalize_rag_hit(hit, retriever_name="")
+    hit_text = _normalize_relevance_text(
+        " ".join(
+            [
+                str(normalized_hit.get("title") or ""),
+                str(normalized_hit.get("content") or ""),
+                " ".join(str(item) for item in normalized_hit.get("matchedTokens") or []),
+                " ".join(str(item) for item in normalized_hit.get("matchedKeywords") or []),
+            ]
+        )
+    )
+    if not question_text or not hit_text:
+        return False
+    for token in normalized_hit.get("matchedTokens") or normalized_hit.get("matchedKeywords") or []:
+        normalized_token = _normalize_relevance_text(str(token))
+        if len(normalized_token) >= 2 and normalized_token in question_text:
+            return True
+    important_terms = ("rag", "bm25", "vector", "向量", "召回", "日志", "命中", "retrieval", "matchedretrievalmodes")
+    return any(term in question_text and term in hit_text for term in important_terms)
+
+
+def build_relevant_user_rag_reason(
+    *,
+    retriever_name: str,
+    hits: list[dict[str, Any]],
+    focus: str = "",
+    prompt: str = "",
+) -> str | None:
+    if not hits:
+        return None
+    relevant_hits = [hit for hit in hits if _hit_matches_question(hit, focus=focus, prompt=prompt)]
+    if not relevant_hits:
+        return None
+    return build_user_rag_reason(retriever_name=retriever_name, hits=relevant_hits, focus=focus)
+
+
 def build_developer_rag_debug_summary(
     *,
     query_text: str,

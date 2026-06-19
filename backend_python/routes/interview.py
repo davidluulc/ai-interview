@@ -27,7 +27,7 @@ from ..llm_client import call_model
 from ..prompts.interview import NEXT_QUESTION_SYSTEM_PROMPT, REPORT_SYSTEM_PROMPT, build_context_message
 from ..question_rag import format_question_context, retrieve_questions
 from ..rag import format_role_context, retrieve_role_context
-from ..rag_explain import build_user_rag_reason
+from ..rag_explain import build_relevant_user_rag_reason, build_user_rag_reason
 from ..rag_logging import build_rag_query, create_rag_log, infer_retrieval_mode
 from ..rag_quality import evaluate_retrieval_quality
 from ..runtime_audit import build_runtime_audit
@@ -618,7 +618,48 @@ def build_training_plan(result: dict[str, Any], question_reviews: list[dict[str,
     }
 
 
-def build_fallback_report(payload: ReportRequest, error: Exception | None = None) -> dict[str, Any]:
+def build_report_decision_summary(result: dict[str, Any], question_reviews: list[dict[str, Any]]) -> str:
+    summary = str(result.get("decisionSummary") or "").strip()
+    if summary:
+        return summary
+    if question_reviews:
+        focus = str(question_reviews[0].get("focus") or "综合能力").strip()
+        why_asked = str(question_reviews[0].get("whyAsked") or "").strip()
+        if why_asked:
+            return why_asked
+        return f"本轮复盘围绕「{focus}」展开，用于把面试回答转化为可训练的薄弱点。"
+    return "本轮复盘基于当前投递档案、历史回答和 RAG 检索上下文生成。"
+
+
+def build_report_rag_reasons(
+    result: dict[str, Any],
+    *,
+    role_hits: list[dict[str, Any]],
+    question_hits: list[dict[str, Any]],
+    memory_hits: list[dict[str, Any]],
+    question_reviews: list[dict[str, Any]],
+) -> list[str]:
+    model_reasons = result.get("ragReasons")
+    if isinstance(model_reasons, list):
+        reasons = [str(item).strip() for item in model_reasons if str(item).strip()]
+        if reasons:
+            return reasons
+    focus = str((question_reviews[0] if question_reviews else {}).get("focus") or "面试复盘").strip()
+    return [
+        build_user_rag_reason(retriever_name="role_knowledge", hits=role_hits, focus=focus),
+        build_user_rag_reason(retriever_name="question_bank", hits=question_hits, focus=focus),
+        build_user_rag_reason(retriever_name="candidate_memory", hits=memory_hits, focus=focus),
+    ]
+
+
+def build_fallback_report(
+    payload: ReportRequest,
+    error: Exception | None = None,
+    *,
+    role_hits: list[dict[str, Any]] | None = None,
+    question_hits: list[dict[str, Any]] | None = None,
+    memory_hits: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     question_reviews = build_question_reviews({}, payload.answers)
     timeout_note = "模型复盘暂时不可用，系统已先保存本轮面试记录。"
     if error is not None:
@@ -630,6 +671,14 @@ def build_fallback_report(payload: ReportRequest, error: Exception | None = None
         "actions": ["先查看逐题记录，补充每题的背景、做法、结果和验证方式。", "稍后在模型服务稳定后重新进行复盘。"],
         "questionReviews": question_reviews,
         "trainingPlan": build_training_plan({}, question_reviews),
+        "decisionSummary": build_report_decision_summary({}, question_reviews),
+        "ragReasons": build_report_rag_reasons(
+            {},
+            role_hits=role_hits or [],
+            question_hits=question_hits or [],
+            memory_hits=memory_hits or [],
+            question_reviews=question_reviews,
+        ),
         "fallbackUsed": True,
     }
 
@@ -752,9 +801,28 @@ async def next_question(
     else:
         normalized_question = normalize_next_question_result(result, payload=payload, agent_decision=agent_decision)
     rag_reasons = [
-        build_user_rag_reason(retriever_name="role_knowledge", hits=role_hits, focus=normalized_question["focus"]),
-        build_user_rag_reason(retriever_name="question_bank", hits=question_hits, focus=normalized_question["focus"]),
-        build_user_rag_reason(retriever_name="candidate_memory", hits=memories, focus=normalized_question["focus"]),
+        reason
+        for reason in [
+            build_relevant_user_rag_reason(
+                retriever_name="role_knowledge",
+                hits=role_hits,
+                focus=normalized_question["focus"],
+                prompt=normalized_question["prompt"],
+            ),
+            build_relevant_user_rag_reason(
+                retriever_name="question_bank",
+                hits=question_hits,
+                focus=normalized_question["focus"],
+                prompt=normalized_question["prompt"],
+            ),
+            build_relevant_user_rag_reason(
+                retriever_name="candidate_memory",
+                hits=memories,
+                focus=normalized_question["focus"],
+                prompt=normalized_question["prompt"],
+            ),
+        ]
+        if reason
     ]
     append_generate_question_trace(
         agent_state=agent_state,
@@ -851,6 +919,12 @@ async def next_question(
                 agent_mode=payload.agentMode,
                 use_real_rag=True,
                 use_real_decision=True,
+                draft_question={
+                    "stage": classic_response["stage"],
+                    "stability": classic_response["stability"],
+                    "focus": classic_response["focus"],
+                    "prompt": classic_response["prompt"],
+                },
                 retrieve_context_fn=retrieve_context_for_graph,
                 decide_action_fn=decide_action_for_graph,
             )
@@ -992,7 +1066,13 @@ async def interview_report(
         )
     except HTTPException as exc:
         if exc.status_code in {502, 504}:
-            return build_fallback_report(payload, error=exc)
+            return build_fallback_report(
+                payload,
+                error=exc,
+                role_hits=role_hits,
+                question_hits=question_hits,
+                memory_hits=memories,
+            )
         raise
 
     question_reviews = build_question_reviews(result, payload.answers)
@@ -1003,5 +1083,13 @@ async def interview_report(
         "actions": result.get("actions") or [],
         "questionReviews": question_reviews,
         "trainingPlan": build_training_plan(result, question_reviews),
+        "decisionSummary": build_report_decision_summary(result, question_reviews),
+        "ragReasons": build_report_rag_reasons(
+            result,
+            role_hits=role_hits,
+            question_hits=question_hits,
+            memory_hits=memories,
+            question_reviews=question_reviews,
+        ),
         "fallbackUsed": False,
     }

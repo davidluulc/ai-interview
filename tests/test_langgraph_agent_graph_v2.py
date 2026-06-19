@@ -42,6 +42,12 @@ def test_run_interview_graph_v2_returns_checkpoint_summary():
             ],
             next_stage="技术追问",
             agent_mode="coach",
+            draft_question={
+                "stage": "技术追问",
+                "stability": "动态追问",
+                "focus": "RAG 真实追问",
+                "prompt": "请结合你的项目说明 RAG 命中日志怎么定位召回质量问题。",
+            },
             retrieve_context_fn=fake_retrieve,
             decide_action_fn=fake_decide,
         )
@@ -53,7 +59,8 @@ def test_run_interview_graph_v2_returns_checkpoint_summary():
     assert result["policy"]["recommendedAction"] == "lower_difficulty"
     assert result["decision"]["policy"]["shouldExplainBeforeAsk"] is True
     assert result["checkpointSummary"]["policyRecommendedAction"] == "lower_difficulty"
-    assert result["nextQuestion"]["prompt"]
+    assert result["nextQuestion"]["prompt"] == "请结合你的项目说明 RAG 命中日志怎么定位召回质量问题。"
+    assert result["nextQuestion"]["focus"] == "RAG 真实追问"
     assert [item["nodeName"] for item in result["nodeTrace"]] == [
         "observe_state",
         "analyze_answer",

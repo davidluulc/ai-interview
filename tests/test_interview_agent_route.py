@@ -570,7 +570,7 @@ def test_normal_user_langgraph_canary_request_is_downgraded(monkeypatch) -> None
     assert "普通用户暂不开放 LangGraph 灰度链路" in body["runtimeAudit"]["policyReasons"]
 
 
-def test_admin_langgraph_canary_can_use_langgraph_visible_question(monkeypatch) -> None:
+def test_admin_langgraph_canary_uses_real_generated_question_instead_of_poc_prompt(monkeypatch) -> None:
     from backend_python.routes import interview
 
     async def fake_call_model(messages: list[dict], temperature: float, model_name: str = "") -> dict:
@@ -621,8 +621,8 @@ def test_admin_langgraph_canary_can_use_langgraph_visible_question(monkeypatch) 
 
     assert response.status_code == 200
     body = response.json()
-    assert body["prompt"] != "classic fallback question"
-    assert "RAG 为什么需要检索" in body["prompt"]
+    assert body["prompt"] == "classic fallback question"
+    assert "RAG 为什么需要检索" not in body["prompt"]
     assert body["runtimeAudit"]["requestedRuntime"] == "langgraph_canary"
     assert body["runtimeAudit"]["allowedRuntime"] == "langgraph"
     assert body["runtimeAudit"]["visibleRuntime"] == "langgraph"

@@ -88,6 +88,7 @@ async def run_interview_graph_v2(
     application_profile_id: int | None = None,
     use_real_rag: bool = False,
     use_real_decision: bool = False,
+    draft_question: dict[str, Any] | None = None,
     retrieve_context_fn,
     decide_action_fn,
 ) -> dict[str, Any]:
@@ -100,6 +101,7 @@ async def run_interview_graph_v2(
         agent_mode=agent_mode,
         use_real_rag=use_real_rag,
         use_real_decision=use_real_decision,
+        draft_question=draft_question,
     )
     graph = build_interview_graph_v2(
         retrieve_context_fn=retrieve_context_fn,

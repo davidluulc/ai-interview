@@ -49,6 +49,13 @@
             {{ tag }}
           </button>
         </div>
+        <div v-if="weakTopics.length" class="topic-list">
+          <article v-for="topic in weakTopics" :key="textField(topic, 'focus')" class="topic-item">
+            <h3>{{ textField(topic, 'focus') }}</h3>
+            <p>{{ textField(topic, 'reason') }}</p>
+            <p>训练动作：{{ textField(topic, 'trainingAction') }}</p>
+          </article>
+        </div>
       </section>
 
       <section class="insight-card">
@@ -76,6 +83,10 @@
           <h3>{{ textField(review, 'question') }}</h3>
           <p>回答：{{ textField(review, 'answer') }}</p>
           <p>建议：{{ textField(review, 'feedback', 'evaluation', 'suggestion') }}</p>
+          <p>为什么问：{{ textField(review, 'whyAsked') }}</p>
+          <p>缺失要点：{{ listField(review, 'missingPoints').join("、") }}</p>
+          <p>回答方向：{{ textField(review, 'referenceDirection') }}</p>
+          <p>训练动作：{{ textField(review, 'trainingAction') }}</p>
           <div class="weak-tags small">
             <span v-for="tag in tagsOf(review)" :key="tag">{{ tag }}</span>
           </div>
@@ -95,6 +106,14 @@
         <p>优先围绕下面的方向生成专项任务，练完后可以回到面试台再来一场。</p>
         <div class="priority-list">
           <span v-for="tag in priorityWeakTags" :key="tag">{{ tag }}</span>
+        </div>
+        <div class="practice-list">
+          <article v-for="question in practiceQuestions" :key="question" class="practice-item">
+            {{ question }}
+          </article>
+        </div>
+        <div v-if="oneMinuteTemplates.length" class="template-list">
+          <p v-for="template in oneMinuteTemplates" :key="template">{{ template }}</p>
         </div>
         <p v-if="reportStore.trainingGeneratedMessage" class="success-text">
           {{ reportStore.trainingGeneratedMessage }}
@@ -157,9 +176,45 @@ const summaryText = computed(() => {
     : "本场报告暂未提供文字总结，请优先查看逐题复盘和薄弱点。";
 });
 
-const weakTags = computed(() => (reportStore.weakTags.length ? reportStore.weakTags : ["待训练"]));
+const trainingPlan = computed(() => {
+  const value = report.value.trainingPlan;
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+});
 
-const priorityWeakTags = computed(() => weakTags.value.slice(0, 3));
+const weakTopics = computed<ReviewLike[]>(() => {
+  const topics = trainingPlan.value.weakTopics;
+  return Array.isArray(topics) ? topics.filter((item): item is ReviewLike => Boolean(item) && typeof item === "object") : [];
+});
+
+const practiceQuestions = computed(() => {
+  const questions = trainingPlan.value.practiceQuestions;
+  return Array.isArray(questions) ? questions.map(String).filter(Boolean) : [];
+});
+
+const oneMinuteTemplates = computed(() => {
+  const templates = trainingPlan.value.oneMinuteTemplates;
+  return Array.isArray(templates) ? templates.map(String).filter(Boolean) : [];
+});
+
+const weakTags = computed(() => {
+  if (reportStore.weakTags.length) {
+    return reportStore.weakTags;
+  }
+  const tags = weakTopics.value.flatMap((topic) => tagsOf(topic));
+  if (tags.length) {
+    return Array.from(new Set(tags));
+  }
+  const focuses = weakTopics.value.map((topic) => textField(topic, "focus")).filter((value) => value !== "暂无");
+  return focuses.length ? focuses : ["待训练"];
+});
+
+const priorityWeakTags = computed(() => {
+  const priorities = trainingPlan.value.nextRoundPriority;
+  if (Array.isArray(priorities) && priorities.length > 0) {
+    return priorities.map(String).filter(Boolean).slice(0, 3);
+  }
+  return weakTags.value.slice(0, 3);
+});
 
 const questionReviews = computed<ReviewLike[]>(() => {
   const reviews = report.value.questionReviews;
@@ -202,6 +257,11 @@ function textField(source: ReviewLike, ...keys: string[]): string {
     }
   }
   return "暂无";
+}
+
+function listField(source: ReviewLike, key: string): string[] {
+  const value = source[key];
+  return Array.isArray(value) && value.length > 0 ? value.map(String).filter(Boolean) : ["暂无"];
 }
 
 function tagsOf(source: ReviewLike): string[] {
@@ -311,7 +371,11 @@ li {
 
 .summary-main,
 .insight-card,
-.review-item {
+.review-item,
+.topic-list,
+.topic-item,
+.practice-list,
+.template-list {
   display: grid;
   gap: 12px;
 }
@@ -369,6 +433,15 @@ ul {
 .review-item {
   border-top: 1px solid var(--color-border);
   padding-top: 16px;
+}
+
+.topic-item,
+.practice-item,
+.template-list {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+  padding: 12px;
 }
 
 .review-item span {
