@@ -144,3 +144,10 @@ def test_nginx_config_proxies_frontend_api_and_docs() -> None:
     assert "proxy_set_header Host $host" in content
     assert "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for" in content
     assert "proxy_read_timeout" in content
+
+
+def test_nginx_allows_slow_model_requests_to_finish() -> None:
+    content = read_text("deploy/nginx/ai-interview.conf")
+
+    assert "proxy_send_timeout 240s;" in content
+    assert "proxy_read_timeout 240s;" in content
