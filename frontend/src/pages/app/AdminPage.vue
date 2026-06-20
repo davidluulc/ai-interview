@@ -390,6 +390,11 @@
         </p>
         <div class="quality-grid">
           <article>
+            <span>高相关</span>
+            <strong>{{ admin.ragQuality.summary.goodCount || Math.max(admin.ragQuality.summary.totalLogCount - admin.ragQuality.summary.lowQualityCount, 0) }}</strong>
+            <small>可直接支撑面试追问的召回</small>
+          </article>
+          <article>
             <span>低质量召回</span>
             <strong>{{ admin.ragQuality.summary.lowQualityCount }}</strong>
             <small>需要人工关注的召回样例</small>
@@ -409,6 +414,22 @@
             <strong>{{ admin.ragQuality.summary.unusedInPromptCount }}</strong>
             <small>检索到了但未进入模型上下文</small>
           </article>
+        </div>
+        <div class="dashboard-panel">
+          <h3>知识库质量分布</h3>
+          <div v-for="item in admin.ragQuality.knowledgeBaseSummary || []" :key="item.knowledgeBase" class="mini-row">
+            <strong>{{ item.label || retrieverLabel(item.knowledgeBase) }}</strong>
+            <span>高相关 {{ item.goodCount }} / 弱相关 {{ item.weakCount }} / 空召回 {{ item.emptyCount }}</span>
+          </div>
+          <p v-if="!(admin.ragQuality.knowledgeBaseSummary || []).length" class="muted">暂无知识库质量分布。</p>
+        </div>
+        <div class="dashboard-panel">
+          <h3>主要诊断</h3>
+          <div v-for="item in admin.ragQuality.diagnosticSummary || []" :key="`${item.type}-${item.title}`" class="mini-row">
+            <strong>{{ item.title }}</strong>
+            <span>{{ item.message }} · 出现 {{ item.count }} 次</span>
+          </div>
+          <p v-if="!(admin.ragQuality.diagnosticSummary || []).length" class="muted">暂无主要诊断。</p>
         </div>
         <div class="list">
           <article v-for="item in admin.ragQuality.items" :key="item.id || queryText(item)" class="log-item">
@@ -496,6 +517,31 @@
         <p class="section-help">
           用于查看知识库资料是否已经入库、属于哪个知识库、是否启用，以及是否存在重复切片等维护风险。
         </p>
+        <div class="quality-grid">
+          <article>
+            <span>Ready 文档</span>
+            <strong>{{ admin.ragDocumentDashboard.readyDocumentCount }}</strong>
+            <small>当前启用中的资料数</small>
+          </article>
+          <article>
+            <span>Ready chunk</span>
+            <strong>{{ admin.ragDocumentDashboard.readyChunkCount }}</strong>
+            <small>可被检索使用的切片数</small>
+          </article>
+          <article>
+            <span>Embedding</span>
+            <strong>{{ admin.config?.embeddingModel || "未配置" }}</strong>
+            <small>当前向量模型</small>
+          </article>
+        </div>
+        <div class="dashboard-panel">
+          <h3>RAG 文档覆盖</h3>
+          <div v-for="item in admin.ragDocumentDashboard.knowledgeBaseCoverage" :key="item.knowledgeBase" class="mini-row">
+            <strong>{{ retrieverLabel(item.knowledgeBase) }}</strong>
+            <span>Ready 文档 {{ item.readyDocumentCount }} / Ready chunk {{ item.readyChunkCount }}</span>
+          </div>
+          <p v-if="admin.ragDocumentDashboard.knowledgeBaseCoverage.length === 0" class="muted">暂无 RAG 文档覆盖数据。</p>
+        </div>
         <div class="list">
           <article v-for="document in admin.ragDocuments" :key="document.id" class="log-item">
             <strong>{{ document.title }}</strong>
@@ -521,6 +567,26 @@
         <p class="section-help">
           用于观察面试 Agent 为什么追问、降难度、换话题或结束。这里能帮助排查模型决策是否进入兜底规则。
         </p>
+        <div class="quality-grid">
+          <article>
+            <span>总决策</span>
+            <strong>{{ admin.agentDashboardSummary.totalCount }}</strong>
+            <small>最近记录的 Agent 决策数</small>
+          </article>
+          <article>
+            <span>fallback</span>
+            <strong>{{ admin.agentDashboardSummary.fallbackCount }}</strong>
+            <small>fallback {{ admin.agentDashboardSummary.fallbackCount }} 次</small>
+          </article>
+        </div>
+        <div class="dashboard-panel">
+          <h3>Agent 动作分布</h3>
+          <div v-for="item in admin.agentDashboardSummary.actionSummary" :key="item.action" class="mini-row">
+            <strong>{{ normalizeAction(item.action) }}</strong>
+            <span>{{ item.count }} 次</span>
+          </div>
+          <p v-if="admin.agentDashboardSummary.actionSummary.length === 0" class="muted">暂无 Agent 动作分布。</p>
+        </div>
         <div class="list">
           <article v-for="log in admin.agentLogs" :key="log.id || log.createdAt || log.reason" class="log-item">
             <div class="log-heading">
@@ -1416,6 +1482,19 @@ th {
   display: grid;
   gap: 10px;
   margin-top: 16px;
+}
+
+.dashboard-panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  margin-top: 14px;
+  padding: 14px;
+}
+
+.dashboard-panel h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
 }
 
 .ai-debug-layout {

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_admin_user
 from ..agent_logging import serialize_agent_decision_log
-from ..ai_debug import build_ai_debug_detail, build_ai_debug_recent_item
+from ..ai_debug import build_ai_debug_detail, build_ai_debug_recent_item, normalize_rag_name
 from ..config import DASHSCOPE_RERANK_MODEL, QWEN_MODEL
 from ..database import DATABASE_URL, describe_database_url, get_db
 from ..db_models import AgentDecisionLog, InterviewRecord, RagChunk, RagDocument, RagIngestionTask, RagRetrievalLog, RefreshToken, User
@@ -104,28 +104,64 @@ def classify_rag_quality_issue(log_item: dict[str, Any], db: Session | None = No
     return None
 
 
+def rag_issue_title(issue_type: str) -> str:
+    titles = {
+        "empty_recall": "空召回",
+        "weak_recall": "弱召回",
+        "unused_in_prompt": "未进入 Prompt",
+    }
+    return titles.get(issue_type, "需要关注")
+
+
 def build_rag_quality_payload(logs: list[RagRetrievalLog], db: Session | None = None) -> dict[str, Any]:
     low_quality_items: list[dict[str, Any]] = []
     summary = {
         "totalLogCount": len(logs),
+        "goodCount": 0,
         "lowQualityCount": 0,
         "emptyRecallCount": 0,
         "weakRecallCount": 0,
         "unusedInPromptCount": 0,
     }
+    knowledge_base_map: dict[str, dict[str, Any]] = {}
+    diagnostic_map: dict[tuple[str, str], dict[str, Any]] = {}
     for log in logs:
         item = serialize_rag_log(log)
+        knowledge_base = str(item.get("retrieverName") or "unknown")
+        quality = item.get("quality") or {}
+        quality_level = str(quality.get("level") or "unknown")
+        knowledge_base_item = knowledge_base_map.setdefault(
+            knowledge_base,
+            {
+                "knowledgeBase": knowledge_base,
+                "label": normalize_rag_name(knowledge_base),
+                "totalCount": 0,
+                "goodCount": 0,
+                "weakCount": 0,
+                "emptyCount": 0,
+                "unusedInPromptCount": 0,
+                "readyChunkCount": 0,
+            },
+        )
+        knowledge_base_item["totalCount"] += 1
         issue = classify_rag_quality_issue(item, db)
         if not issue:
+            summary["goodCount"] += 1
+            knowledge_base_item["goodCount"] += 1
             continue
         issue_type, recommendation = issue
         summary["lowQualityCount"] += 1
         if issue_type == "empty_recall":
             summary["emptyRecallCount"] += 1
+            knowledge_base_item["emptyCount"] += 1
         elif issue_type == "weak_recall":
             summary["weakRecallCount"] += 1
+            knowledge_base_item["weakCount"] += 1
         elif issue_type == "unused_in_prompt":
             summary["unusedInPromptCount"] += 1
+            knowledge_base_item["unusedInPromptCount"] += 1
+        elif quality_level == "weak":
+            knowledge_base_item["weakCount"] += 1
         low_quality_items.append(
             {
                 **item,
@@ -133,7 +169,34 @@ def build_rag_quality_payload(logs: list[RagRetrievalLog], db: Session | None = 
                 "recommendation": recommendation,
             }
         )
-    return {"summary": summary, "items": low_quality_items}
+        diagnostic_key = (issue_type, knowledge_base)
+        diagnostic = diagnostic_map.setdefault(
+            diagnostic_key,
+            {
+                "type": issue_type,
+                "knowledgeBase": knowledge_base,
+                "label": normalize_rag_name(knowledge_base),
+                "title": f"{normalize_rag_name(knowledge_base)}{rag_issue_title(issue_type)}",
+                "message": recommendation,
+                "count": 0,
+            },
+        )
+        diagnostic["count"] += 1
+    if db is not None:
+        active_model = current_embedding_model()
+        for knowledge_base, item in knowledge_base_map.items():
+            item["readyChunkCount"] = count_rag_chunks(
+                db,
+                RagChunk.knowledge_base == knowledge_base,
+                RagChunk.embedding_status == "ready",
+                RagChunk.embedding_model == active_model,
+            )
+    return {
+        "summary": summary,
+        "items": low_quality_items,
+        "knowledgeBaseSummary": sorted(knowledge_base_map.values(), key=lambda item: item["knowledgeBase"]),
+        "diagnosticSummary": sorted(diagnostic_map.values(), key=lambda item: item["count"], reverse=True),
+    }
 
 
 def build_ingestion_task_quality_payload(tasks: list[RagIngestionTask]) -> dict[str, Any]:

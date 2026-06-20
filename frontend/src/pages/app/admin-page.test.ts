@@ -50,11 +50,44 @@ const adminStore: any = {
   ragQuality: {
     summary: {
       totalLogCount: 3,
+      goodCount: 2,
       lowQualityCount: 1,
       emptyRecallCount: 1,
       weakRecallCount: 0,
       unusedInPromptCount: 0
     },
+    knowledgeBaseSummary: [
+      {
+        knowledgeBase: "role_knowledge",
+        label: "岗位知识库",
+        totalCount: 3,
+        goodCount: 1,
+        weakCount: 1,
+        emptyCount: 1,
+        unusedInPromptCount: 0,
+        readyChunkCount: 8
+      },
+      {
+        knowledgeBase: "question_bank",
+        label: "题库",
+        totalCount: 2,
+        goodCount: 2,
+        weakCount: 0,
+        emptyCount: 0,
+        unusedInPromptCount: 0,
+        readyChunkCount: 6
+      }
+    ],
+    diagnosticSummary: [
+      {
+        type: "empty_recall",
+        knowledgeBase: "role_knowledge",
+        label: "岗位知识库",
+        title: "岗位知识库空召回",
+        message: "补充岗位知识库资料。",
+        count: 2
+      }
+    ],
     items: [
       {
         id: 1,
@@ -149,6 +182,19 @@ const adminStore: any = {
       ]
     }
   ],
+  agentDashboardSummary: {
+    totalCount: 2,
+    fallbackCount: 1,
+    actionSummary: [
+      { action: "deepen", count: 1 },
+      { action: "switch_topic", count: 1 }
+    ]
+  },
+  ragDocumentDashboard: {
+    readyDocumentCount: 1,
+    readyChunkCount: 8,
+    knowledgeBaseCoverage: [{ knowledgeBase: "role_knowledge", readyDocumentCount: 1, readyChunkCount: 8 }]
+  },
   selectedAiDebugTraceId: 1,
   selectedAiDebugDetail: {
     summary: { traceId: 1, agentMode: "coach", stage: "技术追问", threadId: "agent-log-1" },
@@ -394,6 +440,21 @@ describe("admin page", () => {
     expect(text).toContain("下一步动作：继续深挖");
     expect(text).not.toContain("下一步动作：deepen");
     expect(text).not.toContain("undefined");
+  });
+
+  it("renders RAG Agent and document dashboards instead of raw-only lists", () => {
+    const wrapper = mount(AdminPage, { global: globalConfig });
+    const text = wrapper.text();
+
+    expect(text).toContain("知识库质量分布");
+    expect(text).toContain("岗位知识库");
+    expect(text).toContain("高相关 1");
+    expect(text).toContain("主要诊断");
+    expect(text).toContain("岗位知识库空召回");
+    expect(text).toContain("Agent 动作分布");
+    expect(text).toContain("fallback 1");
+    expect(text).toContain("RAG 文档覆盖");
+    expect(text).toContain("Ready chunk 8");
   });
 
   it("renders the AI debug console overview by default", () => {

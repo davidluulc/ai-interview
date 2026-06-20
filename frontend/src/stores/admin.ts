@@ -38,6 +38,42 @@ export const useAdminStore = defineStore("admin", () => {
     });
   });
 
+  const agentActionSummary = computed(() => {
+    const grouped = new Map<string, number>();
+    for (const log of agentLogs.value) {
+      const action = log.nextAction || log.next_action || "unknown";
+      grouped.set(action, (grouped.get(action) || 0) + 1);
+    }
+    return Array.from(grouped.entries()).map(([action, count]) => ({ action, count }));
+  });
+
+  const agentDashboardSummary = computed(() => ({
+    totalCount: agentLogs.value.length,
+    fallbackCount: agentLogs.value.filter((log) => Boolean(log.fallbackUsed || log.fallback_used)).length,
+    actionSummary: agentActionSummary.value
+  }));
+
+  const ragDocumentDashboard = computed(() => {
+    const activeDocs = ragDocuments.value.filter((document) => (document.status || "enabled") === "enabled");
+    const coverage = new Map<string, { knowledgeBase: string; readyDocumentCount: number; readyChunkCount: number }>();
+    for (const document of activeDocs) {
+      const knowledgeBase = document.knowledgeBase || document.knowledge_base || "unknown";
+      const current = coverage.get(knowledgeBase) || {
+        knowledgeBase,
+        readyDocumentCount: 0,
+        readyChunkCount: 0
+      };
+      current.readyDocumentCount += 1;
+      current.readyChunkCount += document.chunkCount || document.chunk_count || 0;
+      coverage.set(knowledgeBase, current);
+    }
+    return {
+      readyDocumentCount: activeDocs.length,
+      readyChunkCount: activeDocs.reduce((sum, document) => sum + (document.chunkCount || document.chunk_count || 0), 0),
+      knowledgeBaseCoverage: Array.from(coverage.values())
+    };
+  });
+
   async function loadDashboard(): Promise<void> {
     loading.value = true;
     error.value = "";
@@ -136,6 +172,9 @@ export const useAdminStore = defineStore("admin", () => {
     forceLogoutMessage,
     forceLogoutError,
     filteredUsers,
+    agentActionSummary,
+    agentDashboardSummary,
+    ragDocumentDashboard,
     loadDashboard,
     loadAiDebugDetail,
     setAiDebugTab,

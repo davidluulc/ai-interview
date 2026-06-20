@@ -269,6 +269,55 @@ def test_admin_ai_debug_detail_aggregates_rag_and_diagnostics() -> None:
     assert body["diagnosticSummary"][0]["count"] == 3
 
 
+def test_admin_rag_quality_payload_includes_dashboard_summaries() -> None:
+    client = TestClient(app)
+    headers, user_id = create_admin_headers()
+    with SessionLocal() as db:
+        db.add(
+            RagRetrievalLog(
+                user_id=user_id,
+                application_profile_id=7001,
+                request_type="next_question",
+                query_text="RAG 日志字段",
+                retriever_name="role_knowledge",
+                retrieval_mode="hybrid",
+                hit_count=0,
+                hits_json="[]",
+                used_in_prompt=1,
+            )
+        )
+        db.add(
+            RagRetrievalLog(
+                user_id=user_id,
+                application_profile_id=7001,
+                request_type="next_question",
+                query_text="Celery 职责",
+                retriever_name="question_bank",
+                retrieval_mode="hybrid",
+                hit_count=2,
+                hits_json=json.dumps(
+                    [{"score": 9, "source": "database"}, {"score": 8, "source": "database"}],
+                    ensure_ascii=False,
+                ),
+                used_in_prompt=1,
+            )
+        )
+        db.commit()
+
+    response = client.get("/api/admin/rag/quality", headers=headers)
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["summary"]["goodCount"] >= 1
+    assert "knowledgeBaseSummary" in body
+    assert "diagnosticSummary" in body
+    role_summary = next(item for item in body["knowledgeBaseSummary"] if item["knowledgeBase"] == "role_knowledge")
+    question_summary = next(item for item in body["knowledgeBaseSummary"] if item["knowledgeBase"] == "question_bank")
+    assert role_summary["emptyCount"] >= 1
+    assert question_summary["goodCount"] >= 1
+    assert any(item["type"] == "empty_recall" and item["count"] >= 1 for item in body["diagnosticSummary"])
+
+
 def test_admin_ai_debug_detail_handles_missing_trace() -> None:
     client = TestClient(app)
     headers, _ = create_admin_headers()

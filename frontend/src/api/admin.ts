@@ -39,6 +39,7 @@ export interface AdminRagDocument {
 
 export interface AdminRagQualitySummary {
   totalLogCount: number;
+  goodCount?: number;
   lowQualityCount: number;
   emptyRecallCount: number;
   weakRecallCount: number;
@@ -58,9 +59,31 @@ export interface AdminRagQualityItem {
   createdAt?: string | null;
 }
 
+export interface AdminRagQualityKnowledgeBaseSummary {
+  knowledgeBase: string;
+  label: string;
+  totalCount: number;
+  goodCount: number;
+  weakCount: number;
+  emptyCount: number;
+  unusedInPromptCount: number;
+  readyChunkCount?: number;
+}
+
+export interface AdminRagQualityDiagnosticSummary {
+  type: string;
+  knowledgeBase?: string;
+  label?: string;
+  title: string;
+  message: string;
+  count: number;
+}
+
 export interface AdminRagQuality {
   summary: AdminRagQualitySummary;
   items: AdminRagQualityItem[];
+  knowledgeBaseSummary?: AdminRagQualityKnowledgeBaseSummary[];
+  diagnosticSummary?: AdminRagQualityDiagnosticSummary[];
 }
 
 export interface AdminRagIngestionTaskSummary {

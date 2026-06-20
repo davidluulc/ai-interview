@@ -296,6 +296,28 @@ describe("admin store", () => {
     expect(store.forceLogoutError).toBe("强制下线失败：Admin privileges required");
   });
 
+  it("derives agent and RAG document dashboard summaries", () => {
+    const store = useAdminStore();
+    store.agentLogs = [
+      { id: 1, nextAction: "deepen", fallbackUsed: false },
+      { id: 2, nextAction: "lower_difficulty", fallbackUsed: true },
+      { id: 3, nextAction: "deepen", fallbackUsed: false }
+    ];
+    store.ragDocuments = [
+      { id: 1, title: "岗位知识", knowledgeBase: "role_knowledge", status: "enabled", chunkCount: 7 },
+      { id: 2, title: "题库", knowledgeBase: "question_bank", status: "enabled", chunkCount: 8 },
+      { id: 3, title: "旧文档", knowledgeBase: "role_knowledge", status: "archived", chunkCount: 4 }
+    ];
+
+    expect(store.agentActionSummary.find((item) => item.action === "deepen")?.count).toBe(2);
+    expect(store.agentDashboardSummary.fallbackCount).toBe(1);
+    expect(store.ragDocumentDashboard.readyDocumentCount).toBe(2);
+    expect(store.ragDocumentDashboard.readyChunkCount).toBe(15);
+    expect(store.ragDocumentDashboard.knowledgeBaseCoverage).toContainEqual(
+      expect.objectContaining({ knowledgeBase: "role_knowledge", readyChunkCount: 7 })
+    );
+  });
+
   it("maps 403 errors to a readable permission message", async () => {
     vi.mocked(adminApi.fetchAdminSummary).mockRejectedValue(new Error("Admin privileges required"));
     vi.mocked(adminApi.fetchAdminUsers).mockResolvedValue({ items: [] });
