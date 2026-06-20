@@ -337,10 +337,24 @@ export interface AdminObservabilityTurn {
   } | null;
   diagnostics: string[];
   traceIds: number[];
+  traceLinks?: Array<{
+    traceId: number;
+    label: string;
+    requestType: string;
+    nextActionLabel: string;
+    relation: string;
+    debugPath: string;
+    threadId: string;
+  }>;
 }
 
 export interface AdminObservabilityInterviewDetail {
   recordId: number;
+  hierarchy?: {
+    user?: { id?: number | null; email?: string };
+    applicationProfile?: { id?: number | null; title?: string; targetRole?: string };
+    interviewRecord?: { id?: number | null; reportStatus?: string; questionCount?: number };
+  };
   overview: Record<string, unknown>;
   summary: {
     questionCount: number;
@@ -349,6 +363,7 @@ export interface AdminObservabilityInterviewDetail {
   };
   turns: AdminObservabilityTurn[];
   unlinkedLogs: { ragLogCount: number; agentLogCount: number };
+  traceRelation?: Record<string, string>;
 }
 
 export interface AdminDatabaseInfrastructure {

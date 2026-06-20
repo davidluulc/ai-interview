@@ -364,6 +364,38 @@ def summarize_rag_for_turn(logs: list[RagRetrievalLog]) -> list[dict[str, Any]]:
     ]
 
 
+def build_observability_trace_link(log: AgentDecisionLog, *, relation: str) -> dict[str, Any]:
+    return {
+        "traceId": log.id,
+        "label": f"AI trace #{log.id}",
+        "requestType": log.request_type,
+        "nextActionLabel": action_label(log.next_action),
+        "relation": relation,
+        "debugPath": f"/api/admin/ai-debug/{log.id}",
+        "threadId": thread_id_for_agent_log(log),
+    }
+
+
+def build_observability_hierarchy(record: InterviewRecord, *, question_count: int) -> dict[str, Any]:
+    profile = record.application_profile
+    return {
+        "user": {
+            "id": record.user_id,
+            "email": record.user.email if record.user else "",
+        },
+        "applicationProfile": {
+            "id": record.application_profile_id,
+            "title": profile.title if profile else record.target_role,
+            "targetRole": profile.target_role if profile else record.target_role,
+        },
+        "interviewRecord": {
+            "id": record.id,
+            "reportStatus": report_status(record),
+            "questionCount": question_count,
+        },
+    }
+
+
 @router.get("/summary")
 async def admin_summary(
     db: Session = Depends(get_db),
@@ -609,6 +641,7 @@ async def admin_observability_interview_detail(
         ).all()
     )
     turns = answer_turns(record)
+    agent_relation = "approximate_by_user_profile_order"
     for index, turn in enumerate(turns):
         turn["ragSummary"] = summarize_rag_for_turn(linked_rag_logs[index : index + 1])
         agent_log = agent_logs[index] if index < len(agent_logs) else None
@@ -617,7 +650,7 @@ async def admin_observability_interview_detail(
                 "actionLabel": action_label(agent_log.next_action),
                 "reason": agent_log.reason,
                 "fallbackUsed": bool(agent_log.fallback_used),
-                "relation": "user_id + application_profile_id + order",
+                "relation": agent_relation,
             }
             if agent_log
             else None
@@ -626,6 +659,7 @@ async def admin_observability_interview_detail(
             f"{item['label']}为{item['qualityLabel']}" for item in turn["ragSummary"] if item["qualityLabel"] != "高相关"
         ]
         turn["traceIds"] = [agent_log.id] if agent_log else []
+        turn["traceLinks"] = [build_observability_trace_link(agent_log, relation=agent_relation)] if agent_log else []
 
     unlinked_rag_count = int(
         db.scalar(
@@ -641,6 +675,7 @@ async def admin_observability_interview_detail(
     )
     return {
         "recordId": record.id,
+        "hierarchy": build_observability_hierarchy(record, question_count=len(turns)),
         "overview": {
             "userEmail": record.user.email if record.user else "",
             "profileTitle": record.application_profile.title if record.application_profile else record.target_role,
@@ -655,6 +690,11 @@ async def admin_observability_interview_detail(
         },
         "turns": turns,
         "unlinkedLogs": {"ragLogCount": unlinked_rag_count, "agentLogCount": 0},
+        "traceRelation": {
+            "rag": "interview_record_id",
+            "agent": agent_relation,
+            "llm": "agent_decision_log_as_ai_trace",
+        },
     }
 
 

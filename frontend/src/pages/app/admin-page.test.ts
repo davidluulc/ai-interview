@@ -220,6 +220,11 @@ const adminStore: any = {
   selectedObservabilityRecordId: 9,
   selectedObservabilityDetail: {
     recordId: 9,
+    hierarchy: {
+      user: { id: 101, email: "demo@example.com" },
+      applicationProfile: { id: 201, title: "Python 后端实习", targetRole: "Python 后端" },
+      interviewRecord: { id: 9, reportStatus: "ready", questionCount: 2 }
+    },
     overview: { userEmail: "demo@example.com", profileTitle: "Python 后端实习", reportStatus: "ready" },
     summary: {
       questionCount: 2,
@@ -240,10 +245,26 @@ const adminStore: any = {
         ragSummary: [{ knowledgeBase: "role_knowledge", label: "岗位知识库", hitCount: 1, qualityLabel: "弱相关" }],
         agentDecision: { actionLabel: "降低难度", reason: "连续弱回答", fallbackUsed: true },
         diagnostics: ["岗位知识库为弱相关"],
-        traceIds: [1]
+        traceIds: [1],
+        traceLinks: [
+          {
+            traceId: 1,
+            label: "AI trace #1",
+            requestType: "next_question",
+            nextActionLabel: "降低难度",
+            relation: "approximate_by_user_profile_order",
+            debugPath: "/api/admin/ai-debug/1",
+            threadId: "agent-log-1"
+          }
+        ]
       }
     ],
-    unlinkedLogs: { ragLogCount: 1, agentLogCount: 0 }
+    unlinkedLogs: { ragLogCount: 1, agentLogCount: 0 },
+    traceRelation: {
+      rag: "interview_record_id",
+      agent: "approximate_by_user_profile_order",
+      llm: "agent_decision_log_as_ai_trace"
+    }
   },
   setObservabilityTab: vi.fn((tab: string) => {
     adminStore.selectedObservabilityTab = tab;
@@ -535,12 +556,29 @@ describe("admin page", () => {
     expect(text).toContain("未归属日志：RAG 1 / Agent 0");
   });
 
+  it("renders the user profile interview turn and trace hierarchy", () => {
+    const wrapper = mount(AdminPage, { global: globalConfig });
+    const text = wrapper.text();
+
+    expect(text).toContain("用户 demo@example.com");
+    expect(text).toContain("投递档案 Python 后端实习");
+    expect(text).toContain("面试记录 #9");
+    expect(text).toContain("报告已生成");
+    expect(text).toContain("AI trace #1");
+    expect(text).toContain("关联方式：按用户/档案/轮次近似关联");
+    expect(text).toContain("thread：agent-log-1");
+  });
+
   it("renders the AI debug console overview by default", () => {
     adminStore.selectedObservabilityTab = "ai";
     const wrapper = mount(AdminPage, { global: globalConfig });
     const text = wrapper.text();
 
     expect(text).toContain("AI 请求总览");
+    expect(text).toContain("当前面试关联 trace");
+    expect(text).toContain("Python 后端实习");
+    expect(text).toContain("AI trace #1");
+    expect(text).toContain("按用户/档案/轮次近似关联");
     expect(text).toContain("AI 调试控制台");
     expect(text).toContain("最近 AI 请求");
     expect(text).toContain("总览");

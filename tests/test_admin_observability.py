@@ -217,3 +217,82 @@ def test_admin_observability_interview_detail_shows_turns_and_unlinked_logs() ->
     assert body["turns"][0]["ragSummary"][0]["label"] == "岗位知识库"
     assert body["turns"][0]["ragSummary"][0]["qualityLabel"] == "弱相关"
     assert body["unlinkedLogs"]["ragLogCount"] == 1
+
+
+def test_admin_observability_interview_detail_exposes_hierarchy_and_trace_links() -> None:
+    client = TestClient(app)
+    headers, _ = create_admin_headers()
+    user_id, profile_id, email = create_user_and_profile("obs-chain")
+    with SessionLocal() as db:
+        record = InterviewRecord(
+            user_id=user_id,
+            application_profile_id=profile_id,
+            candidate_name="Demo",
+            target_role="Python 后端",
+            application_type="实习",
+            mode="coach",
+            depth="standard",
+            score=82,
+            profile_json="{}",
+            answers_json=json.dumps(
+                [
+                    {"question": "怎么排查 RAG 弱召回？", "answer": "看 query 和 hit_count"},
+                    {"question": "Agent 为什么切换话题？", "answer": "避免卡住"},
+                ],
+                ensure_ascii=False,
+            ),
+            report_json=json.dumps({"overall": "ok"}, ensure_ascii=False),
+        )
+        db.add(record)
+        db.flush()
+        record_id = int(record.id)
+        first_agent = AgentDecisionLog(
+            user_id=user_id,
+            application_profile_id=profile_id,
+            request_type="next_question",
+            next_action="deepen",
+            stage="技术追问",
+            difficulty="medium",
+            focus="RAG 弱召回",
+            reason="候选人提到了 hit_count，可以继续追问 query rewrite。",
+            tools_json="[]",
+            state_json=json.dumps({"threadId": "obs-chain-thread-1"}, ensure_ascii=False),
+            decision_json=json.dumps({"nodeTrace": [{"nodeName": "retrieve_context"}]}, ensure_ascii=False),
+            fallback_used=0,
+        )
+        second_agent = AgentDecisionLog(
+            user_id=user_id,
+            application_profile_id=profile_id,
+            request_type="next_question",
+            next_action="switch_topic",
+            stage="技术追问",
+            difficulty="basic",
+            focus="Agent 策略",
+            reason="同一知识点连续弱回答，切换话题。",
+            tools_json="[]",
+            state_json=json.dumps({"threadId": "obs-chain-thread-2"}, ensure_ascii=False),
+            decision_json="{}",
+            fallback_used=1,
+        )
+        db.add_all([first_agent, second_agent])
+        db.flush()
+        first_agent_id = int(first_agent.id)
+        db.commit()
+
+    response = client.get(f"/api/admin/observability/interviews/{record_id}", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["hierarchy"] == {
+        "user": {"id": user_id, "email": email},
+        "applicationProfile": {"id": profile_id, "title": "Python 后端实习", "targetRole": "Python 后端"},
+        "interviewRecord": {"id": record_id, "reportStatus": "ready", "questionCount": 2},
+    }
+    first_turn = body["turns"][0]
+    assert first_turn["traceLinks"][0]["traceId"] == first_agent_id
+    assert first_turn["traceLinks"][0]["label"] == "AI trace #{}".format(first_agent_id)
+    assert first_turn["traceLinks"][0]["requestType"] == "next_question"
+    assert first_turn["traceLinks"][0]["relation"] == "approximate_by_user_profile_order"
+    assert first_turn["traceLinks"][0]["debugPath"] == f"/api/admin/ai-debug/{first_agent_id}"
+    assert first_turn["traceLinks"][0]["threadId"] == "obs-chain-thread-1"
+    assert body["traceRelation"]["agent"] == "approximate_by_user_profile_order"

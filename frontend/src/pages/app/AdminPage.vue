@@ -133,6 +133,12 @@
 
           <article v-if="admin.selectedObservabilityDetail" class="debug-panel">
             <h3>逐题链路</h3>
+            <div class="hierarchy-trail" aria-label="面试诊断层级">
+              <span>用户 {{ observabilityUserEmail }}</span>
+              <span>投递档案 {{ observabilityProfileTitle }}</span>
+              <span>面试记录 #{{ observabilityRecordId }}</span>
+              <span>{{ observabilityReportStatus }}</span>
+            </div>
             <p>
               未归属日志：RAG {{ admin.selectedObservabilityDetail.unlinkedLogs.ragLogCount }} / Agent
               {{ admin.selectedObservabilityDetail.unlinkedLogs.agentLogCount }}
@@ -147,6 +153,12 @@
                 Agent：{{ turn.agentDecision.actionLabel }} · {{ turn.agentDecision.reason }}
               </span>
               <span v-for="diagnostic in turn.diagnostics" :key="diagnostic">{{ diagnostic }}</span>
+              <span v-for="trace in turn.traceLinks || []" :key="`${turn.turnIndex}-${trace.traceId}`">
+                {{ trace.label }} · {{ trace.nextActionLabel || trace.requestType }} · thread：{{ trace.threadId }}
+              </span>
+              <span v-for="trace in turn.traceLinks || []" :key="`${turn.turnIndex}-${trace.traceId}-relation`">
+                关联方式：{{ traceRelationLabel(trace.relation) }}
+              </span>
             </div>
           </article>
           <article v-else class="debug-panel">
@@ -280,6 +292,20 @@
               <strong>{{ debugNumber(admin.selectedAiDebugDetail?.rag, "totalHitCount") }}</strong>
               <small>当前 trace 的召回命中</small>
             </article>
+          </div>
+          <div class="dashboard-panel">
+            <h3>当前面试关联 trace</h3>
+            <p class="section-help">
+              {{ observabilityProfileTitle }} · {{ observabilityUserEmail }} · 面试记录 #{{ observabilityRecordId }}
+            </p>
+            <div v-for="trace in selectedInterviewTraceLinks" :key="trace.traceId" class="mini-row">
+              <strong>{{ trace.label }}</strong>
+              <span>{{ trace.nextActionLabel || trace.requestType }} · {{ traceRelationLabel(trace.relation) }}</span>
+              <button type="button" class="inline-action" @click="admin.loadAiDebugDetail(trace.traceId)">查看 trace</button>
+            </div>
+            <p v-if="selectedInterviewTraceLinks.length === 0" class="muted">
+              当前未选择面试记录，或该面试没有可关联的 AI trace。
+            </p>
           </div>
         </div>
         <div v-else class="debug-panel">
@@ -952,6 +978,26 @@ const paginatedUsers = computed(() => {
   return admin.filteredUsers.slice(start, start + userPageSize.value);
 });
 const aiRecentFallbackCount = computed(() => admin.aiDebugRecent.filter((trace) => trace.fallbackUsed).length);
+const observabilityHierarchy = computed(() => admin.selectedObservabilityDetail?.hierarchy || {});
+const observabilityUserEmail = computed(() => {
+  return observabilityHierarchy.value.user?.email || String(admin.selectedObservabilityDetail?.overview.userEmail || "未知用户");
+});
+const observabilityProfileTitle = computed(() => {
+  return (
+    observabilityHierarchy.value.applicationProfile?.title ||
+    String(admin.selectedObservabilityDetail?.overview.profileTitle || "未命名档案")
+  );
+});
+const observabilityRecordId = computed(() => {
+  return observabilityHierarchy.value.interviewRecord?.id || admin.selectedObservabilityDetail?.recordId || "未知";
+});
+const observabilityReportStatus = computed(() => {
+  const status = observabilityHierarchy.value.interviewRecord?.reportStatus || admin.selectedObservabilityDetail?.overview.reportStatus;
+  return status === "ready" ? "报告已生成" : "报告缺失";
+});
+const selectedInterviewTraceLinks = computed(() => {
+  return (admin.selectedObservabilityDetail?.turns || []).flatMap((turn) => turn.traceLinks || []);
+});
 
 function openForceLogout(user: AdminUser): void {
   forceLogoutCandidate.value = user;
@@ -1420,6 +1466,15 @@ function fallbackLabel(log: AdminAgentLog): string {
   return isFallbackUsed(log) ? "兜底规则已启用" : "模型决策";
 }
 
+function traceRelationLabel(value = ""): string {
+  const map: Record<string, string> = {
+    interview_record_id: "按面试记录精确关联",
+    approximate_by_user_profile_order: "按用户/档案/轮次近似关联",
+    agent_decision_log_as_ai_trace: "Agent 决策日志即 AI trace"
+  };
+  return map[value] || value || "未记录";
+}
+
 function maskDatabaseUrl(value: string): string {
   if (!value) return "未配置";
   if (value.includes("@")) return value.replace(/\/\/.*@/, "//***@");
@@ -1785,6 +1840,34 @@ th {
 .mini-row span {
   color: var(--color-text-muted);
   line-height: 1.5;
+}
+
+.hierarchy-trail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.hierarchy-trail span,
+.inline-action {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 5px 8px;
+}
+
+.inline-action {
+  cursor: pointer;
+  justify-self: start;
+}
+
+.inline-action:hover {
+  border-color: rgba(23, 92, 211, 0.45);
+  color: var(--color-accent);
 }
 
 .debug-tabs {

@@ -1,6 +1,6 @@
 # 当前项目状态与下一阶段路线
 
-更新时间：2026-06-20
+更新时间：2026-06-21
 
 本文档是当前项目路线的可信入口。判断下一步开发方向时，以本文档为准；旧 spec、旧 plan 和历史学习材料只作为背景资料。
 
@@ -46,11 +46,14 @@ docs/plans/completed/public-demo-stabilization-rag-seed-v1.md
 Admin Observability UX V3：把 RAG、Agent、AI 请求和面试报告按用户、档案、面试记录、问题轮次组织成诊断工作台，减少后台日志墙。
 ```
 
-V3 产品可见部分已完成：
+V3 主体体验已完成：
 
 - 修复管理员强制下线确认弹窗中确认按钮文字不可见的问题。
 - 新增管理员面试诊断聚合 API，可按面试记录查看用户、档案、逐题回答、RAG 命中和 Agent 决策关联。
 - 前端新增“诊断工作台”区域，默认从“面试诊断”进入，先按一次面试组织排查入口，再进入逐题链路详情。
+- 单次面试详情已显式展示 `用户 -> 投递档案 -> 面试记录/报告 -> 每轮问题 -> RAG/Agent/AI trace` 层级。
+- 每轮问题下方已展示关联 AI trace、thread id 和关联方式；旧数据缺少精确字段时，会标注为按用户/档案/轮次近似关联。
+- AI 请求 tab 已能围绕当前选中面试展示关联 trace，不再只是孤立的最近请求列表。
 - 知识库健康、Agent 行为、AI 请求已从占位提示升级为可读摘要 tab。
 - 旧的 RAG 质量诊断、摄取任务、RAG 文档明细、Agent 决策日志已收进“开发排查”，默认不再铺满后台页面。
 - 保留 V3 active 状态：后续先做公网 smoke；更底层的统一 trace id、数据库字段补强和更复杂筛选可以进入 V3.1/V4。
@@ -58,8 +61,8 @@ V3 产品可见部分已完成：
 本轮本地验证：
 
 ```text
-frontend vitest: 31 files passed, 162 tests passed
-frontend build: succeeded
+focused backend observability/debug pytest: 14 passed, 1 warning
+focused frontend admin tests: 2 files passed, 30 tests passed
 ```
 
 ## 3. Admin & Report Productization V2 完成情况
