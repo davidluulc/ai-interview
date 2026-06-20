@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_admin_user
 from ..agent_logging import serialize_agent_decision_log
-from ..ai_debug import build_ai_debug_detail, build_ai_debug_recent_item, normalize_rag_name
+from ..ai_debug import action_label, build_ai_debug_detail, build_ai_debug_recent_item, normalize_rag_name
 from ..config import DASHSCOPE_RERANK_MODEL, QWEN_MODEL
 from ..database import DATABASE_URL, describe_database_url, get_db
 from ..db_models import AgentDecisionLog, InterviewRecord, RagChunk, RagDocument, RagIngestionTask, RagRetrievalLog, RefreshToken, User
@@ -281,6 +281,89 @@ def checkpoint_for_agent_log(log: AgentDecisionLog, db: Session | None = None) -
     return summarize_checkpoint(thread_id)
 
 
+def safe_json(value: str, fallback: Any) -> Any:
+    import json
+
+    try:
+        parsed = json.loads(value or "")
+    except (TypeError, json.JSONDecodeError):
+        return fallback
+    return parsed if parsed is not None else fallback
+
+
+def count_answers(record: InterviewRecord) -> int:
+    answers = safe_json(record.answers_json, [])
+    return len(answers) if isinstance(answers, list) else 0
+
+
+def report_status(record: InterviewRecord) -> str:
+    payload = safe_json(record.report_json, {})
+    return "ready" if isinstance(payload, dict) and bool(payload) else "missing"
+
+
+def rag_level(log: RagRetrievalLog) -> str:
+    hit_count = int(log.hit_count or 0)
+    if hit_count <= 0:
+        return "empty"
+    if hit_count == 1:
+        return "weak"
+    return "good"
+
+
+def summarize_observability_rag_logs(logs: list[RagRetrievalLog]) -> dict[str, int]:
+    summary = {"totalCount": len(logs), "goodCount": 0, "weakCount": 0, "emptyCount": 0}
+    for log in logs:
+        level = rag_level(log)
+        if level == "good":
+            summary["goodCount"] += 1
+        elif level == "weak":
+            summary["weakCount"] += 1
+        else:
+            summary["emptyCount"] += 1
+    return summary
+
+
+def summarize_observability_agent_logs(logs: list[AgentDecisionLog]) -> dict[str, int]:
+    return {
+        "totalCount": len(logs),
+        "fallbackCount": sum(1 for log in logs if int(log.fallback_used or 0)),
+        "lowerDifficultyCount": sum(1 for log in logs if log.next_action == "lower_difficulty"),
+        "deepenCount": sum(1 for log in logs if log.next_action in {"deepen", "deep_follow_up"}),
+        "switchTopicCount": sum(1 for log in logs if log.next_action in {"switch_topic", "shift_topic"}),
+    }
+
+
+def answer_turns(record: InterviewRecord) -> list[dict[str, Any]]:
+    answers = safe_json(record.answers_json, [])
+    if not isinstance(answers, list):
+        return []
+    turns: list[dict[str, Any]] = []
+    for index, item in enumerate(answers, start=1):
+        data = item if isinstance(item, dict) else {}
+        turns.append(
+            {
+                "turnIndex": index,
+                "question": str(data.get("question") or data.get("q") or ""),
+                "answer": str(data.get("answer") or data.get("a") or ""),
+            }
+        )
+    return turns
+
+
+def summarize_rag_for_turn(logs: list[RagRetrievalLog]) -> list[dict[str, Any]]:
+    labels = {"good": "高相关", "weak": "弱相关", "empty": "空召回"}
+    return [
+        {
+            "knowledgeBase": log.retriever_name,
+            "label": normalize_rag_name(log.retriever_name),
+            "hitCount": int(log.hit_count or 0),
+            "qualityLabel": labels[rag_level(log)],
+            "queryText": log.query_text,
+        }
+        for log in logs[:5]
+    ]
+
+
 @router.get("/summary")
 async def admin_summary(
     db: Session = Depends(get_db),
@@ -443,6 +526,136 @@ async def admin_ai_debug_detail(
         checkpoint_for_agent_log(log, db),
         list_checkpoint_summaries(db, thread_id_for_agent_log(log)),
     )
+
+
+@router.get("/observability/interviews")
+async def admin_observability_interviews(
+    limit: int = Query(default=30, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin_user),
+) -> dict[str, Any]:
+    records = list(
+        db.scalars(
+            select(InterviewRecord)
+            .order_by(InterviewRecord.created_at.desc(), InterviewRecord.id.desc())
+            .limit(bounded_limit(limit))
+        ).all()
+    )
+    items: list[dict[str, Any]] = []
+    for record in records:
+        rag_logs = list(
+            db.scalars(
+                select(RagRetrievalLog)
+                .where(RagRetrievalLog.interview_record_id == record.id)
+                .order_by(RagRetrievalLog.created_at.asc(), RagRetrievalLog.id.asc())
+            ).all()
+        )
+        agent_logs = list(
+            db.scalars(
+                select(AgentDecisionLog)
+                .where(
+                    AgentDecisionLog.user_id == record.user_id,
+                    AgentDecisionLog.application_profile_id == record.application_profile_id,
+                )
+                .order_by(AgentDecisionLog.created_at.asc(), AgentDecisionLog.id.asc())
+            ).all()
+        )
+        items.append(
+            {
+                "recordId": record.id,
+                "userId": record.user_id,
+                "userEmail": record.user.email if record.user else "",
+                "applicationProfileId": record.application_profile_id,
+                "profileTitle": record.application_profile.title if record.application_profile else record.target_role,
+                "targetRole": record.target_role,
+                "createdAt": serialize_datetime(record.created_at),
+                "questionCount": count_answers(record),
+                "reportStatus": report_status(record),
+                "ragSummary": summarize_observability_rag_logs(rag_logs),
+                "agentSummary": summarize_observability_agent_logs(agent_logs),
+                "relation": {
+                    "rag": "interview_record_id",
+                    "agent": "user_id + application_profile_id",
+                },
+            }
+        )
+    return {"items": items, "total": len(items)}
+
+
+@router.get("/observability/interviews/{record_id}")
+async def admin_observability_interview_detail(
+    record_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin_user),
+) -> dict[str, Any]:
+    record = db.get(InterviewRecord, record_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Interview record not found")
+    linked_rag_logs = list(
+        db.scalars(
+            select(RagRetrievalLog)
+            .where(RagRetrievalLog.interview_record_id == record.id)
+            .order_by(RagRetrievalLog.created_at.asc(), RagRetrievalLog.id.asc())
+        ).all()
+    )
+    agent_logs = list(
+        db.scalars(
+            select(AgentDecisionLog)
+            .where(
+                AgentDecisionLog.user_id == record.user_id,
+                AgentDecisionLog.application_profile_id == record.application_profile_id,
+            )
+            .order_by(AgentDecisionLog.created_at.asc(), AgentDecisionLog.id.asc())
+        ).all()
+    )
+    turns = answer_turns(record)
+    for index, turn in enumerate(turns):
+        turn["ragSummary"] = summarize_rag_for_turn(linked_rag_logs[index : index + 1])
+        agent_log = agent_logs[index] if index < len(agent_logs) else None
+        turn["agentDecision"] = (
+            {
+                "actionLabel": action_label(agent_log.next_action),
+                "reason": agent_log.reason,
+                "fallbackUsed": bool(agent_log.fallback_used),
+                "relation": "user_id + application_profile_id + order",
+            }
+            if agent_log
+            else None
+        )
+        turn["diagnostics"] = [
+            f"{item['label']}为{item['qualityLabel']}" for item in turn["ragSummary"] if item["qualityLabel"] != "高相关"
+        ]
+        turn["traceIds"] = [agent_log.id] if agent_log else []
+
+    unlinked_rag_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(RagRetrievalLog)
+            .where(
+                RagRetrievalLog.user_id == record.user_id,
+                RagRetrievalLog.application_profile_id == record.application_profile_id,
+                RagRetrievalLog.interview_record_id.is_(None),
+            )
+        )
+        or 0
+    )
+    return {
+        "recordId": record.id,
+        "overview": {
+            "userEmail": record.user.email if record.user else "",
+            "profileTitle": record.application_profile.title if record.application_profile else record.target_role,
+            "targetRole": record.target_role,
+            "createdAt": serialize_datetime(record.created_at),
+            "reportStatus": report_status(record),
+        },
+        "summary": {
+            "questionCount": len(turns),
+            "ragSummary": summarize_observability_rag_logs(linked_rag_logs),
+            "agentSummary": summarize_observability_agent_logs(agent_logs),
+        },
+        "turns": turns,
+        "unlinkedLogs": {"ragLogCount": unlinked_rag_count, "agentLogCount": 0},
+    }
 
 
 @router.get("/config")
