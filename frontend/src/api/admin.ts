@@ -288,6 +288,69 @@ export interface AdminAiDebugDetail {
   diagnosticSummary?: AdminAiDebugDiagnosticSummary[];
 }
 
+export interface AdminObservabilityRagSummary {
+  totalCount: number;
+  goodCount: number;
+  weakCount: number;
+  emptyCount: number;
+}
+
+export interface AdminObservabilityAgentSummary {
+  totalCount: number;
+  fallbackCount: number;
+  lowerDifficultyCount: number;
+  deepenCount: number;
+  switchTopicCount: number;
+}
+
+export interface AdminObservabilityInterviewItem {
+  recordId: number;
+  userId?: number | null;
+  userEmail: string;
+  applicationProfileId?: number | null;
+  profileTitle: string;
+  targetRole?: string;
+  createdAt: string | null;
+  questionCount: number;
+  reportStatus: string;
+  ragSummary: AdminObservabilityRagSummary;
+  agentSummary: AdminObservabilityAgentSummary;
+  relation?: Record<string, string>;
+}
+
+export interface AdminObservabilityTurn {
+  turnIndex: number;
+  question: string;
+  answer: string;
+  ragSummary: Array<{
+    knowledgeBase: string;
+    label: string;
+    hitCount: number;
+    qualityLabel: string;
+    queryText?: string;
+  }>;
+  agentDecision?: {
+    actionLabel: string;
+    reason: string;
+    fallbackUsed: boolean;
+    relation?: string;
+  } | null;
+  diagnostics: string[];
+  traceIds: number[];
+}
+
+export interface AdminObservabilityInterviewDetail {
+  recordId: number;
+  overview: Record<string, unknown>;
+  summary: {
+    questionCount: number;
+    ragSummary: AdminObservabilityRagSummary;
+    agentSummary: AdminObservabilityAgentSummary;
+  };
+  turns: AdminObservabilityTurn[];
+  unlinkedLogs: { ragLogCount: number; agentLogCount: number };
+}
+
 export interface AdminDatabaseInfrastructure {
   dialect?: string;
   isLocalSqlite?: boolean;
@@ -386,6 +449,17 @@ export function fetchAdminAiDebugRecent(): Promise<AdminListResponse<AdminAiDebu
 
 export function fetchAdminAiDebugDetail(traceId: number): Promise<AdminAiDebugDetail> {
   return apiRequest<AdminAiDebugDetail>(`/api/admin/ai-debug/${traceId}`);
+}
+
+export function fetchAdminObservabilityInterviews(): Promise<{
+  items: AdminObservabilityInterviewItem[];
+  total: number;
+}> {
+  return apiRequest("/api/admin/observability/interviews");
+}
+
+export function fetchAdminObservabilityInterviewDetail(recordId: number): Promise<AdminObservabilityInterviewDetail> {
+  return apiRequest<AdminObservabilityInterviewDetail>(`/api/admin/observability/interviews/${recordId}`);
 }
 
 export function fetchAdminConfig(): Promise<AdminConfig> {

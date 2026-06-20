@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import * as adminApi from "@/api/admin";
 
 export type AdminAiDebugTab = "overview" | "rag" | "agent" | "langgraph" | "diagnostics" | "raw";
+export type AdminObservabilityTab = "interviews" | "knowledge" | "agent" | "ai" | "raw";
 
 export const useAdminStore = defineStore("admin", () => {
   const summary = ref<adminApi.AdminSummary | null>(null);
@@ -15,6 +16,11 @@ export const useAdminStore = defineStore("admin", () => {
   const selectedAiDebugTraceId = ref<number | null>(null);
   const selectedAiDebugDetail = ref<adminApi.AdminAiDebugDetail | null>(null);
   const selectedAiDebugTab = ref<AdminAiDebugTab>("overview");
+  const selectedObservabilityTab = ref<AdminObservabilityTab>("interviews");
+  const observabilityInterviews = ref<adminApi.AdminObservabilityInterviewItem[]>([]);
+  const observabilityTotal = ref(0);
+  const selectedObservabilityRecordId = ref<number | null>(null);
+  const selectedObservabilityDetail = ref<adminApi.AdminObservabilityInterviewDetail | null>(null);
   const aiDebugLoading = ref(false);
   const aiDebugError = ref("");
   const config = ref<adminApi.AdminConfig | null>(null);
@@ -86,6 +92,7 @@ export const useAdminStore = defineStore("admin", () => {
         ingestionTasksResult,
         logsResult,
         aiDebugResult,
+        observabilityResult,
         configResult
       ] =
         await Promise.all([
@@ -96,6 +103,7 @@ export const useAdminStore = defineStore("admin", () => {
           adminApi.fetchAdminRagIngestionTasks(),
           adminApi.fetchAdminAgentLogs(),
           adminApi.fetchAdminAiDebugRecent(),
+          adminApi.fetchAdminObservabilityInterviews(),
           adminApi.fetchAdminConfig()
         ]);
 
@@ -106,6 +114,8 @@ export const useAdminStore = defineStore("admin", () => {
       ragIngestionTasks.value = ingestionTasksResult;
       agentLogs.value = logsResult.items;
       aiDebugRecent.value = aiDebugResult.items;
+      observabilityInterviews.value = observabilityResult.items;
+      observabilityTotal.value = observabilityResult.total;
       config.value = configResult;
     } catch (err) {
       const message = err instanceof Error ? err.message : "管理员后台加载失败";
@@ -135,6 +145,21 @@ export const useAdminStore = defineStore("admin", () => {
     selectedAiDebugTab.value = tab;
   }
 
+  async function loadObservability(): Promise<void> {
+    const result = await adminApi.fetchAdminObservabilityInterviews();
+    observabilityInterviews.value = result.items;
+    observabilityTotal.value = result.total;
+  }
+
+  async function selectObservabilityRecord(recordId: number): Promise<void> {
+    selectedObservabilityRecordId.value = recordId;
+    selectedObservabilityDetail.value = await adminApi.fetchAdminObservabilityInterviewDetail(recordId);
+  }
+
+  function setObservabilityTab(tab: AdminObservabilityTab): void {
+    selectedObservabilityTab.value = tab;
+  }
+
   async function forceLogoutUser(user: adminApi.AdminUser): Promise<void> {
     forceLogoutPendingUserId.value = user.id;
     forceLogoutMessage.value = "";
@@ -161,6 +186,11 @@ export const useAdminStore = defineStore("admin", () => {
     selectedAiDebugTraceId,
     selectedAiDebugDetail,
     selectedAiDebugTab,
+    selectedObservabilityTab,
+    observabilityInterviews,
+    observabilityTotal,
+    selectedObservabilityRecordId,
+    selectedObservabilityDetail,
     aiDebugLoading,
     aiDebugError,
     config,
@@ -178,6 +208,9 @@ export const useAdminStore = defineStore("admin", () => {
     loadDashboard,
     loadAiDebugDetail,
     setAiDebugTab,
+    loadObservability,
+    selectObservabilityRecord,
+    setObservabilityTab,
     forceLogoutUser
   };
 });

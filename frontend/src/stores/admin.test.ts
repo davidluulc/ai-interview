@@ -13,6 +13,8 @@ vi.mock("@/api/admin", () => ({
   fetchAdminConfig: vi.fn(),
   fetchAdminAiDebugRecent: vi.fn(),
   fetchAdminAiDebugDetail: vi.fn(),
+  fetchAdminObservabilityInterviews: vi.fn(),
+  fetchAdminObservabilityInterviewDetail: vi.fn(),
   forceLogoutUser: vi.fn()
 }));
 
@@ -28,7 +30,10 @@ describe("admin store", () => {
     vi.mocked(adminApi.fetchAdminConfig).mockReset();
     vi.mocked(adminApi.fetchAdminAiDebugRecent).mockReset();
     vi.mocked(adminApi.fetchAdminAiDebugDetail).mockReset();
+    vi.mocked(adminApi.fetchAdminObservabilityInterviews).mockReset();
+    vi.mocked(adminApi.fetchAdminObservabilityInterviewDetail).mockReset();
     vi.mocked(adminApi.forceLogoutUser).mockReset();
+    vi.mocked(adminApi.fetchAdminObservabilityInterviews).mockResolvedValue({ items: [], total: 0 });
   });
 
   it("loads the full admin dashboard through read-only endpoints", async () => {
@@ -237,6 +242,56 @@ describe("admin store", () => {
 
     store.setAiDebugTab("raw");
     expect(store.selectedAiDebugTab).toBe("raw");
+  });
+
+  it("loads interview observability and selects a record detail", async () => {
+    vi.mocked(adminApi.fetchAdminObservabilityInterviews).mockResolvedValue({
+      items: [
+        {
+          recordId: 9,
+          userEmail: "demo@example.com",
+          profileTitle: "Python 后端实习",
+          createdAt: "2026-06-20T21:35:00",
+          questionCount: 2,
+          reportStatus: "ready",
+          ragSummary: { totalCount: 2, goodCount: 1, weakCount: 0, emptyCount: 1 },
+          agentSummary: {
+            totalCount: 1,
+            fallbackCount: 1,
+            lowerDifficultyCount: 1,
+            deepenCount: 0,
+            switchTopicCount: 0
+          }
+        }
+      ],
+      total: 1
+    });
+    vi.mocked(adminApi.fetchAdminObservabilityInterviewDetail).mockResolvedValue({
+      recordId: 9,
+      overview: { userEmail: "demo@example.com", profileTitle: "Python 后端实习", reportStatus: "ready" },
+      summary: {
+        questionCount: 2,
+        ragSummary: { totalCount: 2, goodCount: 1, weakCount: 0, emptyCount: 1 },
+        agentSummary: {
+          totalCount: 1,
+          fallbackCount: 1,
+          lowerDifficultyCount: 1,
+          deepenCount: 0,
+          switchTopicCount: 0
+        }
+      },
+      turns: [{ turnIndex: 1, question: "RAG 怎么排查？", answer: "看日志", ragSummary: [], diagnostics: [], traceIds: [] }],
+      unlinkedLogs: { ragLogCount: 1, agentLogCount: 0 }
+    });
+
+    const store = useAdminStore();
+    await store.loadObservability();
+    await store.selectObservabilityRecord(9);
+
+    expect(store.observabilityInterviews).toHaveLength(1);
+    expect(store.observabilityTotal).toBe(1);
+    expect(store.selectedObservabilityDetail?.recordId).toBe(9);
+    expect(store.selectedObservabilityTab).toBe("interviews");
   });
 
   it("filters users by search text and role", () => {
