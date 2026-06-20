@@ -6,7 +6,7 @@
 
 ## 1. 当前结论
 
-项目已经完成第一版公网部署，并完成了公网演示稳定化与 Production UX & Auth Hardening V1 收口。
+项目已经完成第一版公网部署，并完成了公网演示稳定化、Production UX & Auth Hardening V1、Admin & Report Productization V2 收口。
 
 - GitHub 仓库：`https://github.com/davidluulc/ai-interview`
 - 公网入口：`http://124.221.230.218:8080/vue/auth/login`
@@ -22,7 +22,7 @@
 
 当前 active spec：
 ```text
-docs/specs/active/admin-report-productization-v2-design.md
+暂无
 ```
 
 当前 active plan：
@@ -32,6 +32,8 @@ docs/specs/active/admin-report-productization-v2-design.md
 
 最近完成归档：
 ```text
+docs/specs/completed/admin-report-productization-v2-design.md
+docs/plans/completed/admin-report-productization-v2.md
 docs/specs/completed/production-ux-auth-hardening-v1-design.md
 docs/plans/completed/production-ux-auth-hardening-v1.md
 docs/specs/completed/public-demo-stabilization-rag-seed-v1-design.md
@@ -41,10 +43,46 @@ docs/plans/completed/public-demo-stabilization-rag-seed-v1.md
 当前推荐开发阶段：
 
 ```text
-Admin & Report Productization V2：把强制下线、AI 调试控制台、RAG/Agent 后台诊断和报告出题依据做成真正看得见、点得通、讲得清楚的产品化体验。
+Pre-Launch Stabilization V1：公网演示安全收口、演示数据准备、README/部署文档校准、项目讲解和简历包装。
 ```
 
-## 3. Production UX & Auth Hardening V1 完成情况
+## 3. Admin & Report Productization V2 完成情况
+
+本阶段已把“代码里有能力，但公网演示观感不明显”的后台和报告能力完成产品化收口：
+
+- 管理员强制下线已从普通按钮升级为可确认、可 loading、可反馈的闭环操作，并展示撤销 session / refresh token 数量。
+- session 鉴权已明确拒绝旧版无 `sid` 的 access token，避免被强制下线后仍靠旧 token 访问受保护接口。
+- 前端收到 `session_revoked/token_revoked` 后会清 token 并跳转登录页。
+- AI 调试控制台已改为真实 tabs：总览、RAG 召回、Agent 决策、LangGraph、诊断建议、原始日志；默认只展示总览，原始 JSON 不再铺在页面上。
+- 管理员后台 RAG 质量诊断已增加总览卡片、知识库质量分布和主要诊断。
+- Agent 决策日志已增加动作统计和 fallback 统计，RAG 文档概览突出 ready 文档、ready chunk、embedding 模型和 knowledgeBase 覆盖。
+- 报告页“出题依据”已改成人话解释，RAG 命中来源只作为次级“参考来源”；弱相关依据不再伪装成强解释。
+
+本地验证命令已通过：
+
+```bash
+python -m pytest tests/test_auth.py tests/test_admin_users.py tests/test_admin_ai_debug.py tests/test_question_reviews.py -q
+python -m pytest -q
+cd frontend && npm.cmd run test -- src/pages/app/admin-page.test.ts src/pages/app/report-page.test.ts src/api/client.test.ts src/stores/admin.test.ts src/app.test.ts
+cd frontend && npm.cmd run test
+cd frontend && npm.cmd run build
+docker compose --env-file .env.production.example config --quiet
+```
+
+验证结果：
+
+```text
+focused backend pytest: 27 passed, 1 warning
+backend pytest: 437 passed, 1 warning
+focused frontend vitest: 5 files passed, 43 tests passed
+frontend vitest: 31 files passed, 158 tests passed
+frontend build: succeeded
+compose config: succeeded
+```
+
+公网更新后需要重点 smoke：管理员后台 tabs/dashboard 是否真实可切换、管理员强制下线是否会让普通用户刷新后回登录、报告页出题依据是否是候选人能看懂的人话。
+
+## 4. Production UX & Auth Hardening V1 完成情况
 
 本阶段已把公网演示后的几个“能跑但不好讲、不好控”的问题完成收口：
 
@@ -73,7 +111,7 @@ frontend build: succeeded
 compose config: succeeded
 ```
 
-## 4. Public Demo Stabilization + Production RAG Seed V1 完成情况
+## 5. Public Demo Stabilization + Production RAG Seed V1 完成情况
 
 本阶段已把公网演示链路从“能打开”推进到“能走完整闭环”：
 
@@ -124,9 +162,9 @@ frontend build: succeeded
 compose config: succeeded
 ```
 
-## 5. 已真实落地的核心能力
+## 6. 已真实落地的核心能力
 
-### 4.1 用户和权限
+### 6.1 用户和权限
 
 - 用户注册、登录、退出登录
 - access token 和 refresh token
@@ -136,7 +174,7 @@ compose config: succeeded
 - 管理员角色字段和管理员权限依赖
 - 管理员后台只允许管理员访问
 
-### 4.2 投递档案和面试
+### 6.2 投递档案和面试
 
 - 用户创建投递档案，录入简历、岗位 JD、公司信息和岗位标签
 - 面试页基于当前档案进入模拟面试
@@ -146,7 +184,7 @@ compose config: succeeded
 - 面试历史记录持久化
 - 基于报告生成训练任务
 
-### 4.3 RAG 工程化
+### 6.3 RAG 工程化
 
 - 岗位知识库 RAG
 - 题库 RAG
@@ -162,7 +200,7 @@ compose config: succeeded
 - Celery worker 处理 RAG ingestion task
 - Production RAG seed
 
-### 4.4 Agent 和 LangGraph
+### 6.4 Agent 和 LangGraph
 
 - Agent State
 - Tool Calls
@@ -176,7 +214,7 @@ compose config: succeeded
 - `classic` 保留为 fallback/debug 链路
 - checkpoint summary、runtime audit、quality gate 和 fallback summary 接入观测
 
-### 4.5 训练闭环
+### 6.5 训练闭环
 
 - 面试报告生成 weakTags
 - weakTags 生成训练任务
@@ -184,7 +222,7 @@ compose config: succeeded
 - 专项练习面板展示练习题、答题要点、常见错误和一分钟表达模板
 - 提交练习后更新 masteryScore、attemptCount 和 lastPracticedAt
 
-### 4.6 Vue3 前端
+### 6.6 Vue3 前端
 
 - Vue3 + Vite + TypeScript 主前端
 - 登录 / 注册
@@ -196,7 +234,7 @@ compose config: succeeded
 - 训练中心
 - 管理员后台
 
-### 4.7 部署工程化
+### 6.7 部署工程化
 
 - Dockerfile
 - docker-compose.yml
@@ -208,9 +246,9 @@ compose config: succeeded
 - `.env.production.example`
 - 部署、排错、备份回滚和 HTTPS 参考文档
 
-## 6. 上线过程中暴露并修复的问题
+## 7. 上线过程中暴露并修复的问题
 
-### 5.1 PostgreSQL schema 缺字段
+### 7.1 PostgreSQL schema 缺字段
 
 表现：
 ```text
@@ -228,7 +266,7 @@ compose config: succeeded
 面试讲法：
 这是典型生产化问题，可以包装成“本地开发环境与生产数据库迁移差异导致的线上 500 排查和修复”。
 
-### 5.2 生产 RAG 数据为空
+### 7.2 生产 RAG 数据为空
 
 表现：
 ```text
@@ -243,7 +281,7 @@ compose config: succeeded
 - 使用 `embedding-3` 生成 ready chunk
 - 补充 RAG 日志字段相关种子资料，提升命中解释能力
 
-### 5.3 慢模型导致 Nginx 504
+### 7.3 慢模型导致 Nginx 504
 
 表现：
 ```text
@@ -259,7 +297,7 @@ POST /api/interview/next-question 出现 504 Gateway Time-out。
 - 前端把 HTML/504 转成友好错误
 - report 链路增加 fallback，避免复盘保存被慢模型彻底卡死
 
-### 5.4 面试结束没有沉淀历史
+### 7.4 面试结束没有沉淀历史
 
 表现：
 ```text
@@ -275,7 +313,7 @@ POST /api/interview/next-question 出现 504 Gateway Time-out。
 - 生成训练任务
 - 跳转到报告详情页
 
-## 7. 当前仍未完成的边界
+## 8. 当前仍未完成的边界
 
 - 域名
 - HTTPS
@@ -292,7 +330,7 @@ POST /api/interview/next-question 出现 504 Gateway Time-out。
 
 这些不是当前演示闭环的阻塞项，建议分阶段处理。
 
-## 8. 推荐下一阶段
+## 9. 推荐下一阶段
 
 ### 推荐 A：Pre-Launch Stabilization V1
 
@@ -352,7 +390,7 @@ POST /api/interview/next-question 出现 504 Gateway Time-out。
 原因：
 这些能力有价值，但当前继续堆功能的边际收益低于把公网演示、安全和项目讲解打稳。
 
-## 9. 下一步建议
+## 10. 下一步建议
 
 下一步建议先写并执行：
 

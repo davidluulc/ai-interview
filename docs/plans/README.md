@@ -8,28 +8,29 @@
 
 当前 active plan：
 ```text
-docs/plans/active/admin-report-productization-v2.md
+暂无
 ```
 
 当前 active spec：
 ```text
-docs/specs/active/admin-report-productization-v2-design.md
+暂无
 ```
 
 最近完成并归档的 plan：
 ```text
+docs/plans/completed/admin-report-productization-v2.md
 docs/plans/completed/production-ux-auth-hardening-v1.md
 docs/plans/completed/public-demo-stabilization-rag-seed-v1.md
 ```
 
 最近完成阶段主题：
 ```text
-Production UX & Auth Hardening V1：已完成报告页出题依据、训练页薄弱点筛选、AI 调试台分类去重、Redis 会话控制和管理员强制下线。
+Admin & Report Productization V2：已完成强制下线闭环产品化、AI 调试控制台真 tabs、RAG/Agent 后台 dashboard、报告页出题依据人话化。
 ```
 
 当前准备执行阶段：
 ```text
-Admin & Report Productization V2：强制下线闭环产品化、AI 调试控制台真 tabs、RAG/Agent 后台 dashboard、报告页出题依据人话化。
+Pre-Launch Stabilization V1：公网演示安全收口、演示数据准备、README/部署文档校准、项目讲解和简历包装。
 ```
 
 ## 追求目标模式建议
