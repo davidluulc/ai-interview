@@ -8,7 +8,7 @@
 
 当前 active spec：
 ```text
-暂无。下一阶段开始前再新建 active spec。
+docs/specs/active/production-ux-auth-hardening-v1-design.md
 ```
 
 最近完成并归档的 spec：
@@ -23,7 +23,7 @@ Public Demo Stabilization + Production RAG Seed V1：已完成生产 RAG seed、
 
 推荐下一阶段：
 ```text
-Pre-Launch Stabilization V1：安全收口、演示脚本、README/部署文档校准、密钥轮换、管理员账号加固、最终 HR 演示准备。
+Production UX & Auth Hardening V1：报告页出题依据、训练页筛选交互、AI 调试台分类去重、Redis 会话控制和管理员强制下线。
 ```
 
 ## 使用规则

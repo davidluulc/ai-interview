@@ -1,6 +1,6 @@
 # 当前项目状态与下一阶段路线
 
-更新时间：2026-06-19
+更新时间：2026-06-20
 
 本文档是当前项目路线的可信入口。判断下一步开发方向时，以本文档为准；旧 spec、旧 plan 和历史学习材料只作为背景资料。
 
@@ -22,18 +22,24 @@
 
 当前 active spec：
 ```text
-暂无。Public Demo Stabilization + Production RAG Seed V1 已完成并归档。
+docs/specs/active/production-ux-auth-hardening-v1-design.md
 ```
 
 当前 active plan：
 ```text
-暂无。Public Demo Stabilization + Production RAG Seed V1 已完成并归档。
+暂无。等待 Production UX & Auth Hardening V1 spec 确认后再写 implementation plan。
 ```
 
 最近完成归档：
 ```text
 docs/specs/completed/public-demo-stabilization-rag-seed-v1-design.md
 docs/plans/completed/public-demo-stabilization-rag-seed-v1.md
+```
+
+当前推荐开发阶段：
+
+```text
+Production UX & Auth Hardening V1：先收口报告页“出题依据”、训练页薄弱点筛选、管理员 AI 调试台分类去重，再实现 Redis 会话控制和管理员强制下线。该阶段不重做数据库表关系，不重写 RAG 算法，不做全站 UI 重构。
 ```
 
 ## 3. Public Demo Stabilization + Production RAG Seed V1 完成情况
