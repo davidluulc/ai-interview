@@ -27,7 +27,7 @@ docs/specs/active/production-ux-auth-hardening-v1-design.md
 
 当前 active plan：
 ```text
-暂无。等待 Production UX & Auth Hardening V1 spec 确认后再写 implementation plan。
+docs/plans/active/production-ux-auth-hardening-v1.md
 ```
 
 最近完成归档：
