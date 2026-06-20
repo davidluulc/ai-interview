@@ -196,6 +196,59 @@ const adminStore: any = {
     readyChunkCount: 8,
     knowledgeBaseCoverage: [{ knowledgeBase: "role_knowledge", readyDocumentCount: 1, readyChunkCount: 8 }]
   },
+  selectedObservabilityTab: "interviews",
+  observabilityInterviews: [
+    {
+      recordId: 9,
+      userEmail: "demo@example.com",
+      profileTitle: "Python 后端实习",
+      targetRole: "Python 后端",
+      createdAt: "2026-06-20T21:35:00",
+      questionCount: 2,
+      reportStatus: "ready",
+      ragSummary: { totalCount: 2, goodCount: 1, weakCount: 0, emptyCount: 1 },
+      agentSummary: {
+        totalCount: 1,
+        fallbackCount: 1,
+        lowerDifficultyCount: 1,
+        deepenCount: 0,
+        switchTopicCount: 0
+      }
+    }
+  ],
+  observabilityTotal: 1,
+  selectedObservabilityRecordId: 9,
+  selectedObservabilityDetail: {
+    recordId: 9,
+    overview: { userEmail: "demo@example.com", profileTitle: "Python 后端实习", reportStatus: "ready" },
+    summary: {
+      questionCount: 2,
+      ragSummary: { totalCount: 2, goodCount: 1, weakCount: 0, emptyCount: 1 },
+      agentSummary: {
+        totalCount: 1,
+        fallbackCount: 1,
+        lowerDifficultyCount: 1,
+        deepenCount: 0,
+        switchTopicCount: 0
+      }
+    },
+    turns: [
+      {
+        turnIndex: 1,
+        question: "RAG 怎么定位空召回？",
+        answer: "看 hit_count",
+        ragSummary: [{ knowledgeBase: "role_knowledge", label: "岗位知识库", hitCount: 1, qualityLabel: "弱相关" }],
+        agentDecision: { actionLabel: "降低难度", reason: "连续弱回答", fallbackUsed: true },
+        diagnostics: ["岗位知识库为弱相关"],
+        traceIds: [1]
+      }
+    ],
+    unlinkedLogs: { ragLogCount: 1, agentLogCount: 0 }
+  },
+  setObservabilityTab: vi.fn((tab: string) => {
+    adminStore.selectedObservabilityTab = tab;
+  }),
+  selectObservabilityRecord: vi.fn(),
   selectedAiDebugTraceId: 1,
   selectedAiDebugDetail: {
     summary: { traceId: 1, agentMode: "coach", stage: "技术追问", threadId: "agent-log-1" },
@@ -362,9 +415,12 @@ describe("admin page", () => {
     adminStore.forceLogoutMessage = "";
     adminStore.forceLogoutError = "";
     adminStore.selectedAiDebugTab = "overview";
+    adminStore.selectedObservabilityTab = "interviews";
     adminStore.loadDashboard.mockReset();
     adminStore.loadAiDebugDetail.mockReset();
     adminStore.setAiDebugTab.mockClear();
+    adminStore.setObservabilityTab.mockClear();
+    adminStore.selectObservabilityRecord.mockClear();
     adminStore.forceLogoutUser.mockReset();
   });
 
@@ -456,6 +512,21 @@ describe("admin page", () => {
     expect(text).toContain("fallback 1");
     expect(text).toContain("RAG 文档覆盖");
     expect(text).toContain("Ready chunk 8");
+  });
+
+  it("renders interview-centered observability workspace by default", () => {
+    const wrapper = mount(AdminPage, { global: globalConfig });
+    const text = wrapper.text();
+
+    expect(text).toContain("诊断工作台");
+    expect(text).toContain("面试诊断");
+    expect(text).toContain("Python 后端实习");
+    expect(text).toContain("demo@example.com");
+    expect(text).toContain("RAG：高相关 1 / 弱相关 0 / 空召回 1");
+    expect(text).toContain("逐题链路");
+    expect(text).toContain("RAG 怎么定位空召回？");
+    expect(text).toContain("岗位知识库为弱相关");
+    expect(text).toContain("未归属日志：RAG 1 / Agent 0");
   });
 
   it("renders the AI debug console overview by default", () => {

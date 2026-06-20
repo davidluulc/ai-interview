@@ -55,6 +55,124 @@
         </div>
       </section>
 
+      <section class="section observability-section">
+        <div class="section-title">
+          <h2>诊断工作台</h2>
+          <span>{{ admin.observabilityTotal }} 次面试</span>
+        </div>
+        <p class="section-help">
+          按用户、投递档案、面试记录和问题轮次组织 RAG、Agent 和 AI 请求链路，先定位一次面试，再看每轮为什么这样问。
+        </p>
+        <nav class="debug-tabs" aria-label="诊断工作台分区">
+          <button
+            type="button"
+            :aria-selected="admin.selectedObservabilityTab === 'interviews'"
+            @click="admin.setObservabilityTab('interviews')"
+          >
+            面试诊断
+          </button>
+          <button
+            type="button"
+            :aria-selected="admin.selectedObservabilityTab === 'knowledge'"
+            @click="admin.setObservabilityTab('knowledge')"
+          >
+            知识库健康
+          </button>
+          <button
+            type="button"
+            :aria-selected="admin.selectedObservabilityTab === 'agent'"
+            @click="admin.setObservabilityTab('agent')"
+          >
+            Agent 行为
+          </button>
+          <button
+            type="button"
+            :aria-selected="admin.selectedObservabilityTab === 'ai'"
+            @click="admin.setObservabilityTab('ai')"
+          >
+            AI 请求
+          </button>
+          <button
+            type="button"
+            :aria-selected="admin.selectedObservabilityTab === 'raw'"
+            @click="admin.setObservabilityTab('raw')"
+          >
+            开发排查
+          </button>
+        </nav>
+
+        <div v-if="admin.selectedObservabilityTab === 'interviews'" class="observability-layout">
+          <div class="trace-list">
+            <h3>面试诊断</h3>
+            <button
+              v-for="item in admin.observabilityInterviews"
+              :key="item.recordId"
+              type="button"
+              class="trace-card"
+              :class="{ active: admin.selectedObservabilityRecordId === item.recordId }"
+              @click="admin.selectObservabilityRecord(item.recordId)"
+            >
+              <span>{{ item.profileTitle || item.targetRole || "未命名档案" }}</span>
+              <small>
+                {{ item.userEmail }} · {{ item.questionCount }} 题 ·
+                {{ item.reportStatus === "ready" ? "报告已生成" : "报告缺失" }}
+              </small>
+              <small>
+                RAG：高相关 {{ item.ragSummary.goodCount }} / 弱相关 {{ item.ragSummary.weakCount }} / 空召回
+                {{ item.ragSummary.emptyCount }}
+              </small>
+              <small>
+                Agent：fallback {{ item.agentSummary.fallbackCount }} / 降难度
+                {{ item.agentSummary.lowerDifficultyCount }}
+              </small>
+            </button>
+            <p v-if="admin.observabilityInterviews.length === 0" class="muted">
+              暂无可诊断的面试记录。完成一次模拟面试并生成复盘后，这里会展示 RAG 和 Agent 链路。
+            </p>
+          </div>
+
+          <article v-if="admin.selectedObservabilityDetail" class="debug-panel">
+            <h3>逐题链路</h3>
+            <p>
+              未归属日志：RAG {{ admin.selectedObservabilityDetail.unlinkedLogs.ragLogCount }} / Agent
+              {{ admin.selectedObservabilityDetail.unlinkedLogs.agentLogCount }}
+            </p>
+            <div v-for="turn in admin.selectedObservabilityDetail.turns" :key="turn.turnIndex" class="mini-row">
+              <strong>{{ turn.turnIndex }}. {{ turn.question || "历史记录缺少问题文本" }}</strong>
+              <span>回答：{{ turn.answer || "历史记录缺少回答文本" }}</span>
+              <span v-for="rag in turn.ragSummary" :key="`${turn.turnIndex}-${rag.knowledgeBase}`">
+                {{ rag.label }} · {{ rag.qualityLabel }} · 命中 {{ rag.hitCount }}
+              </span>
+              <span v-if="turn.agentDecision">
+                Agent：{{ turn.agentDecision.actionLabel }} · {{ turn.agentDecision.reason }}
+              </span>
+              <span v-for="diagnostic in turn.diagnostics" :key="diagnostic">{{ diagnostic }}</span>
+            </div>
+          </article>
+          <article v-else class="debug-panel">
+            <h3>逐题链路</h3>
+            <p>选择左侧某次面试后，这里会展示每一轮问题、RAG 命中、Agent 决策和诊断建议。</p>
+          </article>
+        </div>
+
+        <div v-else-if="admin.selectedObservabilityTab === 'knowledge'" class="debug-panel">
+          <h3>知识库健康</h3>
+          <p>默认只看摘要：空召回、弱相关、未进入 Prompt 和 knowledgeBase 分布。完整明细仍保留在下方 RAG 质量诊断。</p>
+        </div>
+        <div v-else-if="admin.selectedObservabilityTab === 'agent'" class="debug-panel">
+          <h3>Agent 行为</h3>
+          <p>默认只看动作分布和 fallback 次数。完整明细仍保留在下方 Agent 决策日志。</p>
+        </div>
+        <div v-else-if="admin.selectedObservabilityTab === 'ai'" class="debug-panel">
+          <h3>AI 请求</h3>
+          <p>需要排查单次请求时，再进入下方 AI 调试控制台查看 RAG、Agent、LangGraph 和原始日志。</p>
+        </div>
+        <div v-else class="debug-panel">
+          <h3>开发排查</h3>
+          <p>原始 JSON 和长日志默认不展开，只在具体 trace 的原始日志 tab 中查看。</p>
+        </div>
+      </section>
+
       <section class="section ai-debug-section">
         <div class="section-title">
           <h2>AI 调试控制台</h2>
@@ -1504,6 +1622,13 @@ th {
   margin-top: 16px;
 }
 
+.observability-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 14px;
+}
+
 .trace-list,
 .trace-detail,
 .debug-panel {
@@ -1790,6 +1915,7 @@ th {
   }
 
   .ai-debug-layout,
+  .observability-layout,
   .debug-grid,
   .workflow-metrics {
     grid-template-columns: 1fr;
