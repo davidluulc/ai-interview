@@ -224,6 +224,10 @@ const adminStore: any = {
       }
     ]
   },
+  selectedAiDebugTab: "overview",
+  setAiDebugTab: vi.fn((tab: string) => {
+    adminStore.selectedAiDebugTab = tab;
+  }),
   aiDebugLoading: false,
   aiDebugError: "",
   loadAiDebugDetail: vi.fn(),
@@ -310,8 +314,10 @@ describe("admin page", () => {
     adminStore.forceLogoutPendingUserId = null;
     adminStore.forceLogoutMessage = "";
     adminStore.forceLogoutError = "";
+    adminStore.selectedAiDebugTab = "overview";
     adminStore.loadDashboard.mockReset();
     adminStore.loadAiDebugDetail.mockReset();
+    adminStore.setAiDebugTab.mockClear();
     adminStore.forceLogoutUser.mockReset();
   });
 
@@ -390,28 +396,55 @@ describe("admin page", () => {
     expect(text).not.toContain("undefined");
   });
 
-  it("renders the AI debug console with RAG Agent and LangGraph traces", () => {
+  it("renders the AI debug console overview by default", () => {
     const wrapper = mount(AdminPage, { global: globalConfig });
     const text = wrapper.text();
 
     expect(text).toContain("AI 调试控制台");
     expect(text).toContain("最近 AI 请求");
-    expect(text).toContain("RAG 召回链路");
-    expect(text).toContain("Agent 决策链路");
-    expect(text).toContain("LangGraph 执行链路");
-    expect(text).toContain("Runtime");
-    expect(text).toContain("langgraph");
-    expect(text).toContain("interrupted");
-    expect(text).toContain("human_review");
-    expect(text).toContain("需要人工介入");
-    expect(text).toContain("连续弱回答");
+    expect(text).toContain("总览");
+    expect(text).toContain("RAG 召回");
+    expect(text).toContain("Agent 决策");
+    expect(text).toContain("LangGraph");
     expect(text).toContain("诊断建议");
-    expect(text).toContain("兜底规则已启用");
-    expect(text).toContain("LangGraph checkpoint 已记录本轮旁路状态");
+    expect(text).toContain("原始日志");
+    expect(text).toContain("一句话诊断");
+    expect(text).toContain("连续弱回答");
+    expect(text).not.toContain("RAG 召回链路");
+    expect(text).not.toContain("Agent 决策链路");
+    expect(text).not.toContain("查看原始调试 JSON");
     expect(text).not.toContain("undefined");
   });
 
-  it("summarizes AI debug RAG quality and repeated diagnostics", () => {
+  it("renders AI debug details as true tabs instead of one long stack", async () => {
+    const wrapper = mount(AdminPage, { global: globalConfig });
+
+    expect(wrapper.get('[data-testid="ai-debug-tab-overview"]').attributes("aria-selected")).toBe("true");
+    expect(wrapper.text()).toContain("一句话诊断");
+    expect(wrapper.text()).not.toContain("查看原始调试 JSON");
+
+    await wrapper.get('[data-testid="ai-debug-tab-rag"]').trigger("click");
+    expect(adminStore.setAiDebugTab).toHaveBeenCalledWith("rag");
+
+    wrapper.unmount();
+    adminStore.selectedAiDebugTab = "rag";
+    const ragWrapper = mount(AdminPage, { global: globalConfig });
+
+    expect(ragWrapper.text()).toContain("RAG 召回链路");
+    expect(ragWrapper.text()).not.toContain("Agent 决策链路");
+    expect(ragWrapper.text()).not.toContain("查看原始调试 JSON");
+
+    await ragWrapper.get('[data-testid="ai-debug-tab-raw"]').trigger("click");
+    expect(adminStore.setAiDebugTab).toHaveBeenCalledWith("raw");
+
+    ragWrapper.unmount();
+    adminStore.selectedAiDebugTab = "raw";
+    const rawWrapper = mount(AdminPage, { global: globalConfig });
+
+    expect(rawWrapper.text()).toContain("查看原始调试 JSON");
+  });
+
+  it("summarizes AI debug RAG quality and repeated diagnostics", async () => {
     adminStore.selectedAiDebugDetail = {
       summary: { traceId: 8, agentMode: "coach", stage: "技术追问", threadId: "debug-summary" },
       rag: {
@@ -457,18 +490,24 @@ describe("admin page", () => {
         }
       ]
     };
+    adminStore.selectedAiDebugTab = "rag";
 
     const wrapper = mount(AdminPage, { global: globalConfig });
-    const text = wrapper.text();
 
-    expect(text).toContain("总览");
-    expect(text).toContain("RAG 召回");
-    expect(text).toContain("Agent 决策");
-    expect(text).toContain("诊断建议");
-    expect(text).toContain("岗位知识库");
-    expect(text).toContain("弱相关");
-    expect(text).toContain("出现 2 次");
-    expect(text).not.toMatch(/good|weak|miss/);
+    expect(wrapper.text()).toContain("总览");
+    expect(wrapper.text()).toContain("RAG 召回");
+    expect(wrapper.text()).toContain("Agent 决策");
+    expect(wrapper.text()).toContain("诊断建议");
+    expect(wrapper.text()).toContain("岗位知识库");
+    expect(wrapper.text()).toContain("弱相关");
+    expect(wrapper.text()).not.toMatch(/good|weak|miss/);
+
+    wrapper.unmount();
+    adminStore.selectedAiDebugTab = "diagnostics";
+    const diagnosticsWrapper = mount(AdminPage, { global: globalConfig });
+
+    expect(diagnosticsWrapper.text()).toContain("岗位知识库弱召回");
+    expect(diagnosticsWrapper.text()).toContain("出现 2 次");
   });
 
   it("renders agent workflow observation as the main runtime diagnostic section", () => {
@@ -502,6 +541,7 @@ describe("admin page", () => {
   });
 
   it("renders langgraph runtime quality gate and comparison summary", () => {
+    adminStore.selectedAiDebugTab = "langgraph";
     adminStore.selectedAiDebugDetail = {
       summary: { traceId: 1, agentMode: "coach", stage: "技术追问", threadId: "debug-runtime-v4" },
       rag: { items: [], totalHitCount: 0 },
@@ -554,6 +594,7 @@ describe("admin page", () => {
   });
 
   it("renders LangGraph replay timeline human review and runtime report", () => {
+    adminStore.selectedAiDebugTab = "langgraph";
     adminStore.selectedAiDebugDetail = {
       summary: { traceId: 1, agentMode: "coach", stage: "技术追问", threadId: "agent-log-1" },
       rag: { totalHitCount: 0, items: [] },
@@ -610,6 +651,7 @@ describe("admin page", () => {
   });
 
   it("renders runtime audit summary in AI debug detail", () => {
+    adminStore.selectedAiDebugTab = "langgraph";
     adminStore.selectedAiDebugDetail = {
       summary: { traceId: 1, agentMode: "coach", stage: "技术追问", threadId: "debug-runtime-v5" },
       rag: { items: [], totalHitCount: 0 },

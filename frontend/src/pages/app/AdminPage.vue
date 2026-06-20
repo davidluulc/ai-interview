@@ -123,14 +123,42 @@
                 </div>
               </section>
               <nav class="debug-tabs" aria-label="AI 调试详情分区">
-                <span>总览</span>
-                <span>RAG 召回</span>
-                <span>Agent 决策</span>
-                <span>诊断建议</span>
-                <span>原始日志</span>
+                <button
+                  v-for="tab in aiDebugTabs"
+                  :key="tab.key"
+                  type="button"
+                  :data-testid="`ai-debug-tab-${tab.key}`"
+                  :aria-selected="admin.selectedAiDebugTab === tab.key"
+                  @click="admin.setAiDebugTab(tab.key)"
+                >
+                  {{ tab.label }}
+                </button>
               </nav>
               <div class="debug-grid">
-                <article class="debug-panel">
+                <article v-if="admin.selectedAiDebugTab === 'overview'" class="debug-panel">
+                  <h3>一句话诊断</h3>
+                  <p>{{ aiDebugOverviewText }}</p>
+                  <div class="quality-grid compact">
+                    <article>
+                      <span>请求类型</span>
+                      <strong>{{ debugText(admin.selectedAiDebugDetail.summary, "requestType", "未知") }}</strong>
+                    </article>
+                    <article>
+                      <span>RAG 总命中</span>
+                      <strong>{{ debugNumber(admin.selectedAiDebugDetail.rag, "totalHitCount") }}</strong>
+                    </article>
+                    <article>
+                      <span>主要动作</span>
+                      <strong>{{ debugText(admin.selectedAiDebugDetail.agent, "nextActionLabel", "未知") }}</strong>
+                    </article>
+                    <article>
+                      <span>Fallback</span>
+                      <strong>{{ debugBoolean(admin.selectedAiDebugDetail.agent, "fallbackUsed") ? "已触发" : "未触发" }}</strong>
+                    </article>
+                  </div>
+                </article>
+
+                <article v-else-if="admin.selectedAiDebugTab === 'rag'" class="debug-panel">
                   <h3>RAG 召回链路</h3>
                   <p>总命中：{{ debugNumber(admin.selectedAiDebugDetail.rag, "totalHitCount") }}</p>
                   <div v-for="item in debugRagSummary" :key="debugRagSummaryKey(item)" class="mini-row">
@@ -149,7 +177,7 @@
                   </div>
                 </article>
 
-                <article class="debug-panel">
+                <article v-else-if="admin.selectedAiDebugTab === 'agent'" class="debug-panel">
                   <h3>Agent 决策链路</h3>
                   <p>动作：{{ debugText(admin.selectedAiDebugDetail.agent, "nextActionLabel", "未知动作") }}</p>
                   <p>原因：{{ debugText(admin.selectedAiDebugDetail.agent, "reason", "暂无原因") }}</p>
@@ -158,7 +186,7 @@
                   </span>
                 </article>
 
-                <article class="debug-panel">
+                <article v-else-if="admin.selectedAiDebugTab === 'langgraph'" class="debug-panel">
                   <h3>LangGraph 执行链路</h3>
                   <p>{{ debugText(admin.selectedAiDebugDetail.langgraph, "explanation", "暂无 LangGraph 摘要") }}</p>
                   <p>Runtime：{{ debugText(admin.selectedAiDebugDetail.langgraph, "runtime", "未记录") }}</p>
@@ -230,7 +258,7 @@
                   </div>
                 </article>
 
-                <article class="debug-panel">
+                <article v-else-if="admin.selectedAiDebugTab === 'diagnostics'" class="debug-panel">
                   <h3>诊断建议</h3>
                   <div
                     v-for="diagnostic in debugDiagnosticSummary"
@@ -245,11 +273,15 @@
                   </div>
                   <p v-if="debugDiagnosticSummary.length === 0" class="muted">暂无诊断建议。</p>
                 </article>
+
+                <article v-else-if="admin.selectedAiDebugTab === 'raw'" class="debug-panel raw-debug">
+                  <h3>原始调试日志</h3>
+                  <details open>
+                    <summary>查看原始调试 JSON</summary>
+                    <pre>{{ JSON.stringify(admin.selectedAiDebugDetail, null, 2) }}</pre>
+                  </details>
+                </article>
               </div>
-              <details class="raw-debug" @toggle="rawDebugVisible = ($event.target as HTMLDetailsElement).open">
-                <summary>查看原始调试 JSON</summary>
-                <pre v-if="rawDebugVisible">{{ JSON.stringify(admin.selectedAiDebugDetail, null, 2) }}</pre>
-              </details>
             </template>
             <p v-else class="muted">请选择一条 AI 请求查看调试详情。</p>
           </div>
@@ -585,7 +617,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import AppLayout from "@/layouts/AppLayout.vue";
-import { useAdminStore } from "@/stores/admin";
+import { useAdminStore, type AdminAiDebugTab } from "@/stores/admin";
 import { useAuthStore } from "@/stores/auth";
 import type {
   AdminAgentLog,
@@ -605,8 +637,15 @@ const isRestoringAuth = computed(() => auth.loading || (auth.isAuthenticated && 
 const userPageSizeOptions = [5, 10, 20];
 const userPageSize = ref(10);
 const userPage = ref(1);
-const rawDebugVisible = ref(false);
 const forceLogoutCandidate = ref<AdminUser | null>(null);
+const aiDebugTabs: { key: AdminAiDebugTab; label: string }[] = [
+  { key: "overview", label: "总览" },
+  { key: "rag", label: "RAG 召回" },
+  { key: "agent", label: "Agent 决策" },
+  { key: "langgraph", label: "LangGraph" },
+  { key: "diagnostics", label: "诊断建议" },
+  { key: "raw", label: "原始日志" }
+];
 
 const userPageCount = computed(() => Math.max(1, Math.ceil(admin.filteredUsers.length / userPageSize.value)));
 const paginatedUsers = computed(() => {
@@ -644,6 +683,15 @@ const debugDiagnosticSummary = computed(() => {
     return detail.diagnosticSummary;
   }
   return detail.diagnostics.map((diagnostic) => ({ ...diagnostic, count: 1 }));
+});
+const aiDebugOverviewText = computed(() => {
+  const action = debugText(admin.selectedAiDebugDetail?.agent, "nextActionLabel", "继续追问");
+  const reason = debugText(admin.selectedAiDebugDetail?.agent, "reason", "");
+  const ragHits = debugNumber(admin.selectedAiDebugDetail?.rag, "totalHitCount");
+  if (reason && reason !== "暂无") {
+    return `本轮主要动作是“${action}”，原因是：${reason}`;
+  }
+  return `本轮主要动作是“${action}”，RAG 总命中 ${ragHits} 条，系统根据当前面试上下文继续推进。`;
 });
 const workflowObservation = computed<AdminWorkflowObservation | null>(() => {
   return admin.selectedAiDebugDetail?.workflowObservation || null;
@@ -1419,9 +1467,33 @@ th {
   line-height: 1.5;
 }
 
+.debug-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.debug-tabs button {
+  min-height: 34px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 7px 11px;
+}
+
+.debug-tabs button[aria-selected="true"] {
+  border-color: rgba(23, 92, 211, 0.46);
+  background: #eef4ff;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
 .debug-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 

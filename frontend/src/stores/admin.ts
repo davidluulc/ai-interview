@@ -2,6 +2,8 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import * as adminApi from "@/api/admin";
 
+export type AdminAiDebugTab = "overview" | "rag" | "agent" | "langgraph" | "diagnostics" | "raw";
+
 export const useAdminStore = defineStore("admin", () => {
   const summary = ref<adminApi.AdminSummary | null>(null);
   const users = ref<adminApi.AdminUser[]>([]);
@@ -12,6 +14,7 @@ export const useAdminStore = defineStore("admin", () => {
   const aiDebugRecent = ref<adminApi.AdminAiDebugRecentItem[]>([]);
   const selectedAiDebugTraceId = ref<number | null>(null);
   const selectedAiDebugDetail = ref<adminApi.AdminAiDebugDetail | null>(null);
+  const selectedAiDebugTab = ref<AdminAiDebugTab>("overview");
   const aiDebugLoading = ref(false);
   const aiDebugError = ref("");
   const config = ref<adminApi.AdminConfig | null>(null);
@@ -79,6 +82,7 @@ export const useAdminStore = defineStore("admin", () => {
 
   async function loadAiDebugDetail(traceId: number): Promise<void> {
     selectedAiDebugTraceId.value = traceId;
+    selectedAiDebugTab.value = "overview";
     aiDebugLoading.value = true;
     aiDebugError.value = "";
     try {
@@ -89,6 +93,10 @@ export const useAdminStore = defineStore("admin", () => {
     } finally {
       aiDebugLoading.value = false;
     }
+  }
+
+  function setAiDebugTab(tab: AdminAiDebugTab): void {
+    selectedAiDebugTab.value = tab;
   }
 
   async function forceLogoutUser(user: adminApi.AdminUser): Promise<void> {
@@ -116,6 +124,7 @@ export const useAdminStore = defineStore("admin", () => {
     aiDebugRecent,
     selectedAiDebugTraceId,
     selectedAiDebugDetail,
+    selectedAiDebugTab,
     aiDebugLoading,
     aiDebugError,
     config,
@@ -129,6 +138,7 @@ export const useAdminStore = defineStore("admin", () => {
     filteredUsers,
     loadDashboard,
     loadAiDebugDetail,
+    setAiDebugTab,
     forceLogoutUser
   };
 });

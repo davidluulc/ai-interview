@@ -227,6 +227,18 @@ describe("admin store", () => {
     expect(store.selectedAiDebugDetail?.langgraph?.runtimeReport?.fallbackCount).toBe(1);
   });
 
+  it("tracks the selected AI debug detail tab", () => {
+    const store = useAdminStore();
+
+    expect(store.selectedAiDebugTab).toBe("overview");
+
+    store.setAiDebugTab("rag");
+    expect(store.selectedAiDebugTab).toBe("rag");
+
+    store.setAiDebugTab("raw");
+    expect(store.selectedAiDebugTab).toBe("raw");
+  });
+
   it("filters users by search text and role", () => {
     const store = useAdminStore();
     store.users = [
