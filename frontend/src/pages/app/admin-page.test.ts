@@ -453,15 +453,10 @@ describe("admin page", () => {
     expect(wrapper.text()).toContain("用户数");
     expect(wrapper.text()).toContain("账号管理");
     expect(wrapper.text()).toContain("admin@ai-interview.com");
-    expect(wrapper.text()).toContain("RAG 质量诊断");
-    expect(wrapper.text()).toContain("RAG 摄取任务监控");
-    expect(wrapper.text()).toContain("排队导入资料");
-    expect(wrapper.text()).toContain("排队中");
-    expect(wrapper.text()).toContain("失败导入资料");
-    expect(wrapper.text()).toContain("document create failed");
-    expect(wrapper.text()).toContain("当前生产知识库尚未初始化，请执行 Production RAG Seed。");
-    expect(wrapper.text()).toContain("Agent 决策日志");
-    expect(wrapper.text()).toContain("连续弱回答");
+    expect(wrapper.text()).toContain("诊断工作台");
+    expect(wrapper.text()).not.toContain("RAG 质量诊断");
+    expect(wrapper.text()).not.toContain("Agent 决策日志");
+    expect(wrapper.text()).not.toContain("AI 调试控制台");
     expect(wrapper.text()).toContain("系统配置");
     expect(wrapper.text()).toContain("基础设施状态");
     expect(wrapper.text()).toContain("SQLite 本地开发");
@@ -475,13 +470,11 @@ describe("admin page", () => {
     expect(wrapper.text()).toContain("Token blacklist");
     expect(wrapper.text()).toContain("限流");
     expect(wrapper.text()).toContain("幂等");
-    expect(wrapper.text()).toContain("最长耗时");
-    expect(wrapper.text()).toContain("1234ms");
-    expect(wrapper.text()).toContain("embedding");
     expect(wrapper.text()).not.toContain("undefined");
   });
 
   it("translates raw RAG and Agent logs into readable admin diagnostics", () => {
+    adminStore.selectedObservabilityTab = "raw";
     const wrapper = mount(AdminPage, { global: globalConfig });
     const text = wrapper.text();
 
@@ -500,18 +493,31 @@ describe("admin page", () => {
   });
 
   it("renders RAG Agent and document dashboards instead of raw-only lists", () => {
-    const wrapper = mount(AdminPage, { global: globalConfig });
-    const text = wrapper.text();
+    adminStore.selectedObservabilityTab = "knowledge";
+    const knowledgeWrapper = mount(AdminPage, { global: globalConfig });
+    const knowledgeText = knowledgeWrapper.text();
 
-    expect(text).toContain("知识库质量分布");
-    expect(text).toContain("岗位知识库");
-    expect(text).toContain("高相关 1");
-    expect(text).toContain("主要诊断");
-    expect(text).toContain("岗位知识库空召回");
-    expect(text).toContain("Agent 动作分布");
-    expect(text).toContain("fallback 1");
-    expect(text).toContain("RAG 文档覆盖");
-    expect(text).toContain("Ready chunk 8");
+    expect(knowledgeText).toContain("知识库健康总览");
+    expect(knowledgeText).toContain("知识库质量分布");
+    expect(knowledgeText).toContain("岗位知识库");
+    expect(knowledgeText).toContain("高相关 1");
+    expect(knowledgeText).toContain("主要诊断");
+    expect(knowledgeText).toContain("岗位知识库空召回");
+    expect(knowledgeText).toContain("RAG 文档覆盖");
+    expect(knowledgeText).toContain("Ready chunk 8");
+    expect(knowledgeText).not.toContain("RAG 质量诊断");
+
+    knowledgeWrapper.unmount();
+    adminStore.selectedObservabilityTab = "agent";
+    const agentWrapper = mount(AdminPage, { global: globalConfig });
+    const agentText = agentWrapper.text();
+
+    expect(agentText).toContain("Agent 行为总览");
+    expect(agentText).toContain("Agent 动作分布");
+    expect(agentText).toContain("fallback 1");
+    expect(agentText).toContain("最近决策摘要");
+    expect(agentText).toContain("连续弱回答");
+    expect(agentText).not.toContain("Agent 决策日志");
   });
 
   it("renders interview-centered observability workspace by default", () => {
@@ -530,9 +536,11 @@ describe("admin page", () => {
   });
 
   it("renders the AI debug console overview by default", () => {
+    adminStore.selectedObservabilityTab = "ai";
     const wrapper = mount(AdminPage, { global: globalConfig });
     const text = wrapper.text();
 
+    expect(text).toContain("AI 请求总览");
     expect(text).toContain("AI 调试控制台");
     expect(text).toContain("最近 AI 请求");
     expect(text).toContain("总览");
@@ -549,7 +557,22 @@ describe("admin page", () => {
     expect(text).not.toContain("undefined");
   });
 
+  it("keeps raw diagnostics behind the developer tab", () => {
+    adminStore.selectedObservabilityTab = "raw";
+    const wrapper = mount(AdminPage, { global: globalConfig });
+    const text = wrapper.text();
+
+    expect(text).toContain("开发排查");
+    expect(text).toContain("RAG 质量诊断");
+    expect(text).toContain("RAG 摄取任务监控");
+    expect(text).toContain("RAG 文档概览");
+    expect(text).toContain("Agent 决策日志");
+    expect(text).toContain("排队导入资料");
+    expect(text).toContain("document create failed");
+  });
+
   it("renders AI debug details as true tabs instead of one long stack", async () => {
+    adminStore.selectedObservabilityTab = "ai";
     const wrapper = mount(AdminPage, { global: globalConfig });
 
     expect(wrapper.get('[data-testid="ai-debug-tab-overview"]').attributes("aria-selected")).toBe("true");
@@ -578,6 +601,7 @@ describe("admin page", () => {
   });
 
   it("summarizes AI debug RAG quality and repeated diagnostics", async () => {
+    adminStore.selectedObservabilityTab = "ai";
     adminStore.selectedAiDebugDetail = {
       summary: { traceId: 8, agentMode: "coach", stage: "技术追问", threadId: "debug-summary" },
       rag: {
@@ -644,6 +668,7 @@ describe("admin page", () => {
   });
 
   it("renders agent workflow observation as the main runtime diagnostic section", () => {
+    adminStore.selectedObservabilityTab = "ai";
     adminStore.selectedAiDebugDetail = {
       ...adminStore.selectedAiDebugDetail,
       workflowObservation: {
@@ -674,6 +699,7 @@ describe("admin page", () => {
   });
 
   it("renders langgraph runtime quality gate and comparison summary", () => {
+    adminStore.selectedObservabilityTab = "ai";
     adminStore.selectedAiDebugTab = "langgraph";
     adminStore.selectedAiDebugDetail = {
       summary: { traceId: 1, agentMode: "coach", stage: "技术追问", threadId: "debug-runtime-v4" },
@@ -727,6 +753,7 @@ describe("admin page", () => {
   });
 
   it("renders LangGraph replay timeline human review and runtime report", () => {
+    adminStore.selectedObservabilityTab = "ai";
     adminStore.selectedAiDebugTab = "langgraph";
     adminStore.selectedAiDebugDetail = {
       summary: { traceId: 1, agentMode: "coach", stage: "技术追问", threadId: "agent-log-1" },
@@ -784,6 +811,7 @@ describe("admin page", () => {
   });
 
   it("renders runtime audit summary in AI debug detail", () => {
+    adminStore.selectedObservabilityTab = "ai";
     adminStore.selectedAiDebugTab = "langgraph";
     adminStore.selectedAiDebugDetail = {
       summary: { traceId: 1, agentMode: "coach", stage: "技术追问", threadId: "debug-runtime-v5" },

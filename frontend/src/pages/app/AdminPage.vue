@@ -21,7 +21,7 @@
           <p class="eyebrow">Admin Console</p>
           <h1>管理员后台</h1>
         </div>
-        <p>观察账号、RAG 质量、Agent 决策日志和系统配置，让 AI 应用不再是黑箱。</p>
+        <p>观察账号、RAG 质量、Agent 行为和系统配置，让 AI 应用不再是黑箱。</p>
       </header>
 
       <p v-if="admin.error" class="error">{{ admin.error }}</p>
@@ -155,25 +155,140 @@
           </article>
         </div>
 
-        <div v-else-if="admin.selectedObservabilityTab === 'knowledge'" class="debug-panel">
-          <h3>知识库健康</h3>
-          <p>默认只看摘要：空召回、弱相关、未进入 Prompt 和 knowledgeBase 分布。完整明细仍保留在下方 RAG 质量诊断。</p>
+        <div v-else-if="admin.selectedObservabilityTab === 'knowledge'" class="observability-dashboard">
+          <article v-if="admin.ragQuality" class="debug-panel">
+            <h3>知识库健康总览</h3>
+            <div class="quality-grid">
+              <article>
+                <span>总请求</span>
+                <strong>{{ admin.ragQuality.summary.totalLogCount }}</strong>
+                <small>最近 RAG 检索日志</small>
+              </article>
+              <article>
+                <span>空召回</span>
+                <strong>{{ admin.ragQuality.summary.emptyRecallCount }}</strong>
+                <small>没有找到资料</small>
+              </article>
+              <article>
+                <span>弱相关</span>
+                <strong>{{ admin.ragQuality.summary.weakRecallCount }}</strong>
+                <small>命中但支撑偏弱</small>
+              </article>
+              <article>
+                <span>未进 Prompt</span>
+                <strong>{{ admin.ragQuality.summary.unusedInPromptCount }}</strong>
+                <small>检索到了但没给模型</small>
+              </article>
+            </div>
+          </article>
+          <article class="dashboard-panel">
+            <h3>知识库质量分布</h3>
+            <div v-for="item in admin.ragQuality?.knowledgeBaseSummary || []" :key="item.knowledgeBase" class="mini-row">
+              <strong>{{ item.label || retrieverLabel(item.knowledgeBase) }}</strong>
+              <span>
+                高相关 {{ item.goodCount }} / 弱相关 {{ item.weakCount }} / 空召回 {{ item.emptyCount }} / Ready chunk
+                {{ item.readyChunkCount || 0 }}
+              </span>
+            </div>
+            <p v-if="!(admin.ragQuality?.knowledgeBaseSummary || []).length" class="muted">暂无知识库质量分布。</p>
+          </article>
+          <article class="dashboard-panel">
+            <h3>主要诊断</h3>
+            <div
+              v-for="item in (admin.ragQuality?.diagnosticSummary || []).slice(0, 3)"
+              :key="`${item.type}-${item.title}`"
+              class="mini-row"
+            >
+              <strong>{{ item.title }}</strong>
+              <span>{{ item.message }} · 出现 {{ item.count }} 次</span>
+            </div>
+            <p v-if="!(admin.ragQuality?.diagnosticSummary || []).length" class="muted">暂无主要诊断。</p>
+          </article>
+          <article class="dashboard-panel">
+            <h3>RAG 文档覆盖</h3>
+            <div v-for="item in admin.ragDocumentDashboard.knowledgeBaseCoverage" :key="item.knowledgeBase" class="mini-row">
+              <strong>{{ retrieverLabel(item.knowledgeBase) }}</strong>
+              <span>Ready 文档 {{ item.readyDocumentCount }} / Ready chunk {{ item.readyChunkCount }}</span>
+            </div>
+            <p v-if="admin.ragDocumentDashboard.knowledgeBaseCoverage.length === 0" class="muted">暂无 RAG 文档覆盖数据。</p>
+          </article>
+          <article v-if="admin.ragIngestionTasks" class="dashboard-panel">
+            <h3>摄取任务健康</h3>
+            <div class="mini-row">
+              <strong>处理中 {{ admin.ragIngestionTasks.summary.runningCount }}</strong>
+              <span>完成 {{ admin.ragIngestionTasks.summary.succeededCount }} / 失败 {{ admin.ragIngestionTasks.summary.failedCount }}</span>
+            </div>
+            <div class="mini-row">
+              <strong>最长耗时 {{ ingestionMaxDurationMs }}ms</strong>
+              <span>幂等命中 {{ ingestionIdempotencyHitCount }} / 可重试 {{ admin.ragIngestionTasks.summary.retryableCount }}</span>
+            </div>
+          </article>
         </div>
-        <div v-else-if="admin.selectedObservabilityTab === 'agent'" class="debug-panel">
-          <h3>Agent 行为</h3>
-          <p>默认只看动作分布和 fallback 次数。完整明细仍保留在下方 Agent 决策日志。</p>
+        <div v-else-if="admin.selectedObservabilityTab === 'agent'" class="observability-dashboard">
+          <article class="debug-panel">
+            <h3>Agent 行为总览</h3>
+            <div class="quality-grid">
+              <article>
+                <span>总决策</span>
+                <strong>{{ admin.agentDashboardSummary.totalCount }}</strong>
+                <small>最近记录的 Agent 动作</small>
+              </article>
+              <article>
+                <span>fallback</span>
+                <strong>{{ admin.agentDashboardSummary.fallbackCount }}</strong>
+                <small>fallback {{ admin.agentDashboardSummary.fallbackCount }} 次，进入兜底规则</small>
+              </article>
+            </div>
+          </article>
+          <article class="dashboard-panel">
+            <h3>Agent 动作分布</h3>
+            <div v-for="item in admin.agentDashboardSummary.actionSummary" :key="item.action" class="mini-row">
+              <strong>{{ normalizeAction(item.action) }}</strong>
+              <span>{{ item.count }} 次</span>
+            </div>
+            <p v-if="admin.agentDashboardSummary.actionSummary.length === 0" class="muted">暂无 Agent 动作分布。</p>
+          </article>
+          <article class="dashboard-panel">
+            <h3>最近决策摘要</h3>
+            <div v-for="log in admin.agentLogs.slice(0, 5)" :key="log.id || log.createdAt || log.reason" class="mini-row">
+              <strong>{{ normalizeAction(log.nextAction || log.next_action) }}</strong>
+              <span>{{ log.reason || "暂无原因" }}</span>
+            </div>
+            <p v-if="admin.agentLogs.length === 0" class="muted">暂无 Agent 决策记录。</p>
+          </article>
         </div>
         <div v-else-if="admin.selectedObservabilityTab === 'ai'" class="debug-panel">
-          <h3>AI 请求</h3>
-          <p>需要排查单次请求时，再进入下方 AI 调试控制台查看 RAG、Agent、LangGraph 和原始日志。</p>
+          <h3>AI 请求总览</h3>
+          <div class="quality-grid">
+            <article>
+              <span>最近请求</span>
+              <strong>{{ admin.aiDebugRecent.length }}</strong>
+              <small>可展开查看 RAG、Agent、LangGraph</small>
+            </article>
+            <article>
+              <span>fallback</span>
+              <strong>{{ aiRecentFallbackCount }}</strong>
+              <small>最近请求中启用兜底的次数</small>
+            </article>
+            <article>
+              <span>当前 trace</span>
+              <strong>{{ admin.selectedAiDebugTraceId || "未选择" }}</strong>
+              <small>下方展示当前请求详情</small>
+            </article>
+            <article>
+              <span>RAG 命中</span>
+              <strong>{{ debugNumber(admin.selectedAiDebugDetail?.rag, "totalHitCount") }}</strong>
+              <small>当前 trace 的召回命中</small>
+            </article>
+          </div>
         </div>
         <div v-else class="debug-panel">
           <h3>开发排查</h3>
-          <p>原始 JSON 和长日志默认不展开，只在具体 trace 的原始日志 tab 中查看。</p>
+          <p>原始 JSON、长日志和维护型明细只在这里查看，默认不会铺在管理员后台首屏。</p>
         </div>
       </section>
 
-      <section class="section ai-debug-section">
+      <section v-if="admin.selectedObservabilityTab === 'ai'" class="section ai-debug-section">
         <div class="section-title">
           <h2>AI 调试控制台</h2>
           <span>{{ admin.aiDebugRecent.length }} 条链路</span>
@@ -498,7 +613,7 @@
         </section>
       </div>
 
-      <section v-if="admin.ragQuality" class="section">
+      <section v-if="admin.selectedObservabilityTab === 'raw' && admin.ragQuality" class="section">
         <div class="section-title">
           <h2>RAG 质量诊断</h2>
           <span>最近 {{ admin.ragQuality.summary.totalLogCount }} 条日志</span>
@@ -562,7 +677,7 @@
         </div>
       </section>
 
-      <section v-if="admin.ragIngestionTasks" class="section">
+      <section v-if="admin.selectedObservabilityTab === 'raw' && admin.ragIngestionTasks" class="section">
         <div class="section-title">
           <h2>RAG 摄取任务监控</h2>
           <span>{{ admin.ragIngestionTasks.summary.totalCount }} 个任务</span>
@@ -627,7 +742,7 @@
         </div>
       </section>
 
-      <section class="section">
+      <section v-if="admin.selectedObservabilityTab === 'raw'" class="section">
         <div class="section-title">
           <h2>RAG 文档概览</h2>
           <span>{{ admin.ragDocuments.length }} 份文档</span>
@@ -677,7 +792,7 @@
         </div>
       </section>
 
-      <section class="section">
+      <section v-if="admin.selectedObservabilityTab === 'raw'" class="section">
         <div class="section-title">
           <h2>Agent 决策日志</h2>
           <span>{{ admin.agentLogs.length }} 条记录</span>
@@ -836,6 +951,7 @@ const paginatedUsers = computed(() => {
   const start = (userPage.value - 1) * userPageSize.value;
   return admin.filteredUsers.slice(start, start + userPageSize.value);
 });
+const aiRecentFallbackCount = computed(() => admin.aiDebugRecent.filter((trace) => trace.fallbackUsed).length);
 
 function openForceLogout(user: AdminUser): void {
   forceLogoutCandidate.value = user;
