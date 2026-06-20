@@ -93,11 +93,11 @@
         </article>
       </section>
 
-      <section class="insight-card">
-        <h2>为什么这样问</h2>
-        <p>{{ evidenceText }}</p>
-        <ul>
-          <li v-for="reason in ragReasons" :key="reason">{{ reason }}</li>
+      <section v-if="shouldShowEvidence" class="insight-card">
+        <h2>出题依据</h2>
+        <p v-if="evidenceText">{{ evidenceText }}</p>
+        <ul v-if="evidenceReasons.length">
+          <li v-for="reason in evidenceReasons" :key="reason">{{ reason }}</li>
         </ul>
       </section>
 
@@ -148,6 +148,7 @@ type ReviewLike = Record<string, unknown>;
 const route = useRoute();
 const router = useRouter();
 const reportStore = useReportStore();
+const LOW_VALUE_EVIDENCE = ["本题由当前档案、历史回答和检索上下文共同驱动。"];
 
 const recordId = computed(() => Number(route.params.recordId || 0));
 const report = computed(() => reportStore.record?.report || {});
@@ -245,9 +246,17 @@ const evidenceText = computed(() => {
     : "本题由当前档案、历史回答和检索上下文共同驱动。";
 });
 
-const ragReasons = computed(() => {
+const evidenceReasons = computed(() => {
   const reasons = report.value.ragReasons;
-  return Array.isArray(reasons) ? reasons.map(String).filter(Boolean) : [];
+  if (!Array.isArray(reasons)) {
+    return [];
+  }
+  return Array.from(new Set(reasons.map(String).map((item) => item.trim()).filter(Boolean))).slice(0, 3);
+});
+
+const shouldShowEvidence = computed(() => {
+  const summary = evidenceText.value.trim();
+  return (summary && !LOW_VALUE_EVIDENCE.includes(summary)) || evidenceReasons.value.length > 0;
 });
 
 function listOf(...keys: string[]): string[] {

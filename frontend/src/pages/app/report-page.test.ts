@@ -160,6 +160,61 @@ describe("report page", () => {
     expect(wrapper.text()).not.toContain("待训练");
   });
 
+  it("renders human-readable evidence instead of the old why title", () => {
+    const originalSummary = reportStore.record.report.decisionSummary;
+    const originalReasons = reportStore.record.report.ragReasons;
+
+    try {
+      reportStore.record.report.decisionSummary = "JD 要求 RAG 链路理解，上一轮回答缺少日志字段。";
+      reportStore.record.report.ragReasons = [
+        "命中岗位知识库：RAG Agent 与 LangGraph 项目知识",
+        "命中岗位知识库：RAG Agent 与 LangGraph 项目知识",
+        "命中题库：Redis PostgreSQL Celery 生产化职责",
+        "命中候选人画像：Python 后端开发实习生"
+      ];
+
+      const wrapper = mount(ReportPage, {
+        global: {
+          stubs: {
+            AppLayout: { template: "<main><slot /></main>" }
+          }
+        }
+      });
+
+      expect(wrapper.text()).toContain("出题依据");
+      expect(wrapper.text()).not.toContain("为什么这样问");
+      expect(wrapper.text()).toContain("JD 要求 RAG 链路理解");
+      expect(wrapper.findAll("li").filter((item) => item.text().includes("RAG Agent 与 LangGraph")).length).toBe(1);
+    } finally {
+      reportStore.record.report.decisionSummary = originalSummary;
+      reportStore.record.report.ragReasons = originalReasons;
+    }
+  });
+
+  it("hides low-value fallback evidence copy", () => {
+    const originalSummary = reportStore.record.report.decisionSummary;
+    const originalReasons = reportStore.record.report.ragReasons;
+
+    try {
+      reportStore.record.report.decisionSummary = "本题由当前档案、历史回答和检索上下文共同驱动。";
+      reportStore.record.report.ragReasons = [];
+
+      const wrapper = mount(ReportPage, {
+        global: {
+          stubs: {
+            AppLayout: { template: "<main><slot /></main>" }
+          }
+        }
+      });
+
+      expect(wrapper.text()).not.toContain("出题依据");
+      expect(wrapper.text()).not.toContain("本题由当前档案、历史回答和检索上下文共同驱动");
+    } finally {
+      reportStore.record.report.decisionSummary = originalSummary;
+      reportStore.record.report.ragReasons = originalReasons;
+    }
+  });
+
   it("fills old question reviews from saved answers and review guidance", () => {
     const originalReviews = reportStore.record.report.questionReviews;
 
