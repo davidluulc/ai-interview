@@ -1,4 +1,5 @@
 import { mount } from "@vue/test-utils";
+import { readFileSync } from "node:fs";
 import { nextTick } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminPage from "./AdminPage.vue";
@@ -819,5 +820,12 @@ describe("admin page", () => {
 
     expect(button.attributes("disabled")).toBeDefined();
     expect(button.text()).toContain("下线中");
+  });
+
+  it("uses defined design tokens for modal and tab action colors", () => {
+    const source = readFileSync("src/pages/app/AdminPage.vue", "utf8");
+
+    expect(source).not.toContain("--color-primary");
+    expect(source).toContain("--color-accent");
   });
 });

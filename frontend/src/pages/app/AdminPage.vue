@@ -1467,7 +1467,7 @@ th {
   min-height: 38px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-primary);
+  background: var(--color-accent);
   color: #fff;
   padding: 8px 14px;
   cursor: pointer;
@@ -1566,7 +1566,7 @@ th {
 .debug-tabs button[aria-selected="true"] {
   border-color: rgba(23, 92, 211, 0.46);
   background: #eef4ff;
-  color: var(--color-primary);
+  color: var(--color-accent);
   font-weight: 700;
 }
 
