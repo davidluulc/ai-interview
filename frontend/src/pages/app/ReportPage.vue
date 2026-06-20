@@ -82,7 +82,7 @@
           <span>第 {{ index + 1 }} 题</span>
           <h3>{{ textField(review, 'question') }}</h3>
           <p>回答：{{ textField(review, 'answer') }}</p>
-          <p>建议：{{ textField(review, 'feedback', 'evaluation', 'suggestion') }}</p>
+          <p>建议：{{ textField(review, 'feedback', 'evaluation', 'suggestion', 'referenceDirection', 'trainingAction') }}</p>
           <p>为什么问：{{ textField(review, 'whyAsked') }}</p>
           <p>缺失要点：{{ listField(review, 'missingPoints').join("、") }}</p>
           <p>回答方向：{{ textField(review, 'referenceDirection') }}</p>
@@ -219,7 +219,18 @@ const priorityWeakTags = computed(() => {
 const questionReviews = computed<ReviewLike[]>(() => {
   const reviews = report.value.questionReviews;
   if (Array.isArray(reviews) && reviews.length > 0) {
-    return reviews.filter((item): item is ReviewLike => Boolean(item) && typeof item === "object");
+    const answers = reportStore.record?.answers || [];
+    return reviews
+      .filter((item): item is ReviewLike => Boolean(item) && typeof item === "object")
+      .map((review, reviewIndex) => {
+        const answerIndex = typeof review.index === "number" ? review.index - 1 : reviewIndex;
+        const answer = answers[answerIndex] || answers[reviewIndex];
+        return {
+          ...review,
+          question: textField(review, "question") !== "暂无" ? review.question : answer?.question,
+          answer: textField(review, "answer") !== "暂无" ? review.answer : answer?.answer
+        };
+      });
   }
   return (reportStore.record?.answers || []).map((item) => ({
     question: item.question,

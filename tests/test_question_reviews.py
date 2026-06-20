@@ -65,6 +65,8 @@ def test_report_builds_question_reviews_when_model_omits_them(monkeypatch) -> No
     assert body["questionReviews"][0]["focus"] == "RAG 召回链路"
     assert body["questionReviews"][0]["answerStatus"] == "不会"
     assert "RAG 命中日志" in body["questionReviews"][0]["question"]
+    assert body["questionReviews"][0]["answer"] == "不知道"
+    assert body["questionReviews"][0]["feedback"]
     assert body["questionReviews"][0]["trainingAction"]
     assert "rag_retrieval" in body["questionReviews"][0]["weakTags"]
     assert "rag_quality" in body["questionReviews"][0]["weakTags"]
@@ -137,6 +139,8 @@ def test_report_preserves_model_question_reviews(monkeypatch) -> None:
     body = response.json()
     assert body["questionReviews"][0]["whyAsked"] == "用于确认你是否理解模块边界。"
     assert body["questionReviews"][0]["missingPoints"] == ["路由层职责", "服务层职责"]
+    assert body["questionReviews"][0]["answer"] == "按路由和模型拆。"
+    assert body["questionReviews"][0]["feedback"]
     assert "backend_fastapi" in body["questionReviews"][0]["weakTags"]
     assert body["trainingPlan"]["weakTopics"][0]["focus"] == "后端模块设计"
     assert "backend_fastapi" in body["trainingPlan"]["weakTopics"][0]["weakTags"]

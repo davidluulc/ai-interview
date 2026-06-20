@@ -489,14 +489,17 @@ def fallback_question_review(answer: dict[str, Any], index: int) -> dict[str, An
     status = classify_answer_status(answer_text)
     missing_points = ["概念解释", "项目例子", "验证方式"] if status != "完整" else ["量化结果", "技术取舍", "复盘总结"]
     training_action = f"围绕「{focus}」准备一段 1 分钟回答，至少包含一个项目细节和一个验证方式。"
+    reference_direction = "建议按背景、做法、原因、结果的顺序组织回答，并补充一个项目中的具体例子。"
     return {
         "index": index,
         "focus": focus,
         "question": question,
+        "answer": answer_text or "未作答",
         "answerStatus": status,
+        "feedback": reference_direction,
         "whyAsked": f"这道题用于确认你对「{focus}」的理解和表达是否扎实。",
         "missingPoints": missing_points,
-        "referenceDirection": "建议按背景、做法、原因、结果的顺序组织回答，并补充一个项目中的具体例子。",
+        "referenceDirection": reference_direction,
         "trainingAction": training_action,
         "weakTags": merge_weak_tags(
             focus=focus,
@@ -514,13 +517,23 @@ def normalize_question_review(review: Any, answer: dict[str, Any], index: int) -
         status = fallback["answerStatus"]
     focus = str(review.get("focus") or fallback["focus"]).strip()
     question = str(review.get("question") or fallback["question"]).strip()
+    answer_text = str(review.get("answer") or fallback["answer"]).strip()
     missing_points = normalize_string_list(review.get("missingPoints"), fallback=fallback["missingPoints"])
     training_action = str(review.get("trainingAction") or fallback["trainingAction"]).strip()
+    feedback = str(
+        review.get("feedback")
+        or review.get("evaluation")
+        or review.get("suggestion")
+        or review.get("referenceDirection")
+        or fallback["feedback"]
+    ).strip()
     return {
         "index": int(review.get("index") or index),
         "focus": focus,
         "question": question,
+        "answer": answer_text,
         "answerStatus": status,
+        "feedback": feedback,
         "whyAsked": str(review.get("whyAsked") or fallback["whyAsked"]).strip(),
         "missingPoints": missing_points,
         "referenceDirection": str(review.get("referenceDirection") or fallback["referenceDirection"]).strip(),
@@ -529,7 +542,7 @@ def normalize_question_review(review: Any, answer: dict[str, Any], index: int) -
             review.get("weakTags"),
             fallback.get("weakTags"),
             focus=focus,
-            text=" ".join([question, *missing_points, training_action]),
+            text=" ".join([question, answer_text, feedback, *missing_points, training_action]),
         ),
     }
 

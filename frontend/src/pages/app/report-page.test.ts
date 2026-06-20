@@ -160,6 +160,38 @@ describe("report page", () => {
     expect(wrapper.text()).not.toContain("待训练");
   });
 
+  it("fills old question reviews from saved answers and review guidance", () => {
+    const originalReviews = reportStore.record.report.questionReviews;
+
+    try {
+      reportStore.record.report.questionReviews = [
+        {
+          question: "Agent 和普通 LLM 有什么区别？",
+          whyAsked: "用于确认你是否理解 Agent 和普通 LLM 的边界。",
+          missingPoints: ["工具调用", "状态管理"],
+          referenceDirection: "按观察状态、选择工具、生成回答的顺序讲。",
+          trainingAction: "用 1 分钟讲清楚一次工具调用流程。",
+          weakTags: ["agent_tool_calling"]
+        } as any
+      ];
+
+      const wrapper = mount(ReportPage, {
+        global: {
+          stubs: {
+            AppLayout: { template: "<main><slot /></main>" }
+          }
+        }
+      });
+
+      expect(wrapper.text()).toContain("回答：Agent 会观察状态并决策。");
+      expect(wrapper.text()).toContain("建议：按观察状态、选择工具、生成回答的顺序讲。");
+      expect(wrapper.text()).not.toContain("回答：暂无");
+      expect(wrapper.text()).not.toContain("建议：暂无");
+    } finally {
+      reportStore.record.report.questionReviews = originalReviews;
+    }
+  });
+
   it("returns users to the interview workbench for another session", async () => {
     const wrapper = mount(ReportPage, {
       global: {
