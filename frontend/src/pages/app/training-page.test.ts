@@ -16,6 +16,18 @@ const task = {
   sourceInterviewRecordId: 12
 };
 
+const ragTask = {
+  id: 4,
+  weakTag: "rag_quality",
+  weakLabel: "RAG 质量评估",
+  title: "RAG 质量专项训练",
+  description: "练习 RAG 质量评估。",
+  status: "todo",
+  priority: "medium",
+  masteryScore: 55,
+  sourceInterviewRecordId: 12
+};
+
 const trainingStore = {
   tasks: [task],
   activeTasks: [task],
@@ -60,6 +72,9 @@ const trainingStore = {
   selfRating: null,
   lastPracticeResult: null,
   visibleTasks: [task],
+  taskListTitle: "训练任务 · 工具调用（1 个）",
+  activeWeakTagLabel: "工具调用",
+  hasWeakTagFilter: true,
   filterSummary: "正在查看报告 #12 中 agent_tool_calling 的专项训练",
   loading: false,
   error: "",
@@ -105,6 +120,32 @@ describe("training page", () => {
     trainingStore.setPracticeAnswerStatus.mockReset();
     trainingStore.setSelfRating.mockReset();
     trainingStore.archiveTask.mockReset();
+    trainingStore.tasks = [task];
+    trainingStore.activeTasks = [task];
+    trainingStore.todoTasks = [task];
+    trainingStore.inProgressTasks = [];
+    trainingStore.doneTasks = [];
+    trainingStore.completedTasks = [];
+    trainingStore.archivedTasks = [];
+    trainingStore.averageMastery = 45;
+    trainingStore.weakTagGroups = [
+      {
+        weakTag: "agent_tool_calling",
+        weakLabel: "工具调用",
+        total: 1,
+        todo: 1,
+        inProgress: 0,
+        done: 0,
+        averageMastery: 45,
+        highestPriority: "high"
+      }
+    ];
+    trainingStore.statusFilter = "";
+    trainingStore.weakTag = "agent_tool_calling";
+    trainingStore.visibleTasks = [task];
+    trainingStore.taskListTitle = "训练任务 · 工具调用（1 个）";
+    trainingStore.activeWeakTagLabel = "工具调用";
+    trainingStore.hasWeakTagFilter = true;
   });
 
   it("loads and renders the training center v2 workbench", () => {
@@ -147,6 +188,67 @@ describe("training page", () => {
 
     await wrapper.get('[data-testid="weak-tag-agent_tool_calling"]').trigger("click");
     expect(trainingStore.setWeakTagFilter).toHaveBeenCalledWith("agent_tool_calling");
+  });
+
+  it("shows all tasks by default and makes the task count explicit", () => {
+    trainingStore.tasks = [task, ragTask];
+    trainingStore.activeTasks = [task, ragTask];
+    trainingStore.todoTasks = [task, ragTask];
+    trainingStore.weakTag = "";
+    trainingStore.visibleTasks = [task, ragTask];
+    trainingStore.taskListTitle = "训练任务 · 全部（2 个）";
+    trainingStore.activeWeakTagLabel = "";
+    trainingStore.hasWeakTagFilter = false;
+    trainingStore.weakTagGroups = [
+      {
+        weakTag: "agent_tool_calling",
+        weakLabel: "工具调用",
+        total: 1,
+        todo: 1,
+        inProgress: 0,
+        done: 0,
+        averageMastery: 45,
+        highestPriority: "high"
+      },
+      {
+        weakTag: "rag_quality",
+        weakLabel: "RAG 质量评估",
+        total: 1,
+        todo: 1,
+        inProgress: 0,
+        done: 0,
+        averageMastery: 55,
+        highestPriority: "medium"
+      }
+    ];
+
+    const wrapper = mount(TrainingPage, {
+      global: {
+        stubs: {
+          AppLayout: { template: "<main><slot /></main>" }
+        }
+      }
+    });
+
+    expect(wrapper.text()).toContain("训练任务 · 全部（2 个）");
+    expect(wrapper.text()).toContain("工具调用专项训练");
+    expect(wrapper.text()).toContain("RAG 质量专项训练");
+    expect(wrapper.find('[data-testid="clear-weak-tag-filter"]').exists()).toBe(false);
+  });
+
+  it("can clear a weak tag filter without clearing every filter", async () => {
+    const wrapper = mount(TrainingPage, {
+      global: {
+        stubs: {
+          AppLayout: { template: "<main><slot /></main>" }
+        }
+      }
+    });
+
+    await wrapper.get('[data-testid="clear-weak-tag-filter"]').trigger("click");
+
+    expect(trainingStore.setWeakTagFilter).toHaveBeenCalledWith("");
+    expect(trainingStore.clearFilters).not.toHaveBeenCalled();
   });
 
   it("starts, completes and archives a training task", async () => {

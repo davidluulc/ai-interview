@@ -85,6 +85,9 @@ export const useTrainingStore = defineStore("training", () => {
       }))
       .sort((left, right) => right.total - left.total || left.weakTag.localeCompare(right.weakTag));
   });
+  const activeWeakTagGroup = computed(() => {
+    return weakTagGroups.value.find((group) => group.weakTag === weakTag.value) || null;
+  });
   const visibleTasks = computed(() => {
     return tasks.value.filter((task) => {
       const matchesRecord =
@@ -93,6 +96,12 @@ export const useTrainingStore = defineStore("training", () => {
       const matchesStatus = !statusFilter.value || task.status === statusFilter.value;
       return matchesRecord && matchesWeakTag && matchesStatus;
     });
+  });
+  const activeWeakTagLabel = computed(() => activeWeakTagGroup.value?.weakLabel || weakTag.value);
+  const hasWeakTagFilter = computed(() => Boolean(weakTag.value));
+  const taskListTitle = computed(() => {
+    const label = activeWeakTagLabel.value || "全部";
+    return `训练任务 · ${label}（${visibleTasks.value.length} 个）`;
   });
   const filterSummary = computed(() => {
     if (sourceInterviewRecordId.value && weakTag.value) {
@@ -216,6 +225,9 @@ export const useTrainingStore = defineStore("training", () => {
     archivedTasks,
     averageMastery,
     weakTagGroups,
+    activeWeakTagGroup,
+    activeWeakTagLabel,
+    hasWeakTagFilter,
     sourceInterviewRecordId,
     weakTag,
     statusFilter,
@@ -228,6 +240,7 @@ export const useTrainingStore = defineStore("training", () => {
     selfRating,
     lastPracticeResult,
     visibleTasks,
+    taskListTitle,
     filterSummary,
     loading,
     error,

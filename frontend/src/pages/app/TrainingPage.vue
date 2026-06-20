@@ -44,14 +44,25 @@
 
         <section class="task-panel">
           <div class="task-toolbar">
-            <div>
-              <p class="toolbar-label">任务筛选</p>
-              <h2>专项训练任务</h2>
+            <div class="task-filter-heading">
+              <p class="toolbar-label">{{ training.hasWeakTagFilter ? "当前薄弱点" : "任务筛选" }}</p>
+              <h2>{{ training.taskListTitle }}</h2>
             </div>
-            <TrainingStatusFilter
-              :model-value="training.statusFilter"
-              @update:model-value="training.setStatusFilter"
-            />
+            <div class="toolbar-actions">
+              <button
+                v-if="training.hasWeakTagFilter"
+                type="button"
+                class="ghost-action"
+                data-testid="clear-weak-tag-filter"
+                @click="training.setWeakTagFilter('')"
+              >
+                查看全部
+              </button>
+              <TrainingStatusFilter
+                :model-value="training.statusFilter"
+                @update:model-value="training.setStatusFilter"
+              />
+            </div>
           </div>
 
           <p v-if="training.loading" class="loading-text">正在加载训练任务...</p>
@@ -195,10 +206,16 @@ h2 {
 }
 
 .header-actions,
-.empty-actions {
+.empty-actions,
+.toolbar-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.toolbar-actions {
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .primary-action,
@@ -297,6 +314,10 @@ h2 {
   .training-grid {
     grid-template-columns: 1fr;
   }
+
+  .toolbar-actions {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 520px) {
@@ -305,7 +326,8 @@ h2 {
   }
 
   .header-actions,
-  .empty-actions {
+  .empty-actions,
+  .toolbar-actions {
     flex-direction: column;
   }
 

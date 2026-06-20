@@ -42,4 +42,30 @@ describe("TrainingWeakTagMap", () => {
 
     expect(wrapper.text()).toContain("还没有可聚合的薄弱点");
   });
+
+  it("emits an empty weak tag when selecting all tasks", async () => {
+    const wrapper = mount(TrainingWeakTagMap, {
+      props: {
+        activeWeakTag: "rag_quality",
+        groups: [
+          {
+            weakTag: "rag_quality",
+            weakLabel: "RAG 质量",
+            total: 2,
+            todo: 1,
+            inProgress: 0,
+            done: 1,
+            averageMastery: 60,
+            highestPriority: "high"
+          }
+        ]
+      }
+    });
+
+    expect(wrapper.text()).toContain("全部训练任务");
+
+    await wrapper.get('[data-testid="weak-tag-all"]').trigger("click");
+
+    expect(wrapper.emitted("select")?.[0]).toEqual([""]);
+  });
 });

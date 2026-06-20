@@ -12,6 +12,16 @@
 
     <div v-else class="weak-list">
       <button
+        type="button"
+        class="weak-card"
+        :class="{ active: !activeWeakTag }"
+        data-testid="weak-tag-all"
+        @click="$emit('select', '')"
+      >
+        <span class="weak-title">全部训练任务</span>
+        <span class="weak-meta">查看所有薄弱点任务</span>
+      </button>
+      <button
         v-for="group in groups"
         :key="group.weakTag"
         type="button"
