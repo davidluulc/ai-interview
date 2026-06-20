@@ -88,6 +88,10 @@ export const useAdminStore = defineStore("admin", () => {
     }
   }
 
+  async function forceLogoutUser(userId: number): Promise<void> {
+    await adminApi.forceLogoutUser(userId);
+  }
+
   return {
     summary,
     users,
@@ -107,6 +111,7 @@ export const useAdminStore = defineStore("admin", () => {
     roleFilter,
     filteredUsers,
     loadDashboard,
-    loadAiDebugDetail
+    loadAiDebugDetail,
+    forceLogoutUser
   };
 });

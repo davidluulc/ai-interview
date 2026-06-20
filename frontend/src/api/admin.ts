@@ -118,6 +118,12 @@ export interface AdminAiDebugDiagnostic {
   message: string;
 }
 
+export interface AdminForceLogoutResponse {
+  ok: boolean;
+  revokedSessions: number;
+  revokedRefreshTokens: number;
+}
+
 export interface AdminAiDebugDiagnosticSummary extends AdminAiDebugDiagnostic {
   count: number;
 }
@@ -329,6 +335,10 @@ export function fetchAdminSummary(): Promise<AdminSummary> {
 
 export function fetchAdminUsers(): Promise<AdminListResponse<AdminUser>> {
   return apiRequest<AdminListResponse<AdminUser>>("/api/admin/users");
+}
+
+export function forceLogoutUser(userId: number): Promise<AdminForceLogoutResponse> {
+  return apiRequest<AdminForceLogoutResponse>(`/api/admin/users/${userId}/force-logout`, { method: "POST" });
 }
 
 export function fetchAdminRagDocuments(): Promise<AdminListResponse<AdminRagDocument>> {

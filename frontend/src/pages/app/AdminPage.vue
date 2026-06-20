@@ -278,6 +278,7 @@
                 <th>用户名</th>
                 <th>角色</th>
                 <th>注册时间</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -289,9 +290,20 @@
                   <span class="pill">{{ formatRole(user.role) }}</span>
                 </td>
                 <td>{{ formatDate(user.createdAt) }}</td>
+                <td>
+                  <button
+                    v-if="user.id !== auth.user?.id"
+                    type="button"
+                    class="table-action"
+                    :data-testid="`force-logout-user-${user.id}`"
+                    @click="admin.forceLogoutUser(user.id)"
+                  >
+                    强制下线
+                  </button>
+                </td>
               </tr>
               <tr v-if="admin.filteredUsers.length === 0">
-                <td colspan="5" class="empty-cell">暂无匹配账号</td>
+                <td colspan="6" class="empty-cell">暂无匹配账号</td>
               </tr>
             </tbody>
           </table>
@@ -1239,7 +1251,8 @@ th {
 }
 
 .pagination-bar select,
-.pagination-bar button {
+.pagination-bar button,
+.table-action {
   min-height: 36px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -1248,7 +1261,8 @@ th {
   padding: 7px 10px;
 }
 
-.pagination-bar button {
+.pagination-bar button,
+.table-action {
   cursor: pointer;
 }
 

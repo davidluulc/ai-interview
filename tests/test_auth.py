@@ -11,6 +11,7 @@ from backend_python.auth import (
     verify_refresh_token,
 )
 from backend_python.main import app
+from backend_python.session_store import session_store
 
 
 def auth_headers(tokens: dict) -> dict[str, str]:
@@ -32,6 +33,15 @@ def test_access_token_contains_user_id_and_type() -> None:
 
     assert payload["sub"] == "42"
     assert payload["type"] == "access"
+
+
+def test_access_token_contains_session_id() -> None:
+    token = create_access_token(user_id=42, session_id="session-42")
+
+    payload = decode_token(token, expected_type="access")
+
+    assert payload["sub"] == "42"
+    assert payload["sid"] == "session-42"
 
 
 def test_refresh_token_hash_can_be_verified_without_storing_plain_token() -> None:
@@ -145,3 +155,27 @@ def test_logout_blacklists_current_access_token() -> None:
     me_response = client.get("/api/auth/me", headers=auth_headers(tokens))
 
     assert me_response.status_code == 401
+
+
+def test_revoked_session_rejects_existing_access_token() -> None:
+    client = TestClient(app)
+    suffix = uuid4().hex
+    email = f"session-revoked-{suffix}@example.com"
+    username = f"session_revoked_{suffix[:12]}"
+    client.post(
+        "/api/auth/register",
+        json={
+            "email": email,
+            "username": username,
+            "password": "password123",
+        },
+    )
+    tokens = client.post("/api/auth/login", json={"email": email, "password": "password123"}).json()
+
+    payload = decode_token(tokens["accessToken"], expected_type="access")
+    session_store.revoke_session(payload["sid"], reason="admin_force_logout")
+
+    response = client.get("/api/auth/me", headers=auth_headers(tokens))
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "session_revoked"

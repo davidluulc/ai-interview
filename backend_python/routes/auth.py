@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_DAYS,
     create_access_token,
     create_refresh_token,
     find_user_by_email,
@@ -18,6 +19,7 @@ from ..auth import (
 from ..database import get_db
 from ..db_models import RefreshToken, User
 from ..security import client_identity, enforce_rate_limit, hash_token, token_blacklist
+from ..session_store import session_store
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -49,19 +51,25 @@ def user_response(user: User) -> dict:
 
 
 def token_response(db: Session, user: User) -> dict:
-    access_token = create_access_token(user.id)
     refresh_token, expires_at = create_refresh_token()
-    db.add(
-        RefreshToken(
-            user_id=user.id,
-            token_hash=hash_refresh_token(refresh_token),
-            expires_at=expires_at.replace(tzinfo=None),
-        )
+    record = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_refresh_token(refresh_token),
+        expires_at=expires_at.replace(tzinfo=None),
     )
+    db.add(record)
     db.commit()
+    db.refresh(record)
+    session_id = session_store.create_session(
+        user_id=user.id,
+        refresh_token_id=record.id,
+        ttl_seconds=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+    )
+    access_token = create_access_token(user.id, session_id=session_id)
     return {
         "accessToken": access_token,
         "refreshToken": refresh_token,
+        "sessionId": session_id,
         "tokenType": "bearer",
         "user": user_response(user),
     }
@@ -104,7 +112,13 @@ async def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> dic
     if not record or record.revoked_at or record.expires_at <= now:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
-    access_token = create_access_token(record.user_id)
+    session = session_store.find_active_session_by_refresh_token(record.id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "session_revoked", "message": "当前登录会话已失效，请重新登录。"},
+        )
+    access_token = create_access_token(record.user_id, session_id=str(session.get("sessionId") or ""))
     return {
         "accessToken": access_token,
         "tokenType": "bearer",
@@ -119,6 +133,9 @@ async def logout(payload: RefreshRequest, request: Request, db: Session = Depend
     if record and not record.revoked_at:
         record.revoked_at = datetime.now(timezone.utc).replace(tzinfo=None)
         db.commit()
+        session = session_store.find_active_session_by_refresh_token(record.id)
+        if session:
+            session_store.revoke_session(str(session.get("sessionId") or ""), reason="logout")
     authorization = request.headers.get("authorization", "")
     if authorization.lower().startswith("bearer "):
         access_token = authorization.split(" ", 1)[1].strip()

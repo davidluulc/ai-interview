@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,7 +10,7 @@ from ..agent_logging import serialize_agent_decision_log
 from ..ai_debug import build_ai_debug_detail, build_ai_debug_recent_item
 from ..config import DASHSCOPE_RERANK_MODEL, QWEN_MODEL
 from ..database import DATABASE_URL, describe_database_url, get_db
-from ..db_models import AgentDecisionLog, InterviewRecord, RagChunk, RagDocument, RagIngestionTask, RagRetrievalLog, User
+from ..db_models import AgentDecisionLog, InterviewRecord, RagChunk, RagDocument, RagIngestionTask, RagRetrievalLog, RefreshToken, User
 from ..embedding_client import current_embedding_model, embedding_provider_summary
 from ..infrastructure import get_infrastructure_status
 from ..langgraph_agent.checkpoint import summarize_checkpoint
@@ -19,6 +19,7 @@ from ..rag_ingestion_tasks import serialize_ingestion_task
 from ..rag_logging import serialize_rag_log
 from ..rag_store import serialize_document
 from ..security import build_security_status
+from ..session_store import session_store
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -239,6 +240,29 @@ async def admin_users(
 ) -> dict[str, list[dict[str, Any]]]:
     users = db.scalars(select(User).order_by(User.created_at.desc(), User.id.desc()).limit(bounded_limit(limit))).all()
     return {"items": [serialize_admin_user(user) for user in users]}
+
+
+@router.post("/users/{user_id}/force-logout")
+async def admin_force_logout_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin_user),
+) -> dict[str, Any]:
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    active_tokens = list(
+        db.scalars(
+            select(RefreshToken).where(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None))
+        ).all()
+    )
+    for token in active_tokens:
+        token.revoked_at = now
+    db.commit()
+    revoked_sessions = session_store.revoke_user_sessions(user_id, reason="admin_force_logout")
+    return {"ok": True, "revokedSessions": revoked_sessions, "revokedRefreshTokens": len(active_tokens)}
 
 
 @router.get("/rag/documents")

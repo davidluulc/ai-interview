@@ -122,6 +122,12 @@ rate_limiter = RateLimiter(store=rate_limit_store, rules=DEFAULT_RATE_LIMIT_RULE
 def reset_security_state() -> None:
     token_blacklist.clear()
     rate_limit_store.clear()
+    try:
+        from .session_store import session_store
+
+        session_store.clear()
+    except Exception:
+        pass
 
 
 def client_identity(request: Request, *, user_id: int | None = None) -> str:

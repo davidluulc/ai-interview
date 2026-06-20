@@ -227,6 +227,7 @@ const adminStore: any = {
   aiDebugLoading: false,
   aiDebugError: "",
   loadAiDebugDetail: vi.fn(),
+  forceLogoutUser: vi.fn(),
   config: {
     modelName: "qwen-plus",
     embeddingModel: "text-embedding-v4",
@@ -305,6 +306,7 @@ describe("admin page", () => {
     adminStore.error = "";
     adminStore.loadDashboard.mockReset();
     adminStore.loadAiDebugDetail.mockReset();
+    adminStore.forceLogoutUser.mockReset();
   });
 
   it("shows a restoring message instead of denying access while auth state is loading", () => {
@@ -682,5 +684,13 @@ describe("admin page", () => {
     expect(wrapper.text()).toContain("显示 1-5 条，共 12 条");
     expect(accountTableText()).toContain("admin@ai-interview.com");
     expect(accountTableText()).not.toContain("user6@example.com");
+  });
+
+  it("allows admins to force logout a user from account management", async () => {
+    const wrapper = mount(AdminPage, { global: globalConfig });
+
+    await wrapper.get('[data-testid="force-logout-user-2"]').trigger("click");
+
+    expect(adminStore.forceLogoutUser).toHaveBeenCalledWith(2);
   });
 });

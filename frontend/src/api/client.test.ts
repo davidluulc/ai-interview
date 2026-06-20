@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { apiRequest, clearApiTokens, setApiTokens } from "./client";
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, apiRequest, clearApiTokens, setApiTokens } from "./client";
 
 describe("api client", () => {
   beforeEach(() => {
@@ -48,6 +48,32 @@ describe("api client", () => {
     );
 
     await expect(apiRequest("/api/example")).rejects.toThrow("请求过于频繁，请稍后重试。");
+  });
+
+  it("clears tokens without refresh when the backend reports a revoked session", async () => {
+    setApiTokens({ accessToken: "access-1", refreshToken: "refresh-1" });
+    const revokedListener = vi.fn();
+    window.addEventListener("ai-interview-auth-revoked", revokedListener);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: false,
+          error: { code: "session_revoked", message: "当前登录会话已失效，请重新登录。" }
+        }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" }
+        }
+      )
+    );
+
+    await expect(apiRequest("/api/auth/me")).rejects.toThrow("当前登录会话已失效，请重新登录。");
+
+    expect(localStorage.getItem(ACCESS_TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(revokedListener).toHaveBeenCalled();
+    window.removeEventListener("ai-interview-auth-revoked", revokedListener);
   });
 
   it("turns gateway timeout html into a friendly model timeout message", async () => {

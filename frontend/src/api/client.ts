@@ -18,6 +18,10 @@ export function clearApiTokens(): void {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
+function emitAuthRevoked(code: string, message: string): void {
+  window.dispatchEvent(new CustomEvent("ai-interview-auth-revoked", { detail: { code, message } }));
+}
+
 export function getAccessToken(): string {
   return localStorage.getItem(ACCESS_TOKEN_KEY) || "";
 }
@@ -81,6 +85,22 @@ function getErrorMessage(body: unknown, status = 0): string {
   return normalizeApiErrorMessage("", status);
 }
 
+export function getApiErrorCode(body: unknown): string {
+  if (typeof body === "object" && body && "error" in body) {
+    const error = (body as { error?: unknown }).error;
+    if (typeof error === "object" && error && "code" in error) {
+      return String((error as { code?: unknown }).code || "");
+    }
+  }
+  if (typeof body === "object" && body && "detail" in body) {
+    const detail = (body as { detail?: unknown }).detail;
+    if (typeof detail === "object" && detail && "code" in detail) {
+      return String((detail as { code?: unknown }).code || "");
+    }
+  }
+  return "";
+}
+
 async function refreshAccessToken(): Promise<boolean> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
@@ -121,6 +141,14 @@ export async function apiRequest<T = unknown>(
 
   if (response.ok) {
     return body as T;
+  }
+
+  const errorCode = getApiErrorCode(body);
+  if (response.status === 401 && ["session_revoked", "token_revoked"].includes(errorCode)) {
+    const message = getErrorMessage(body, response.status);
+    clearApiTokens();
+    emitAuthRevoked(errorCode, message);
+    throw new Error(message);
   }
 
   if (response.status === 401 && retryOnUnauthorized && path !== "/api/auth/refresh") {

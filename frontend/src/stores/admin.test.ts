@@ -12,7 +12,8 @@ vi.mock("@/api/admin", () => ({
   fetchAdminAgentLogs: vi.fn(),
   fetchAdminConfig: vi.fn(),
   fetchAdminAiDebugRecent: vi.fn(),
-  fetchAdminAiDebugDetail: vi.fn()
+  fetchAdminAiDebugDetail: vi.fn(),
+  forceLogoutUser: vi.fn()
 }));
 
 describe("admin store", () => {
@@ -27,6 +28,7 @@ describe("admin store", () => {
     vi.mocked(adminApi.fetchAdminConfig).mockReset();
     vi.mocked(adminApi.fetchAdminAiDebugRecent).mockReset();
     vi.mocked(adminApi.fetchAdminAiDebugDetail).mockReset();
+    vi.mocked(adminApi.forceLogoutUser).mockReset();
   });
 
   it("loads the full admin dashboard through read-only endpoints", async () => {
@@ -238,6 +240,19 @@ describe("admin store", () => {
     expect(store.filteredUsers).toEqual([
       { id: 2, email: "demo@ai-interview.com", username: "demo", role: "user", createdAt: "" }
     ]);
+  });
+
+  it("forces a user logout through the admin api", async () => {
+    vi.mocked(adminApi.forceLogoutUser).mockResolvedValue({
+      ok: true,
+      revokedSessions: 1,
+      revokedRefreshTokens: 1
+    });
+
+    const store = useAdminStore();
+    await store.forceLogoutUser(2);
+
+    expect(adminApi.forceLogoutUser).toHaveBeenCalledWith(2);
   });
 
   it("maps 403 errors to a readable permission message", async () => {

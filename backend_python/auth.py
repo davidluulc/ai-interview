@@ -19,6 +19,7 @@ from .config import (
 from .database import get_db
 from .db_models import User
 from .security import hash_token, token_blacklist
+from .session_store import session_store
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -38,13 +39,15 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, session_id: str = "") -> str:
     expire = utc_now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": str(user_id),
         "type": "access",
         "exp": expire,
     }
+    if session_id:
+        payload["sid"] = session_id
     return jwt.encode(payload, SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
@@ -81,6 +84,15 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if token_blacklist.contains(hash_token(token)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked.")
     payload = decode_token(token, expected_type="access")
+    session_id = str(payload.get("sid") or "")
+    if session_id:
+        session = session_store.get_session(session_id)
+        if not session or session.get("status") != "active":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"code": "session_revoked", "message": "当前登录会话已失效，请重新登录。"},
+            )
+        session_store.touch_session(session_id, ttl_seconds=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60)
     user_id = int(payload["sub"])
     user = db.get(User, user_id)
     if not user:
