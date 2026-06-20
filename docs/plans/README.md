@@ -8,7 +8,7 @@
 
 当前 active plan：
 ```text
-暂无
+docs/plans/active/admin-report-productization-v2.md
 ```
 
 当前 active spec：
