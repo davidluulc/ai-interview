@@ -574,6 +574,7 @@ import { useAdminStore } from "@/stores/admin";
 import { useAuthStore } from "@/stores/auth";
 import type {
   AdminAgentLog,
+  AdminAiDebugRagSummary,
   AdminRagDocument,
   AdminRagQualityItem,
   AdminRuntimeReplayStep,
@@ -595,9 +596,9 @@ const paginatedUsers = computed(() => {
   const start = (userPage.value - 1) * userPageSize.value;
   return admin.filteredUsers.slice(start, start + userPageSize.value);
 });
-const debugRagSummary = computed(() => {
+const debugRagSummary = computed<AdminAiDebugRagSummary[]>(() => {
   const rag = admin.selectedAiDebugDetail?.rag as DebugRecord | undefined;
-  return Array.isArray(rag?.summary) ? (rag.summary as DebugRecord[]) : [];
+  return Array.isArray(rag?.summary) ? (rag.summary as AdminAiDebugRagSummary[]) : [];
 });
 const debugRagItems = computed(() => {
   const rag = admin.selectedAiDebugDetail?.rag as DebugRecord | undefined;
@@ -890,8 +891,8 @@ function debugRagKey(item: DebugRecord): string {
   return `${debugText(item, "retrieverLabel")}-${debugText(item, "queryText")}-${debugText(item, "hitCount", "0")}`;
 }
 
-function debugRagSummaryKey(item: DebugRecord): string {
-  return `${String(item.knowledgeBase || item.label || "unknown")}-${String(item.quality || "unknown")}`;
+function debugRagSummaryKey(item: AdminAiDebugRagSummary): string {
+  return `${item.knowledgeBase || item.label || "unknown"}-${item.quality || "unknown"}`;
 }
 
 function qualityLevelLabel(value: unknown): string {
