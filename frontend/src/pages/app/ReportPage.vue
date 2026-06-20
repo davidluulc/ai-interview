@@ -95,10 +95,15 @@
 
       <section v-if="shouldShowEvidence" class="insight-card">
         <h2>出题依据</h2>
-        <p v-if="evidenceText">{{ evidenceText }}</p>
-        <ul v-if="evidenceReasons.length">
-          <li v-for="reason in evidenceReasons" :key="reason">{{ reason }}</li>
-        </ul>
+        <p>{{ humanizedEvidenceText }}</p>
+        <div v-if="evidenceSources.length" class="source-list">
+          <h3>参考来源</h3>
+          <ul>
+            <li v-for="source in evidenceSources" :key="`${source.label}-${source.title}`">
+              {{ source.label }}：{{ source.title }}
+            </li>
+          </ul>
+        </div>
       </section>
 
       <section class="insight-card">
@@ -144,6 +149,10 @@ import AppLayout from "@/layouts/AppLayout.vue";
 import { useReportStore } from "@/stores/report";
 
 type ReviewLike = Record<string, unknown>;
+interface EvidenceSource {
+  label: string;
+  title: string;
+}
 
 const route = useRoute();
 const router = useRouter();
@@ -254,9 +263,58 @@ const evidenceReasons = computed(() => {
   return Array.from(new Set(reasons.map(String).map((item) => item.trim()).filter(Boolean))).slice(0, 3);
 });
 
+function normalizeEvidenceReason(reason: string): EvidenceSource | null {
+  const cleaned = reason
+    .replace(/，?命中词包括[:：].*$/u, "")
+    .replace(/^命中/u, "")
+    .trim()
+    .replace(/[。.]$/u, "");
+  const match = cleaned.match(/^(岗位知识库|题库|候选人画像)[:：](.+)$/u);
+  if (match) {
+    return { label: match[1], title: match[2].trim() };
+  }
+  return null;
+}
+
+const evidenceSources = computed(() => {
+  const seen = new Set<string>();
+  return evidenceReasons.value
+    .map((reason) => normalizeEvidenceReason(reason))
+    .filter((source): source is EvidenceSource => Boolean(source?.title))
+    .filter((source) => {
+      const key = `${source.label}:${source.title}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 3);
+});
+
+const hasStrongEvidence = computed(() => {
+  const summary = evidenceText.value.trim();
+  return Boolean(summary && !LOW_VALUE_EVIDENCE.includes(summary) && evidenceSources.value.length > 0);
+});
+
+const hasWeakEvidence = computed(() => {
+  const summary = evidenceText.value.trim();
+  return Boolean(evidenceReasons.value.length > 0 && !hasStrongEvidence.value && (!summary || LOW_VALUE_EVIDENCE.includes(summary)));
+});
+
+const humanizedEvidenceText = computed(() => {
+  const summary = evidenceText.value.trim();
+  if (hasStrongEvidence.value) {
+    const sourceLabels = evidenceSources.value.map((source) => source.label).join("、");
+    return `这道题主要围绕岗位 JD 和上一轮回答中的薄弱点展开。${summary} 系统参考了${sourceLabels}中的相关材料，用来检查你能否把概念落到实际排查步骤。`;
+  }
+  if (summary && !LOW_VALUE_EVIDENCE.includes(summary)) {
+    return `这道题主要围绕岗位 JD 和上一轮回答中的薄弱点展开。${summary} 当前知识库命中较弱，因此系统更多依赖面试上下文来追问。`;
+  }
+  return "这道题主要根据你的投递档案、岗位 JD 和上一轮回答生成。当前知识库命中较弱，因此系统更多依赖面试上下文来追问。";
+});
+
 const shouldShowEvidence = computed(() => {
   const summary = evidenceText.value.trim();
-  return (summary && !LOW_VALUE_EVIDENCE.includes(summary)) || evidenceReasons.value.length > 0;
+  return Boolean(hasStrongEvidence.value || hasWeakEvidence.value || (summary && !LOW_VALUE_EVIDENCE.includes(summary)));
 });
 
 function listOf(...keys: string[]): string[] {
@@ -402,6 +460,19 @@ li {
 
 .summary-text {
   margin-top: 6px;
+}
+
+.source-list {
+  border-top: 1px solid var(--color-border);
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.source-list h3 {
+  color: var(--color-text);
+  font-size: 15px;
 }
 
 .weak-tags {

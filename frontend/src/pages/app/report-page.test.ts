@@ -191,6 +191,63 @@ describe("report page", () => {
     }
   });
 
+  it("turns RAG reasons into candidate-facing evidence and secondary sources", () => {
+    const originalSummary = reportStore.record.report.decisionSummary;
+    const originalReasons = reportStore.record.report.ragReasons;
+
+    try {
+      reportStore.record.report.decisionSummary = "JD 要求 RAG 链路理解，上一轮回答缺少日志字段。";
+      reportStore.record.report.ragReasons = [
+        "命中岗位知识库：RAG Agent 与 LangGraph 项目知识，命中词包括：rag、prompt、langgraph、agent。",
+        "命中题库：PostgreSQL、Redis、Celery 在这个项目里分别承担什么职责？",
+        "命中候选人画像：Python 后端开发实习生"
+      ];
+
+      const wrapper = mount(ReportPage, {
+        global: {
+          stubs: {
+            AppLayout: { template: "<main><slot /></main>" }
+          }
+        }
+      });
+
+      expect(wrapper.text()).toContain("这道题主要围绕");
+      expect(wrapper.text()).toContain("岗位 JD");
+      expect(wrapper.text()).toContain("上一轮回答");
+      expect(wrapper.text()).toContain("参考来源");
+      expect(wrapper.text()).toContain("岗位知识库：RAG Agent 与 LangGraph 项目知识");
+      expect(wrapper.text()).toContain("题库：PostgreSQL、Redis、Celery 在这个项目里分别承担什么职责？");
+      expect(wrapper.text()).not.toContain("命中词包括");
+    } finally {
+      reportStore.record.report.decisionSummary = originalSummary;
+      reportStore.record.report.ragReasons = originalReasons;
+    }
+  });
+
+  it("does not pretend weak evidence is strong", () => {
+    const originalSummary = reportStore.record.report.decisionSummary;
+    const originalReasons = reportStore.record.report.ragReasons;
+
+    try {
+      reportStore.record.report.decisionSummary = "";
+      reportStore.record.report.ragReasons = ["围绕当前档案、历史回答和检索上下文共同驱动。"];
+
+      const wrapper = mount(ReportPage, {
+        global: {
+          stubs: {
+            AppLayout: { template: "<main><slot /></main>" }
+          }
+        }
+      });
+
+      expect(wrapper.text()).toContain("当前知识库命中较弱");
+      expect(wrapper.text()).not.toContain("命中岗位知识库");
+    } finally {
+      reportStore.record.report.decisionSummary = originalSummary;
+      reportStore.record.report.ragReasons = originalReasons;
+    }
+  });
+
   it("hides low-value fallback evidence copy", () => {
     const originalSummary = reportStore.record.report.decisionSummary;
     const originalReasons = reportStore.record.report.ragReasons;
