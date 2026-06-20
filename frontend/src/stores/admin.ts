@@ -19,6 +19,9 @@ export const useAdminStore = defineStore("admin", () => {
   const error = ref("");
   const userSearch = ref("");
   const roleFilter = ref<"all" | "admin" | "user">("all");
+  const forceLogoutPendingUserId = ref<number | null>(null);
+  const forceLogoutMessage = ref("");
+  const forceLogoutError = ref("");
 
   const filteredUsers = computed(() => {
     const search = userSearch.value.trim().toLowerCase();
@@ -88,8 +91,19 @@ export const useAdminStore = defineStore("admin", () => {
     }
   }
 
-  async function forceLogoutUser(userId: number): Promise<void> {
-    await adminApi.forceLogoutUser(userId);
+  async function forceLogoutUser(user: adminApi.AdminUser): Promise<void> {
+    forceLogoutPendingUserId.value = user.id;
+    forceLogoutMessage.value = "";
+    forceLogoutError.value = "";
+    try {
+      const result = await adminApi.forceLogoutUser(user.id);
+      forceLogoutMessage.value = `已下线 ${user.email}，撤销 ${result.revokedSessions} 个会话、${result.revokedRefreshTokens} 个 refresh token。`;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "未知错误";
+      forceLogoutError.value = `强制下线失败：${message}`;
+    } finally {
+      forceLogoutPendingUserId.value = null;
+    }
   }
 
   return {
@@ -109,6 +123,9 @@ export const useAdminStore = defineStore("admin", () => {
     error,
     userSearch,
     roleFilter,
+    forceLogoutPendingUserId,
+    forceLogoutMessage,
+    forceLogoutError,
     filteredUsers,
     loadDashboard,
     loadAiDebugDetail,

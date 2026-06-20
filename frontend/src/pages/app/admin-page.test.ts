@@ -228,6 +228,9 @@ const adminStore: any = {
   aiDebugError: "",
   loadAiDebugDetail: vi.fn(),
   forceLogoutUser: vi.fn(),
+  forceLogoutPendingUserId: null as number | null,
+  forceLogoutMessage: "",
+  forceLogoutError: "",
   config: {
     modelName: "qwen-plus",
     embeddingModel: "text-embedding-v4",
@@ -304,6 +307,9 @@ describe("admin page", () => {
     authStore.isAuthenticated = true;
     authStore.isAdmin = true;
     adminStore.error = "";
+    adminStore.forceLogoutPendingUserId = null;
+    adminStore.forceLogoutMessage = "";
+    adminStore.forceLogoutError = "";
     adminStore.loadDashboard.mockReset();
     adminStore.loadAiDebugDetail.mockReset();
     adminStore.forceLogoutUser.mockReset();
@@ -686,11 +692,29 @@ describe("admin page", () => {
     expect(accountTableText()).not.toContain("user6@example.com");
   });
 
-  it("allows admins to force logout a user from account management", async () => {
+  it("confirms force logout and shows the result message", async () => {
+    adminStore.forceLogoutMessage = "已下线 demo@ai-interview.com，撤销 1 个会话、1 个 refresh token。";
     const wrapper = mount(AdminPage, { global: globalConfig });
 
     await wrapper.get('[data-testid="force-logout-user-2"]').trigger("click");
 
-    expect(adminStore.forceLogoutUser).toHaveBeenCalledWith(2);
+    expect(wrapper.text()).toContain("确认强制下线该用户？");
+    expect(wrapper.text()).toContain("demo@ai-interview.com");
+    expect(adminStore.forceLogoutUser).not.toHaveBeenCalled();
+
+    await wrapper.get('[data-testid="confirm-force-logout"]').trigger("click");
+
+    expect(adminStore.forceLogoutUser).toHaveBeenCalledWith(expect.objectContaining({ id: 2, email: "demo@ai-interview.com" }));
+    expect(wrapper.text()).toContain("已下线 demo@ai-interview.com");
+  });
+
+  it("disables the force logout button while the user is being logged out", () => {
+    adminStore.forceLogoutPendingUserId = 2;
+    const wrapper = mount(AdminPage, { global: globalConfig });
+
+    const button = wrapper.get('[data-testid="force-logout-user-2"]');
+
+    expect(button.attributes("disabled")).toBeDefined();
+    expect(button.text()).toContain("下线中");
   });
 });

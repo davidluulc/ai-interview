@@ -261,6 +261,8 @@
           <h2>账号管理</h2>
           <span>{{ admin.filteredUsers.length }} 个结果</span>
         </div>
+        <p v-if="admin.forceLogoutMessage" class="success-message">{{ admin.forceLogoutMessage }}</p>
+        <p v-if="admin.forceLogoutError" class="error">{{ admin.forceLogoutError }}</p>
         <div class="filters">
           <input v-model="admin.userSearch" type="search" placeholder="搜索邮箱或用户名" />
           <select v-model="admin.roleFilter" aria-label="按角色筛选">
@@ -296,9 +298,10 @@
                     type="button"
                     class="table-action"
                     :data-testid="`force-logout-user-${user.id}`"
-                    @click="admin.forceLogoutUser(user.id)"
+                    :disabled="admin.forceLogoutPendingUserId === user.id"
+                    @click="openForceLogout(user)"
                   >
-                    强制下线
+                    {{ admin.forceLogoutPendingUserId === user.id ? "下线中..." : "强制下线" }}
                   </button>
                 </td>
               </tr>
@@ -332,6 +335,18 @@
           </div>
         </div>
       </section>
+
+      <div v-if="forceLogoutCandidate" class="modal-backdrop" role="dialog" aria-modal="true">
+        <section class="confirm-modal">
+          <h2>确认强制下线该用户？</h2>
+          <p>用户：{{ forceLogoutCandidate.email }}</p>
+          <p>操作后，该用户当前登录态会失效，需要重新登录。</p>
+          <div class="modal-actions">
+            <button type="button" class="ghost-action" @click="closeForceLogout">取消</button>
+            <button data-testid="confirm-force-logout" type="button" @click="confirmForceLogout">确认下线</button>
+          </div>
+        </section>
+      </div>
 
       <section v-if="admin.ragQuality" class="section">
         <div class="section-title">
@@ -575,6 +590,7 @@ import { useAuthStore } from "@/stores/auth";
 import type {
   AdminAgentLog,
   AdminAiDebugRagSummary,
+  AdminUser,
   AdminRagDocument,
   AdminRagQualityItem,
   AdminRuntimeReplayStep,
@@ -590,12 +606,28 @@ const userPageSizeOptions = [5, 10, 20];
 const userPageSize = ref(10);
 const userPage = ref(1);
 const rawDebugVisible = ref(false);
+const forceLogoutCandidate = ref<AdminUser | null>(null);
 
 const userPageCount = computed(() => Math.max(1, Math.ceil(admin.filteredUsers.length / userPageSize.value)));
 const paginatedUsers = computed(() => {
   const start = (userPage.value - 1) * userPageSize.value;
   return admin.filteredUsers.slice(start, start + userPageSize.value);
 });
+
+function openForceLogout(user: AdminUser): void {
+  forceLogoutCandidate.value = user;
+}
+
+function closeForceLogout(): void {
+  forceLogoutCandidate.value = null;
+}
+
+async function confirmForceLogout(): Promise<void> {
+  if (!forceLogoutCandidate.value) return;
+  await admin.forceLogoutUser(forceLogoutCandidate.value);
+  closeForceLogout();
+}
+
 const debugRagSummary = computed<AdminAiDebugRagSummary[]>(() => {
   const rag = admin.selectedAiDebugDetail?.rag as DebugRecord | undefined;
   return Array.isArray(rag?.summary) ? (rag.summary as AdminAiDebugRagSummary[]) : [];
@@ -1119,6 +1151,14 @@ code {
   padding: 12px 14px;
 }
 
+.success-message {
+  border: 1px solid rgba(18, 128, 92, 0.22);
+  border-radius: var(--radius-sm);
+  background: #ecfdf3;
+  color: #027a48;
+  padding: 12px 14px;
+}
+
 .section-title,
 .filters,
 .log-heading {
@@ -1270,6 +1310,58 @@ th {
 .pagination-bar button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.table-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.42);
+  padding: 24px;
+}
+
+.confirm-modal {
+  width: min(420px, 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.22);
+  padding: 22px;
+}
+
+.confirm-modal p {
+  margin-top: 10px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.modal-actions button {
+  min-height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.modal-actions .ghost-action {
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .list {

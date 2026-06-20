@@ -85,14 +85,19 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked.")
     payload = decode_token(token, expected_type="access")
     session_id = str(payload.get("sid") or "")
-    if session_id:
-        session = session_store.get_session(session_id)
-        if not session or session.get("status") != "active":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={"code": "session_revoked", "message": "当前登录会话已失效，请重新登录。"},
-            )
-        session_store.touch_session(session_id, ttl_seconds=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60)
+    if not session_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "session_revoked", "message": "当前登录会话已失效，请重新登录。"},
+        )
+
+    session = session_store.get_session(session_id)
+    if not session or session.get("status") != "active":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "session_revoked", "message": "当前登录会话已失效，请重新登录。"},
+        )
+    session_store.touch_session(session_id, ttl_seconds=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60)
     user_id = int(payload["sub"])
     user = db.get(User, user_id)
     if not user:

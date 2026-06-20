@@ -179,3 +179,26 @@ def test_revoked_session_rejects_existing_access_token() -> None:
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "session_revoked"
+
+
+def test_access_token_without_session_id_is_rejected_for_current_user() -> None:
+    client = TestClient(app)
+    suffix = uuid4().hex
+    email = f"legacy-session-{suffix}@example.com"
+    username = f"legacy_session_{suffix[:12]}"
+    client.post(
+        "/api/auth/register",
+        json={
+            "email": email,
+            "username": username,
+            "password": "password123",
+        },
+    )
+    tokens = client.post("/api/auth/login", json={"email": email, "password": "password123"}).json()
+    payload = decode_token(tokens["accessToken"], expected_type="access")
+
+    legacy_access_token = create_access_token(user_id=int(payload["sub"]))
+    response = client.get("/api/auth/me", headers={"Authorization": f"Bearer {legacy_access_token}"})
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "session_revoked"

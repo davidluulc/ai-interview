@@ -242,17 +242,46 @@ describe("admin store", () => {
     ]);
   });
 
-  it("forces a user logout through the admin api", async () => {
+  it("tracks force logout loading and success message", async () => {
     vi.mocked(adminApi.forceLogoutUser).mockResolvedValue({
       ok: true,
-      revokedSessions: 1,
-      revokedRefreshTokens: 1
+      revokedSessions: 2,
+      revokedRefreshTokens: 3
     });
 
     const store = useAdminStore();
-    await store.forceLogoutUser(2);
+    const promise = store.forceLogoutUser({
+      id: 2,
+      email: "demo@ai-interview.com",
+      username: "demo",
+      role: "user",
+      createdAt: ""
+    });
+
+    expect(store.forceLogoutPendingUserId).toBe(2);
+    await promise;
 
     expect(adminApi.forceLogoutUser).toHaveBeenCalledWith(2);
+    expect(store.forceLogoutPendingUserId).toBeNull();
+    expect(store.forceLogoutMessage).toBe("已下线 demo@ai-interview.com，撤销 2 个会话、3 个 refresh token。");
+    expect(store.forceLogoutError).toBe("");
+  });
+
+  it("tracks force logout errors", async () => {
+    vi.mocked(adminApi.forceLogoutUser).mockRejectedValue(new Error("Admin privileges required"));
+
+    const store = useAdminStore();
+    await store.forceLogoutUser({
+      id: 2,
+      email: "demo@ai-interview.com",
+      username: "demo",
+      role: "user",
+      createdAt: ""
+    });
+
+    expect(store.forceLogoutPendingUserId).toBeNull();
+    expect(store.forceLogoutMessage).toBe("");
+    expect(store.forceLogoutError).toBe("强制下线失败：Admin privileges required");
   });
 
   it("maps 403 errors to a readable permission message", async () => {
