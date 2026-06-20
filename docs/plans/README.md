@@ -8,27 +8,28 @@
 
 当前 active plan：
 ```text
-docs/plans/active/production-ux-auth-hardening-v1.md
+暂无
 ```
 
 当前 active spec：
 ```text
-docs/specs/active/production-ux-auth-hardening-v1-design.md
+暂无
 ```
 
 最近完成并归档的 plan：
 ```text
+docs/plans/completed/production-ux-auth-hardening-v1.md
 docs/plans/completed/public-demo-stabilization-rag-seed-v1.md
 ```
 
 最近完成阶段主题：
 ```text
-Public Demo Stabilization + Production RAG Seed V1：已完成公网演示闭环稳定化和生产 RAG seed。
+Production UX & Auth Hardening V1：已完成报告页出题依据、训练页薄弱点筛选、AI 调试台分类去重、Redis 会话控制和管理员强制下线。
 ```
 
 当前准备执行阶段：
 ```text
-Production UX & Auth Hardening V1：报告页出题依据、训练页薄弱点筛选、AI 调试台分类去重、Redis 会话控制和管理员强制下线。
+暂无。建议下一轮先进入 Pre-Launch Stabilization V1：公网 smoke test、API Key 轮换、演示数据和 README/部署/讲解材料整理。
 ```
 
 ## 追求目标模式建议

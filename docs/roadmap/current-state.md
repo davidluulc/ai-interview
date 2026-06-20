@@ -6,7 +6,7 @@
 
 ## 1. 当前结论
 
-项目已经完成第一版公网部署，并完成了一轮公网演示稳定化收口。
+项目已经完成第一版公网部署，并完成了公网演示稳定化与 Production UX & Auth Hardening V1 收口。
 
 - GitHub 仓库：`https://github.com/davidluulc/ai-interview`
 - 公网入口：`http://124.221.230.218:8080/vue/auth/login`
@@ -22,16 +22,18 @@
 
 当前 active spec：
 ```text
-docs/specs/active/production-ux-auth-hardening-v1-design.md
+暂无
 ```
 
 当前 active plan：
 ```text
-docs/plans/active/production-ux-auth-hardening-v1.md
+暂无
 ```
 
 最近完成归档：
 ```text
+docs/specs/completed/production-ux-auth-hardening-v1-design.md
+docs/plans/completed/production-ux-auth-hardening-v1.md
 docs/specs/completed/public-demo-stabilization-rag-seed-v1-design.md
 docs/plans/completed/public-demo-stabilization-rag-seed-v1.md
 ```
@@ -39,10 +41,39 @@ docs/plans/completed/public-demo-stabilization-rag-seed-v1.md
 当前推荐开发阶段：
 
 ```text
-Production UX & Auth Hardening V1：先收口报告页“出题依据”、训练页薄弱点筛选、管理员 AI 调试台分类去重，再实现 Redis 会话控制和管理员强制下线。该阶段不重做数据库表关系，不重写 RAG 算法，不做全站 UI 重构。
+Pre-Launch Stabilization V1：用虚构演示资料走完整公网 smoke test，轮换暴露过的 API Key，校准 README/部署文档/项目讲解材料，并准备发给 HR 前的演示数据。
 ```
 
-## 3. Public Demo Stabilization + Production RAG Seed V1 完成情况
+## 3. Production UX & Auth Hardening V1 完成情况
+
+本阶段已把公网演示后的几个“能跑但不好讲、不好控”的问题完成收口：
+
+- 报告页“为什么这样问”已改为“出题依据”，低质量 fallback 不再硬展示，RAG reasons 去重并限制展示数量。
+- 训练页薄弱点训练地图已明确为筛选器，右侧任务列表展示当前筛选条件、任务数量和“查看全部”入口。
+- 管理员 AI 调试控制台已按总览、RAG 召回、Agent 决策、诊断建议、原始日志分类展示，重复诊断聚合为“出现 N 次”。
+- RAG 质量标签已从 `good / weak / miss / empty` 产品化为中文展示。
+- Redis session 已接入鉴权链路，access token 包含 session id，logout 和管理员强制下线会撤销 session。
+- 前端收到 `session_revoked/token_revoked` 会清理 token 并跳转登录页。
+
+本地验证命令已通过：
+
+```bash
+python -m pytest -q
+cd frontend && npm.cmd run test
+cd frontend && npm.cmd run build
+docker compose --env-file .env.production.example config --quiet
+```
+
+验证结果：
+
+```text
+backend pytest: 435 passed
+frontend vitest: 31 files passed, 150 tests passed
+frontend build: succeeded
+compose config: succeeded
+```
+
+## 4. Public Demo Stabilization + Production RAG Seed V1 完成情况
 
 本阶段已把公网演示链路从“能打开”推进到“能走完整闭环”：
 
@@ -93,13 +124,15 @@ frontend build: succeeded
 compose config: succeeded
 ```
 
-## 4. 已真实落地的核心能力
+## 5. 已真实落地的核心能力
 
 ### 4.1 用户和权限
 
 - 用户注册、登录、退出登录
 - access token 和 refresh token
 - token blacklist
+- Redis session 会话控制
+- 管理员强制用户下线
 - 管理员角色字段和管理员权限依赖
 - 管理员后台只允许管理员访问
 
@@ -175,7 +208,7 @@ compose config: succeeded
 - `.env.production.example`
 - 部署、排错、备份回滚和 HTTPS 参考文档
 
-## 5. 上线过程中暴露并修复的问题
+## 6. 上线过程中暴露并修复的问题
 
 ### 5.1 PostgreSQL schema 缺字段
 
@@ -242,7 +275,7 @@ POST /api/interview/next-question 出现 504 Gateway Time-out。
 - 生成训练任务
 - 跳转到报告详情页
 
-## 6. 当前仍未完成的边界
+## 7. 当前仍未完成的边界
 
 - 域名
 - HTTPS
@@ -259,7 +292,7 @@ POST /api/interview/next-question 出现 504 Gateway Time-out。
 
 这些不是当前演示闭环的阻塞项，建议分阶段处理。
 
-## 7. 推荐下一阶段
+## 8. 推荐下一阶段
 
 ### 推荐 A：Pre-Launch Stabilization V1
 
@@ -319,7 +352,7 @@ POST /api/interview/next-question 出现 504 Gateway Time-out。
 原因：
 这些能力有价值，但当前继续堆功能的边际收益低于把公网演示、安全和项目讲解打稳。
 
-## 8. 下一步建议
+## 9. 下一步建议
 
 下一步建议先写并执行：
 
