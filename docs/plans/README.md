@@ -33,6 +33,11 @@ Admin & Report Productization V2：已完成强制下线闭环产品化、AI 调
 Admin Observability UX V3：把 RAG、Agent、AI 请求和面试报告按用户、档案、面试记录、问题轮次组织成诊断工作台，减少后台日志墙。
 ```
 
+当前进度：
+```text
+V3 第一增量已完成：按钮可见性 bug、面试诊断聚合 API、前端诊断工作台入口和逐题链路详情已经落地。V3 仍保持 active，用于后续公网 smoke 和继续收拢知识库健康、Agent 行为、AI 请求等辅助视图。
+```
+
 ## 追求目标模式建议
 
 如果要使用 Codex 的“追求目标”模式，不要直接复制 `completed/` 或 `archive/` 中的旧 plan。
