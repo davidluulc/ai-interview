@@ -27,7 +27,7 @@ docs/specs/active/admin-observability-ux-v3-design.md
 
 当前 active plan：
 ```text
-暂无
+docs/plans/active/admin-observability-ux-v3.md
 ```
 
 最近完成归档：
