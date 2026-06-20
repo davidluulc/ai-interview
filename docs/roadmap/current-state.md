@@ -22,7 +22,7 @@
 
 当前 active spec：
 ```text
-暂无
+docs/specs/active/admin-report-productization-v2-design.md
 ```
 
 当前 active plan：
@@ -41,7 +41,7 @@ docs/plans/completed/public-demo-stabilization-rag-seed-v1.md
 当前推荐开发阶段：
 
 ```text
-Pre-Launch Stabilization V1：用虚构演示资料走完整公网 smoke test，轮换暴露过的 API Key，校准 README/部署文档/项目讲解材料，并准备发给 HR 前的演示数据。
+Admin & Report Productization V2：把强制下线、AI 调试控制台、RAG/Agent 后台诊断和报告出题依据做成真正看得见、点得通、讲得清楚的产品化体验。
 ```
 
 ## 3. Production UX & Auth Hardening V1 完成情况
