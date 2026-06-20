@@ -122,13 +122,30 @@
                   </span>
                 </div>
               </section>
+              <nav class="debug-tabs" aria-label="AI 调试详情分区">
+                <span>总览</span>
+                <span>RAG 召回</span>
+                <span>Agent 决策</span>
+                <span>诊断建议</span>
+                <span>原始日志</span>
+              </nav>
               <div class="debug-grid">
                 <article class="debug-panel">
                   <h3>RAG 召回链路</h3>
                   <p>总命中：{{ debugNumber(admin.selectedAiDebugDetail.rag, "totalHitCount") }}</p>
-                  <div v-for="item in debugRagItems" :key="debugRagKey(item)" class="mini-row">
+                  <div v-for="item in debugRagSummary" :key="debugRagSummaryKey(item)" class="mini-row">
+                    <strong>{{ item.label || item.knowledgeBase || "未知知识库" }}</strong>
+                    <span>
+                      命中 {{ item.hitCount }} 条 · {{ item.qualityLabel || qualityLevelLabel(item.quality) }}
+                      <template v-if="item.occurrenceCount > 1"> · 出现 {{ item.occurrenceCount }} 次</template>
+                    </span>
+                  </div>
+                  <div v-for="item in debugRagRawItems" :key="debugRagKey(item)" class="mini-row">
                     <strong>{{ debugText(item, "retrieverLabel", "未知知识库") }}</strong>
-                    <span>命中 {{ debugText(item, "hitCount", "0") }} 条 · {{ debugText(item, "qualityLevel", "unknown") }}</span>
+                    <span>
+                      命中 {{ debugText(item, "hitCount", "0") }} 条 ·
+                      {{ qualityLevelLabel(debugText(item, "qualityLevel", "unknown")) }}
+                    </span>
                   </div>
                 </article>
 
@@ -216,19 +233,22 @@
                 <article class="debug-panel">
                   <h3>诊断建议</h3>
                   <div
-                    v-for="diagnostic in admin.selectedAiDebugDetail.diagnostics"
+                    v-for="diagnostic in debugDiagnosticSummary"
                     :key="diagnostic.type + diagnostic.title"
                     class="mini-row"
                   >
                     <strong>{{ diagnostic.title }}</strong>
-                    <span>{{ diagnostic.message }}</span>
+                    <span>
+                      {{ diagnostic.message }}
+                      <template v-if="diagnostic.count > 1"> · 出现 {{ diagnostic.count }} 次</template>
+                    </span>
                   </div>
-                  <p v-if="admin.selectedAiDebugDetail.diagnostics.length === 0" class="muted">暂无诊断建议。</p>
+                  <p v-if="debugDiagnosticSummary.length === 0" class="muted">暂无诊断建议。</p>
                 </article>
               </div>
-              <details class="raw-debug">
+              <details class="raw-debug" @toggle="rawDebugVisible = ($event.target as HTMLDetailsElement).open">
                 <summary>查看原始调试 JSON</summary>
-                <pre>{{ JSON.stringify(admin.selectedAiDebugDetail, null, 2) }}</pre>
+                <pre v-if="rawDebugVisible">{{ JSON.stringify(admin.selectedAiDebugDetail, null, 2) }}</pre>
               </details>
             </template>
             <p v-else class="muted">请选择一条 AI 请求查看调试详情。</p>
@@ -556,15 +576,29 @@ const isRestoringAuth = computed(() => auth.loading || (auth.isAuthenticated && 
 const userPageSizeOptions = [5, 10, 20];
 const userPageSize = ref(10);
 const userPage = ref(1);
+const rawDebugVisible = ref(false);
 
 const userPageCount = computed(() => Math.max(1, Math.ceil(admin.filteredUsers.length / userPageSize.value)));
 const paginatedUsers = computed(() => {
   const start = (userPage.value - 1) * userPageSize.value;
   return admin.filteredUsers.slice(start, start + userPageSize.value);
 });
+const debugRagSummary = computed(() => {
+  const rag = admin.selectedAiDebugDetail?.rag as DebugRecord | undefined;
+  return Array.isArray(rag?.summary) ? (rag.summary as DebugRecord[]) : [];
+});
 const debugRagItems = computed(() => {
   const rag = admin.selectedAiDebugDetail?.rag as DebugRecord | undefined;
   return Array.isArray(rag?.items) ? (rag.items as DebugRecord[]) : [];
+});
+const debugRagRawItems = computed(() => (debugRagSummary.value.length > 0 ? [] : debugRagItems.value));
+const debugDiagnosticSummary = computed(() => {
+  const detail = admin.selectedAiDebugDetail;
+  if (!detail) return [];
+  if (Array.isArray(detail.diagnosticSummary) && detail.diagnosticSummary.length > 0) {
+    return detail.diagnosticSummary;
+  }
+  return detail.diagnostics.map((diagnostic) => ({ ...diagnostic, count: 1 }));
 });
 const workflowObservation = computed<AdminWorkflowObservation | null>(() => {
   return admin.selectedAiDebugDetail?.workflowObservation || null;
@@ -842,6 +876,22 @@ function reviewActionLabel(value: string): string {
 
 function debugRagKey(item: DebugRecord): string {
   return `${debugText(item, "retrieverLabel")}-${debugText(item, "queryText")}-${debugText(item, "hitCount", "0")}`;
+}
+
+function debugRagSummaryKey(item: DebugRecord): string {
+  return `${String(item.knowledgeBase || item.label || "unknown")}-${String(item.quality || "unknown")}`;
+}
+
+function qualityLevelLabel(value: unknown): string {
+  const map: Record<string, string> = {
+    good: "高相关",
+    weak: "弱相关",
+    miss: "空召回",
+    empty: "空召回",
+    unknown: "未评估"
+  };
+  const key = String(value || "unknown");
+  return map[key] || key;
 }
 
 function queryText(item: AdminRagQualityItem): string {

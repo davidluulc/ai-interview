@@ -52,6 +52,50 @@ def quality_level_from_hit_count(hit_count: int) -> str:
     return "good"
 
 
+QUALITY_LABELS = {
+    "good": "高相关",
+    "weak": "弱相关",
+    "miss": "空召回",
+    "empty": "空召回",
+    "unknown": "未评估",
+}
+
+
+def quality_label(value: str) -> str:
+    return QUALITY_LABELS.get(value or "", "未评估")
+
+
+def build_rag_summary(rag_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    for item in rag_items:
+        knowledge_base = str(item.get("retrieverName") or "")
+        quality = str(item.get("qualityLevel") or "unknown")
+        key = (knowledge_base, quality)
+        current = grouped.setdefault(
+            key,
+            {
+                "knowledgeBase": knowledge_base,
+                "label": item.get("retrieverLabel") or normalize_rag_name(knowledge_base),
+                "hitCount": 0,
+                "quality": quality,
+                "qualityLabel": quality_label(quality),
+                "occurrenceCount": 0,
+            },
+        )
+        current["hitCount"] += int(item.get("hitCount") or 0)
+        current["occurrenceCount"] += 1
+    return list(grouped.values())
+
+
+def build_diagnostic_summary(diagnostics: list[dict[str, str]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    for item in diagnostics:
+        key = (str(item.get("title") or ""), str(item.get("message") or ""))
+        current = grouped.setdefault(key, {**item, "count": 0})
+        current["count"] += 1
+    return list(grouped.values())
+
+
 def extract_thread_id(state: dict[str, Any], decision: dict[str, Any], fallback: str) -> str:
     candidates = [
         state.get("threadId"),
@@ -334,6 +378,7 @@ def build_ai_debug_detail(
         },
         "rag": {
             "items": rag_items,
+            "summary": build_rag_summary(rag_items),
             "totalHitCount": sum(int(item.get("hitCount") or 0) for item in rag_items),
             "relation": "按 userId、applicationProfileId 和最近时间尽力关联",
         },
@@ -341,4 +386,5 @@ def build_ai_debug_detail(
         "langgraph": langgraph,
         "workflowObservation": build_workflow_observation(agent=agent, langgraph=langgraph, rag_items=rag_items),
         "diagnostics": diagnostics,
+        "diagnosticSummary": build_diagnostic_summary(diagnostics),
     }

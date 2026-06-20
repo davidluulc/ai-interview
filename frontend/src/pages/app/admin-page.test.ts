@@ -403,6 +403,66 @@ describe("admin page", () => {
     expect(text).not.toContain("undefined");
   });
 
+  it("summarizes AI debug RAG quality and repeated diagnostics", () => {
+    adminStore.selectedAiDebugDetail = {
+      summary: { traceId: 8, agentMode: "coach", stage: "技术追问", threadId: "debug-summary" },
+      rag: {
+        totalHitCount: 3,
+        summary: [
+          {
+            knowledgeBase: "role_knowledge",
+            label: "岗位知识库",
+            hitCount: 3,
+            quality: "weak",
+            qualityLabel: "弱相关",
+            occurrenceCount: 3
+          }
+        ],
+        items: [
+          { retrieverLabel: "岗位知识库", queryText: "RAG 日志字段", hitCount: 1, qualityLevel: "weak" },
+          { retrieverLabel: "岗位知识库", queryText: "RAG 日志字段", hitCount: 1, qualityLevel: "weak" }
+        ]
+      },
+      agent: { nextActionLabel: "继续深化", fallbackUsed: false, reason: "继续追问 RAG", focus: "RAG 日志字段" },
+      langgraph: { exists: false, explanation: "暂无 LangGraph 摘要", runtime: "", status: "" },
+      diagnostics: [
+        {
+          type: "weak_recall",
+          level: "info",
+          title: "岗位知识库弱召回",
+          message: "岗位知识库召回质量偏弱，建议补充题库样例。"
+        },
+        {
+          type: "weak_recall",
+          level: "info",
+          title: "岗位知识库弱召回",
+          message: "岗位知识库召回质量偏弱，建议补充题库样例。"
+        }
+      ],
+      diagnosticSummary: [
+        {
+          type: "weak_recall",
+          level: "info",
+          title: "岗位知识库弱召回",
+          message: "岗位知识库召回质量偏弱，建议补充题库样例。",
+          count: 2
+        }
+      ]
+    };
+
+    const wrapper = mount(AdminPage, { global: globalConfig });
+    const text = wrapper.text();
+
+    expect(text).toContain("总览");
+    expect(text).toContain("RAG 召回");
+    expect(text).toContain("Agent 决策");
+    expect(text).toContain("诊断建议");
+    expect(text).toContain("岗位知识库");
+    expect(text).toContain("弱相关");
+    expect(text).toContain("出现 2 次");
+    expect(text).not.toMatch(/good|weak|miss/);
+  });
+
   it("renders agent workflow observation as the main runtime diagnostic section", () => {
     adminStore.selectedAiDebugDetail = {
       ...adminStore.selectedAiDebugDetail,

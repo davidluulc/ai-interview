@@ -168,9 +168,12 @@ def test_admin_ai_debug_detail_contains_rag_agent_langgraph_and_diagnostics() ->
 
     assert response.status_code == 200
     body = response.json()
-    assert set(body) == {"summary", "rag", "agent", "langgraph", "workflowObservation", "diagnostics"}
+    assert {"summary", "rag", "agent", "langgraph", "workflowObservation", "diagnostics", "diagnosticSummary"}.issubset(
+        set(body)
+    )
     assert body["summary"]["traceId"] == log_id
     assert body["rag"]["totalHitCount"] == 1
+    assert body["rag"]["summary"][0]["qualityLabel"] == "弱相关"
     assert body["rag"]["items"][0]["retrieverLabel"] == "题库"
     assert body["agent"]["nextActionLabel"] == "继续深挖"
     assert body["agent"]["fallbackUsed"] is False
@@ -217,6 +220,53 @@ def test_admin_ai_debug_detail_exposes_agent_workflow_observation() -> None:
     assert detail["workflowObservation"]["runtime"] == "langgraph_mainline"
     assert detail["workflowObservation"]["fallbackUsed"] is False
     assert detail["workflowObservation"]["nodes"] == [{"nodeName": "observe_state"}, {"nodeName": "retrieve_context"}]
+
+
+def test_admin_ai_debug_detail_aggregates_rag_and_diagnostics() -> None:
+    client = TestClient(app)
+    headers, user_id = create_admin_headers()
+    with SessionLocal() as db:
+        log = AgentDecisionLog(
+            user_id=user_id,
+            application_profile_id=505,
+            request_type="next_question",
+            next_action="deepen",
+            stage="技术追问",
+            difficulty="medium",
+            focus="RAG 日志字段",
+            reason="继续追问 RAG",
+            tools_json="[]",
+            state_json=json.dumps({"threadId": "debug-aggregate-1"}, ensure_ascii=False),
+            decision_json="{}",
+            fallback_used=0,
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(log)
+        for _ in range(3):
+            db.add(
+                RagRetrievalLog(
+                    user_id=user_id,
+                    application_profile_id=505,
+                    request_type="next_question",
+                    query_text="RAG 日志字段",
+                    retriever_name="role_knowledge",
+                    retrieval_mode="hybrid",
+                    hit_count=1,
+                    hits_json=json.dumps([{"title": "RAG Agent 与 LangGraph 项目知识"}], ensure_ascii=False),
+                )
+            )
+        db.commit()
+        log_id = log.id
+
+    response = client.get(f"/api/admin/ai-debug/{log_id}", headers=headers)
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["rag"]["summary"][0]["knowledgeBase"] == "role_knowledge"
+    assert body["rag"]["summary"][0]["qualityLabel"] == "弱相关"
+    assert body["rag"]["summary"][0]["occurrenceCount"] == 3
+    assert body["diagnosticSummary"][0]["count"] == 3
 
 
 def test_admin_ai_debug_detail_handles_missing_trace() -> None:

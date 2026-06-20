@@ -118,6 +118,19 @@ export interface AdminAiDebugDiagnostic {
   message: string;
 }
 
+export interface AdminAiDebugDiagnosticSummary extends AdminAiDebugDiagnostic {
+  count: number;
+}
+
+export interface AdminAiDebugRagSummary {
+  knowledgeBase: string;
+  label: string;
+  hitCount: number;
+  quality: string;
+  qualityLabel: string;
+  occurrenceCount: number;
+}
+
 export interface AdminAiDebugRecentItem {
   traceId: number;
   createdAt: string | null;
@@ -238,11 +251,12 @@ export interface AdminWorkflowObservation {
 
 export interface AdminAiDebugDetail {
   summary: Record<string, unknown>;
-  rag: Record<string, unknown>;
+  rag: Record<string, unknown> & { summary?: AdminAiDebugRagSummary[] };
   agent: Record<string, unknown>;
   langgraph: AdminAiDebugLangGraph;
   workflowObservation?: AdminWorkflowObservation;
   diagnostics: AdminAiDebugDiagnostic[];
+  diagnosticSummary?: AdminAiDebugDiagnosticSummary[];
 }
 
 export interface AdminDatabaseInfrastructure {
