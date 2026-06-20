@@ -22,7 +22,7 @@
 
 当前 active spec：
 ```text
-暂无
+docs/specs/active/admin-observability-ux-v3-design.md
 ```
 
 当前 active plan：
@@ -43,7 +43,7 @@ docs/plans/completed/public-demo-stabilization-rag-seed-v1.md
 当前推荐开发阶段：
 
 ```text
-Pre-Launch Stabilization V1：公网演示安全收口、演示数据准备、README/部署文档校准、项目讲解和简历包装。
+Admin Observability UX V3：把 RAG、Agent、AI 请求和面试报告按用户、档案、面试记录、问题轮次组织成诊断工作台，减少后台日志墙。
 ```
 
 ## 3. Admin & Report Productization V2 完成情况

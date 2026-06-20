@@ -13,7 +13,7 @@
 
 当前 active spec：
 ```text
-暂无
+docs/specs/active/admin-observability-ux-v3-design.md
 ```
 
 最近完成并归档的 plan：
@@ -30,7 +30,7 @@ Admin & Report Productization V2：已完成强制下线闭环产品化、AI 调
 
 当前准备执行阶段：
 ```text
-Pre-Launch Stabilization V1：公网演示安全收口、演示数据准备、README/部署文档校准、项目讲解和简历包装。
+Admin Observability UX V3：把 RAG、Agent、AI 请求和面试报告按用户、档案、面试记录、问题轮次组织成诊断工作台，减少后台日志墙。
 ```
 
 ## 追求目标模式建议
