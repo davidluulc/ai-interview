@@ -301,7 +301,16 @@
             <div v-for="trace in selectedInterviewTraceLinks" :key="trace.traceId" class="mini-row">
               <strong>{{ trace.label }}</strong>
               <span>{{ trace.nextActionLabel || trace.requestType }} · {{ traceRelationLabel(trace.relation) }}</span>
-              <button type="button" class="inline-action" @click="admin.loadAiDebugDetail(trace.traceId)">查看 trace</button>
+              <button
+                type="button"
+                class="inline-action"
+                data-testid="open-interview-trace"
+                :class="{ active: admin.selectedAiDebugTraceId === trace.traceId }"
+                :aria-current="admin.selectedAiDebugTraceId === trace.traceId ? 'true' : undefined"
+                @click="openInterviewTrace(trace.traceId)"
+              >
+                {{ admin.selectedAiDebugTraceId === trace.traceId ? "已选中 trace" : "查看 trace" }}
+              </button>
             </div>
             <p v-if="selectedInterviewTraceLinks.length === 0" class="muted">
               当前未选择面试记录，或该面试没有可关联的 AI trace。
@@ -314,7 +323,7 @@
         </div>
       </section>
 
-      <section v-if="admin.selectedObservabilityTab === 'ai'" class="section ai-debug-section">
+      <section v-if="admin.selectedObservabilityTab === 'ai'" ref="aiDebugDetailSection" class="section ai-debug-section">
         <div class="section-title">
           <h2>AI 调试控制台</h2>
           <span>{{ admin.aiDebugRecent.length }} 条链路</span>
@@ -940,7 +949,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import AppLayout from "@/layouts/AppLayout.vue";
 import { useAdminStore, type AdminAiDebugTab } from "@/stores/admin";
 import { useAuthStore } from "@/stores/auth";
@@ -963,6 +972,7 @@ const userPageSizeOptions = [5, 10, 20];
 const userPageSize = ref(10);
 const userPage = ref(1);
 const forceLogoutCandidate = ref<AdminUser | null>(null);
+const aiDebugDetailSection = ref<HTMLElement | null>(null);
 const aiDebugTabs: { key: AdminAiDebugTab; label: string }[] = [
   { key: "overview", label: "总览" },
   { key: "rag", label: "RAG 召回" },
@@ -998,6 +1008,14 @@ const observabilityReportStatus = computed(() => {
 const selectedInterviewTraceLinks = computed(() => {
   return (admin.selectedObservabilityDetail?.turns || []).flatMap((turn) => turn.traceLinks || []);
 });
+
+async function openInterviewTrace(traceId: number): Promise<void> {
+  await admin.loadAiDebugDetail(traceId);
+  await nextTick();
+  if (typeof aiDebugDetailSection.value?.scrollIntoView === "function") {
+    aiDebugDetailSection.value.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
 
 function openForceLogout(user: AdminUser): void {
   forceLogoutCandidate.value = user;

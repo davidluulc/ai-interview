@@ -595,6 +595,21 @@ describe("admin page", () => {
     expect(text).not.toContain("undefined");
   });
 
+  it("shows a selected state when opening a trace from the current interview", async () => {
+    adminStore.selectedObservabilityTab = "ai";
+    adminStore.selectedAiDebugTraceId = 1;
+    const wrapper = mount(AdminPage, { global: globalConfig });
+    const traceButton = wrapper.find('[data-testid="open-interview-trace"]');
+
+    expect(traceButton.exists()).toBe(true);
+    expect(traceButton.classes()).toContain("active");
+    expect(traceButton.attributes("aria-current")).toBe("true");
+
+    await traceButton.trigger("click");
+
+    expect(adminStore.loadAiDebugDetail).toHaveBeenCalledWith(1);
+  });
+
   it("keeps raw diagnostics behind the developer tab", () => {
     adminStore.selectedObservabilityTab = "raw";
     const wrapper = mount(AdminPage, { global: globalConfig });
