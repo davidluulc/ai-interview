@@ -13,6 +13,42 @@ VALID_PRIORITIES = {"low", "medium", "high"}
 VALID_PRACTICE_MODES = {"coach", "interview"}
 VALID_PRACTICE_DIFFICULTIES = {"basic", "medium", "hard"}
 MASTERY_DELTA = {"不会": -5, "模糊": 8, "完整": 15}
+REFERENCE_ANSWER_BY_TAG = {
+    "rag_quality": (
+        "可以这样回答：我会把 RAG 质量拆成召回是否命中、排序是否合理、资料是否可解释三层来看。"
+        "Hit@K 用来判断正确资料是否出现在前 K 条结果里，MRR 更关注正确资料排在多靠前；关键词覆盖率可以辅助判断问题里的核心词是否被召回；"
+        "空召回率能发现知识库缺资料、embedding 维度不一致或 metadata 过滤过严的问题；metadata 匹配率和命中日志则用来追踪这次回答到底用了哪类知识库、哪些 chunk、分数如何。"
+        "线上排查时，我会先看命中日志和空召回，再结合 Hit@K/MRR 判断是检索问题、排序问题，还是最终生成问题。"
+    ),
+    "rag_retrieval": (
+        "可以这样回答：一次 RAG 检索通常先根据用户问题构造 query，再在合适的知识库和 metadata 范围内查找资料。"
+        "chunk 切分决定资料颗粒度，BM25 更适合命中关键词和专有名词，向量检索更适合理解语义相近的问题；hybrid search 会融合两类结果，"
+        "rerank 再把更贴近问题的 chunk 排到前面。实际项目里还需要记录 query、metadata filter、召回来源、分数和最终 top chunks，方便定位是 query 构造、过滤条件、向量模型还是重排阶段出了问题。"
+    ),
+    "agent_state": (
+        "可以这样回答：Agent State 是当前面试局面的结构化快照，里面会放轮次、历史问答、候选人画像命中、RAG 召回摘要、薄弱点策略和剩余轮数等信息。"
+        "ToolCalls 记录系统为了决策调用了哪些检索或分析工具，Agent Decision 表示下一步要追问、降难度、换方向还是结束复盘。"
+        "模型输出不稳定时，fallback、normalize 和 guardrail 会把非法决策兜底成可执行动作；nodeTrace 用来记录每个节点的输入输出，方便在后台复盘为什么生成了这道题。"
+    ),
+    "backend_fastapi": (
+        "可以这样回答：router 负责声明接口路径、请求方法和依赖注入，是请求进入 FastAPI 后端的入口；"
+        "schema 负责用 Pydantic 定义请求体、响应体和字段校验，避免前后端 payload 对不上；"
+        "db_model 用 SQLAlchemy 描述数据库表、字段和关系；database 负责创建 engine、SessionLocal，并通过 get_db 把数据库会话注入到接口里。"
+        "一次请求通常会经过 router 参数解析、schema 校验、Depends 注入数据库会话和当前用户、业务逻辑处理、数据库读写，最后按响应 schema 返回；鉴权和错误处理则保证接口不会越权，也能把异常转成前端可理解的响应。"
+    ),
+    "database_modeling": (
+        "可以这样回答：数据库建模先要明确每张表保存什么业务对象，再用主键标识单条记录、外键表达对象之间的归属关系。"
+        "在这个项目里，user_id 是隔离多用户数据的关键字段，面试记录、投递档案、RAG 文档和 Agent 日志都应该能追溯到所属用户或所属面试。"
+        "SQLAlchemy 的 relationship 方便代码层按对象关系访问数据，但真正的数据安全还要靠查询时按 user_id 过滤。"
+        "如果从 SQLite 迁到 PostgreSQL，Alembic 迁移负责让表结构可重复、可追踪地演进。"
+    ),
+    "project_storytelling": (
+        "可以这样回答：这个项目面向准备面试但缺少针对性练习的人，核心流程是先维护简历、JD 和项目知识库，再由系统生成贴合岗位的模拟面试问题。"
+        "回答过程中，系统会结合候选人画像、岗位知识库和题库做 RAG 召回，再通过 Agent 决策控制追问、降难度或进入复盘。"
+        "工程上我重点做了前后端闭环、PostgreSQL/Redis/Celery 的生产化部署、AI 请求和 RAG trace 的可观测性，以及面试报告和训练任务沉淀。"
+        "这样讲能体现业务目标、技术方案、工程难点和上线验证，而不是只背技术栈。"
+    ),
+}
 
 
 def utc_now_naive() -> datetime:
@@ -177,6 +213,19 @@ def build_practice_feedback(task: TrainingTask, answer_text: str) -> dict[str, A
     }
 
 
+def build_reference_answer(weak_tag: str, answer_key_points: list[str]) -> str:
+    reference_answer = REFERENCE_ANSWER_BY_TAG.get(str(weak_tag or "").strip())
+    if reference_answer:
+        return reference_answer
+    if not answer_key_points:
+        return "可以这样回答：先说明问题背景，再讲自己承担的职责和具体做法，最后补充结果、验证方式和复盘改进。"
+    key_point_text = "、".join(answer_key_points[:6])
+    return (
+        f"可以这样回答：这道题至少要覆盖 {key_point_text}。"
+        "回答时不要只罗列名词，先解释每个关键点解决什么问题，再结合你的项目说明具体实现方式、排查过程和结果验证。"
+    )
+
+
 def build_practice_review(task: TrainingTask, answer_text: str) -> dict[str, Any]:
     from .weakness_training_templates import get_training_template
 
@@ -187,11 +236,7 @@ def build_practice_review(task: TrainingTask, answer_text: str) -> dict[str, Any
     covered = feedback["coveredKeyPoints"]
     missing = feedback["missingKeyPoints"]
     score = int(round((len(covered) / len(answer_key_points)) * 100)) if answer_key_points else 0
-    reference_answer = (
-        f"这道题可以按这些要点回答：{'、'.join(answer_key_points)}。"
-        if answer_key_points
-        else "这道题建议按背景、职责、做法、结果和复盘来回答。"
-    )
+    reference_answer = build_reference_answer(task.weak_tag, answer_key_points)
     issues = [f"缺少关键点：{point}" for point in missing[:5]]
     if not str(answer_text or "").strip():
         issues.insert(0, "当前回答为空，需要先写出自己的理解。")

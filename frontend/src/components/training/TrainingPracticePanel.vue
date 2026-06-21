@@ -59,7 +59,6 @@
       <article v-if="practiceReview" class="review-card">
         <div class="review-head">
           <h4>AI 批改结果 · {{ practiceReview.qualityLabel }}</h4>
-          <span>参考评分 {{ practiceReview.score }}</span>
         </div>
         <section>
           <h5>参考答案</h5>
@@ -303,14 +302,6 @@ button {
   flex-wrap: wrap;
   gap: 10px;
   justify-content: space-between;
-}
-
-.review-head span {
-  border-radius: 999px;
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  font-weight: 800;
-  padding: 4px 10px;
 }
 
 .review-card section {

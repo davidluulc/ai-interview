@@ -156,3 +156,29 @@ def test_build_training_practice_payload_normalizes_mode_and_difficulty() -> Non
     assert payload["difficulty"] == "basic"
     assert payload["question"]
     assert payload["fallbackUsed"] is True
+
+
+def test_build_practice_review_returns_speakable_reference_answer() -> None:
+    from backend_python.training_tasks import build_practice_review, create_or_update_training_task
+
+    user = create_user()
+    with SessionLocal() as db:
+        task = create_or_update_training_task(
+            db,
+            user_id=user.id,
+            weak_tag="backend_fastapi",
+            weak_label="FastAPI 后端",
+            title="FastAPI 训练",
+            description="练习后端模块化。",
+            priority="high",
+            mastery_score=45,
+            metadata={},
+        )
+        review = build_practice_review(task, "router 是接口入口，schema 做校验。")
+
+    reference_answer = review["referenceAnswer"]
+    assert "router 负责" in reference_answer
+    assert "schema 负责" in reference_answer
+    assert "db_model" in reference_answer
+    assert "database 负责" in reference_answer
+    assert "这道题可以按这些要点回答" not in reference_answer

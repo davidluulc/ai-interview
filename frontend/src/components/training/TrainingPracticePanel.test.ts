@@ -91,6 +91,7 @@ describe("TrainingPracticePanel", () => {
 
     expect(wrapper.text()).toContain("AI 批改结果");
     expect(wrapper.text()).toContain("部分覆盖");
+    expect(wrapper.text()).not.toContain("参考评分");
     expect(wrapper.text()).toContain("参考答案正文");
     expect(wrapper.text()).toContain("缺少关键点：MRR");
     expect(wrapper.text()).toContain("建议改写版本");
