@@ -23,6 +23,14 @@ export interface TrainingTask {
   updatedAt?: string;
 }
 
+export interface TrainingPracticeFeedback {
+  qualityLabel: string;
+  coveredKeyPoints: string[];
+  missingKeyPoints: string[];
+  correctionTips: string[];
+  nextAction: string;
+}
+
 export interface TrainingTaskListResponse {
   items: TrainingTask[];
 }

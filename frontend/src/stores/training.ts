@@ -57,6 +57,8 @@ export const useTrainingStore = defineStore("training", () => {
   const practiceAnswerStatus = ref<trainingApi.TrainingAnswerStatus>("模糊");
   const selfRating = ref<number | null>(null);
   const lastPracticeResult = ref<trainingApi.TrainingTask | null>(null);
+  const practiceSubmitting = ref(false);
+  const practiceSubmitted = ref(false);
 
   const activeTasks = computed(() => tasks.value.filter((task) => ["todo", "in_progress"].includes(task.status)));
   const todoTasks = computed(() => tasks.value.filter((task) => task.status === "todo"));
@@ -167,7 +169,11 @@ export const useTrainingStore = defineStore("training", () => {
     selectedTaskId.value = taskId;
     practiceLoading.value = true;
     practiceError.value = "";
+    practiceAnswerText.value = "";
+    practiceAnswerStatus.value = "模糊";
+    selfRating.value = null;
     lastPracticeResult.value = null;
+    practiceSubmitted.value = false;
     try {
       const result = await trainingApi.getTrainingPractice(taskId, "coach", "basic");
       practiceDetail.value = result.practice;
@@ -184,13 +190,25 @@ export const useTrainingStore = defineStore("training", () => {
       practiceError.value = "请先选择训练任务";
       return;
     }
-    const updated = await trainingApi.completeTrainingTask(selectedTaskId.value, {
-      answerStatus: practiceAnswerStatus.value,
-      answerText: practiceAnswerText.value,
-      selfRating: selfRating.value
-    });
-    tasks.value = replaceTask(tasks.value, updated);
-    lastPracticeResult.value = updated;
+    if (practiceSubmitting.value || practiceSubmitted.value) {
+      return;
+    }
+    practiceSubmitting.value = true;
+    practiceError.value = "";
+    try {
+      const updated = await trainingApi.completeTrainingTask(selectedTaskId.value, {
+        answerStatus: practiceAnswerStatus.value,
+        answerText: practiceAnswerText.value,
+        selfRating: selfRating.value
+      });
+      tasks.value = replaceTask(tasks.value, updated);
+      lastPracticeResult.value = updated;
+      practiceSubmitted.value = true;
+    } catch (err) {
+      practiceError.value = err instanceof Error ? err.message : "练习提交失败";
+    } finally {
+      practiceSubmitting.value = false;
+    }
   }
 
   function resetPractice(): void {
@@ -201,6 +219,8 @@ export const useTrainingStore = defineStore("training", () => {
     practiceAnswerStatus.value = "模糊";
     selfRating.value = null;
     lastPracticeResult.value = null;
+    practiceSubmitting.value = false;
+    practiceSubmitted.value = false;
   }
 
   function setPracticeAnswerText(text: string): void {
@@ -239,6 +259,8 @@ export const useTrainingStore = defineStore("training", () => {
     practiceAnswerStatus,
     selfRating,
     lastPracticeResult,
+    practiceSubmitting,
+    practiceSubmitted,
     visibleTasks,
     taskListTitle,
     filterSummary,

@@ -89,9 +89,25 @@
         <span>累计练习 {{ result.attemptCount || 0 }} 次</span>
       </div>
 
+      <article v-if="practiceFeedback" class="feedback-card">
+        <h4>练习反馈 · {{ practiceFeedback.qualityLabel }}</h4>
+        <p v-if="practiceFeedback.coveredKeyPoints.length">已覆盖：{{ practiceFeedback.coveredKeyPoints.join("、") }}</p>
+        <p v-if="practiceFeedback.missingKeyPoints.length">待补充：{{ practiceFeedback.missingKeyPoints.join("、") }}</p>
+        <ul v-if="practiceFeedback.correctionTips.length">
+          <li v-for="tip in practiceFeedback.correctionTips" :key="tip">{{ tip }}</li>
+        </ul>
+        <p>{{ practiceFeedback.nextAction }}</p>
+      </article>
+
       <div class="panel-actions">
-        <button type="button" class="primary-action" data-testid="submit-practice" @click="$emit('submit')">
-          提交练习
+        <button
+          type="button"
+          class="primary-action"
+          data-testid="submit-practice"
+          :disabled="practiceSubmitting || practiceSubmitted"
+          @click="$emit('submit')"
+        >
+          {{ practiceSubmitting ? "提交中..." : practiceSubmitted ? "已提交" : "提交练习" }}
         </button>
       </div>
     </div>
@@ -99,9 +115,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import type * as trainingApi from "@/api/training";
 
-defineProps<{
+const props = defineProps<{
   practice: trainingApi.TrainingPractice | null;
   answerText: string;
   answerStatus: trainingApi.TrainingAnswerStatus;
@@ -109,6 +126,8 @@ defineProps<{
   loading: boolean;
   error: string;
   result: trainingApi.TrainingTask | null;
+  practiceSubmitting: boolean;
+  practiceSubmitted: boolean;
 }>();
 
 defineEmits<{
@@ -129,6 +148,13 @@ const answerStatusOptions: Array<{
   { label: "完整", value: "完整", testId: "answer-status-complete" }
 ];
 
+const practiceFeedback = computed<trainingApi.TrainingPracticeFeedback | null>(() => {
+  const metadata = props.result?.metadata as Record<string, unknown> | undefined;
+  const lastPractice = metadata?.lastPractice as Record<string, unknown> | undefined;
+  const feedback = lastPractice?.feedback as trainingApi.TrainingPracticeFeedback | undefined;
+  return feedback || null;
+});
+
 function modeText(mode: trainingApi.TrainingPractice["mode"]): string {
   return mode === "interview" ? "真实面试" : "学习辅导";
 }
@@ -148,6 +174,7 @@ function difficultyText(difficulty: trainingApi.TrainingPractice["difficulty"]):
 .empty-practice,
 .guidance-card,
 .template-card,
+.feedback-card,
 .result-card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -225,6 +252,7 @@ p {
 .empty-practice,
 .guidance-card,
 .template-card,
+.feedback-card,
 .result-card {
   display: grid;
   gap: 10px;
@@ -274,6 +302,11 @@ button {
 .primary-action {
   background: var(--color-accent);
   color: #fff;
+}
+
+.primary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .ghost-action,

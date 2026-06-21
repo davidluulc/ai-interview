@@ -142,6 +142,51 @@ def _build_practice_rubric(answer_key_points: list[str]) -> list[str]:
     return [f"是否覆盖：{point}" for point in answer_key_points[:4]]
 
 
+def _normalize_answer_text(value: str) -> str:
+    return " ".join(str(value or "").lower().split())
+
+
+def build_practice_feedback(task: TrainingTask, answer_text: str) -> dict[str, Any]:
+    from .weakness_training_templates import get_training_template
+
+    template = get_training_template(task.weak_tag)
+    answer_key_points = _safe_template_list(template.get("answerKeyPoints"))[:8]
+    normalized_answer = _normalize_answer_text(answer_text)
+    covered = [point for point in answer_key_points if point.lower() in normalized_answer]
+    missing = [point for point in answer_key_points if point not in covered]
+    if not normalized_answer:
+        correction_tips = ["先写出自己的理解，再按回答要点逐条补齐。"]
+    else:
+        correction_tips = [f"建议补充：{point}" for point in missing[:3]]
+    coverage_ratio = len(covered) / len(answer_key_points) if answer_key_points else 0
+    if coverage_ratio >= 0.75:
+        quality_label = "覆盖较完整"
+        next_action = "把回答压缩成 1 分钟版本，并补一个项目验证细节。"
+    elif coverage_ratio >= 0.35:
+        quality_label = "部分覆盖"
+        next_action = "优先补齐缺失要点，再用一个项目例子串起来。"
+    else:
+        quality_label = "覆盖不足"
+        next_action = "先对照回答要点重写一版，再提交练习。"
+    return {
+        "qualityLabel": quality_label,
+        "coveredKeyPoints": covered,
+        "missingKeyPoints": missing,
+        "correctionTips": correction_tips,
+        "nextAction": next_action,
+    }
+
+
+def practice_submission_fingerprint(answer_status: str, answer_text: str, self_rating: int | None) -> str:
+    return dump_json(
+        {
+            "answerStatus": str(answer_status or ""),
+            "answerText": _normalize_answer_text(answer_text),
+            "selfRating": self_rating,
+        }
+    )
+
+
 def build_training_practice_payload(
     task: TrainingTask,
     *,
@@ -192,17 +237,31 @@ def complete_training_task(
     self_rating: int | None = None,
 ) -> TrainingTask:
     task = get_owned_training_task(db, task_id, user_id=user_id)
+    metadata = parse_json(task.metadata_json, {})
+    fingerprint = practice_submission_fingerprint(answer_status, answer_text, self_rating)
+    last_practice = metadata.get("lastPractice") if isinstance(metadata.get("lastPractice"), dict) else {}
+    if last_practice.get("submissionFingerprint") == fingerprint:
+        last_practice["duplicateSubmission"] = True
+        metadata["lastPractice"] = last_practice
+        task.metadata_json = dump_json(metadata)
+        task.updated_at = utc_now_naive()
+        db.commit()
+        db.refresh(task)
+        return task
+
     delta = MASTERY_DELTA.get(answer_status, 0)
     task.mastery_score = clamp_score(task.mastery_score + delta)
     task.attempt_count += 1
     task.last_practiced_at = utc_now_naive()
     task.updated_at = utc_now_naive()
     task.status = "done" if task.mastery_score >= 80 else "in_progress"
-    metadata = parse_json(task.metadata_json, {})
     metadata["lastPractice"] = {
         "answerStatus": answer_status,
         "answerPreview": str(answer_text or "")[:300],
         "selfRating": self_rating,
+        "feedback": build_practice_feedback(task, answer_text),
+        "submissionFingerprint": fingerprint,
+        "duplicateSubmission": False,
         "completedAt": task.last_practiced_at.isoformat() if task.last_practiced_at else "",
     }
     task.metadata_json = dump_json(metadata)

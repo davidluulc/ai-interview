@@ -92,6 +92,8 @@
             :error="training.practiceError"
             :loading="training.practiceLoading"
             :practice="training.practiceDetail"
+            :practice-submitted="training.practiceSubmitted"
+            :practice-submitting="training.practiceSubmitting"
             :result="training.lastPracticeResult"
             :self-rating="training.selfRating"
             @reset="training.resetPractice"

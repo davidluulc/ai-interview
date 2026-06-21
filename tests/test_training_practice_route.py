@@ -80,3 +80,29 @@ def test_complete_training_task_accepts_answer_text_and_self_rating() -> None:
     assert body["metadata"]["lastPractice"]["answerStatus"] == "完整"
     assert body["metadata"]["lastPractice"]["selfRating"] == 4
     assert "Agent State" in body["metadata"]["lastPractice"]["answerPreview"]
+
+
+def test_complete_training_task_returns_feedback_and_ignores_duplicate_submission() -> None:
+    client, headers, user_id = create_authenticated_client()
+    task = create_task_for_user(user_id, "rag_quality")
+    payload = {
+        "answerStatus": "模糊",
+        "answerText": "Hit@K 和 MRR 可以用来评估 RAG 召回质量。",
+        "selfRating": 3,
+    }
+
+    first = client.post(f"/api/training/tasks/{task.id}/complete", headers=headers, json=payload)
+    second = client.post(f"/api/training/tasks/{task.id}/complete", headers=headers, json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    first_body = first.json()
+    second_body = second.json()
+    feedback = first_body["metadata"]["lastPractice"]["feedback"]
+    assert "Hit@K" in feedback["coveredKeyPoints"]
+    assert feedback["missingKeyPoints"]
+    assert feedback["correctionTips"]
+    assert first_body["attemptCount"] == 1
+    assert second_body["attemptCount"] == 1
+    assert second_body["masteryScore"] == first_body["masteryScore"]
+    assert second_body["metadata"]["lastPractice"]["duplicateSubmission"] is True

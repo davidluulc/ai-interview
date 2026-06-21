@@ -57,6 +57,46 @@ describe("TrainingPracticePanel", () => {
     expect(wrapper.text()).toContain("最新掌握度 85");
     expect(wrapper.text()).toContain("累计练习 2 次");
   });
+
+  it("renders correction feedback and disables duplicate submit", async () => {
+    const wrapper = mount(TrainingPracticePanel, {
+      props: {
+        ...validProps(),
+        practiceSubmitted: true,
+        result: {
+          id: 1,
+          weakTag: "rag_quality",
+          title: "RAG 质量训练",
+          description: "",
+          status: "done",
+          priority: "high",
+          masteryScore: 85,
+          attemptCount: 2,
+          metadata: {
+            lastPractice: {
+              feedback: {
+                qualityLabel: "部分覆盖",
+                coveredKeyPoints: ["Hit@K"],
+                missingKeyPoints: ["MRR"],
+                correctionTips: ["建议补充：MRR"],
+                nextAction: "补齐缺失要点"
+              }
+            }
+          }
+        }
+      }
+    });
+
+    expect(wrapper.text()).toContain("练习反馈");
+    expect(wrapper.text()).toContain("部分覆盖");
+    expect(wrapper.text()).toContain("已覆盖：Hit@K");
+    expect(wrapper.text()).toContain("建议补充：MRR");
+    expect(wrapper.get('[data-testid="submit-practice"]').attributes("disabled")).toBeDefined();
+
+    await wrapper.get('[data-testid="submit-practice"]').trigger("click");
+
+    expect(wrapper.emitted("submit")).toBeUndefined();
+  });
 });
 
 function validProps() {
@@ -67,7 +107,9 @@ function validProps() {
     selfRating: null,
     loading: false,
     error: "",
-    result: null
+    result: null,
+    practiceSubmitting: false,
+    practiceSubmitted: false
   };
 }
 

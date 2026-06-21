@@ -223,6 +223,25 @@ describe("training store", () => {
     expect(store.practiceError).toBe("");
   });
 
+  it("clears the current answer when opening another practice", async () => {
+    vi.mocked(trainingApi.getTrainingPractice).mockResolvedValueOnce({
+      task: { ...task, id: 2, weakTag: "backend_fastapi" },
+      practice: makePractice({ weakTag: "backend_fastapi", question: "router 负责什么？" })
+    });
+    const store = useTrainingStore();
+    store.practiceAnswerText = "上一题回答";
+    store.practiceAnswerStatus = "完整";
+    store.selfRating = 5;
+    store.lastPracticeResult = { ...task, id: 1, masteryScore: 80 };
+
+    await store.openPractice(2);
+
+    expect(store.practiceAnswerText).toBe("");
+    expect(store.practiceAnswerStatus).toBe("模糊");
+    expect(store.selfRating).toBeNull();
+    expect(store.lastPracticeResult).toBeNull();
+  });
+
   it("submits practice and updates the task list", async () => {
     const updated = { ...task, id: 1, status: "done" as const, masteryScore: 85, attemptCount: 1 };
     vi.mocked(trainingApi.completeTrainingTask).mockResolvedValueOnce(updated);
@@ -242,6 +261,21 @@ describe("training store", () => {
       answerText: "我的回答",
       selfRating: 4
     });
+  });
+
+  it("does not submit the same practice session twice", async () => {
+    const updated = { ...task, id: 1, status: "done" as const, masteryScore: 85, attemptCount: 1 };
+    vi.mocked(trainingApi.completeTrainingTask).mockResolvedValue(updated);
+    const store = useTrainingStore();
+    store.tasks = [{ ...task, id: 1, status: "in_progress", masteryScore: 70, attemptCount: 0 }];
+    store.selectedTaskId = 1;
+    store.practiceAnswerText = "我的回答";
+    store.practiceAnswerStatus = "完整";
+
+    await store.submitPractice();
+    await store.submitPractice();
+
+    expect(trainingApi.completeTrainingTask).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -71,6 +71,8 @@ const trainingStore = {
   practiceAnswerStatus: "模糊",
   selfRating: null,
   lastPracticeResult: null,
+  practiceSubmitting: false,
+  practiceSubmitted: false,
   visibleTasks: [task],
   taskListTitle: "训练任务 · 工具调用（1 个）",
   activeWeakTagLabel: "工具调用",
