@@ -82,7 +82,7 @@ def test_complete_training_task_accepts_answer_text_and_self_rating() -> None:
     assert "Agent State" in body["metadata"]["lastPractice"]["answerPreview"]
 
 
-def test_complete_training_task_returns_feedback_and_ignores_duplicate_submission() -> None:
+def test_complete_training_task_returns_coach_review_and_ignores_duplicate_submission() -> None:
     client, headers, user_id = create_authenticated_client()
     task = create_task_for_user(user_id, "rag_quality")
     payload = {
@@ -98,10 +98,14 @@ def test_complete_training_task_returns_feedback_and_ignores_duplicate_submissio
     assert second.status_code == 200
     first_body = first.json()
     second_body = second.json()
-    feedback = first_body["metadata"]["lastPractice"]["feedback"]
-    assert "Hit@K" in feedback["coveredKeyPoints"]
-    assert feedback["missingKeyPoints"]
-    assert feedback["correctionTips"]
+    review = first_body["metadata"]["lastPractice"]["review"]
+    assert review["referenceAnswer"]
+    assert review["rewrittenAnswer"]
+    assert review["nextPractice"]
+    assert review["score"] >= 0
+    assert any("Hit@K" in item for item in review["strengths"])
+    assert review["issues"]
+    assert review["missingKeyPoints"]
     assert first_body["attemptCount"] == 1
     assert second_body["attemptCount"] == 1
     assert second_body["masteryScore"] == first_body["masteryScore"]

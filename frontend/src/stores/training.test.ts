@@ -257,9 +257,9 @@ describe("training store", () => {
     expect(store.tasks[0].masteryScore).toBe(85);
     expect(store.lastPracticeResult?.masteryScore).toBe(85);
     expect(trainingApi.completeTrainingTask).toHaveBeenCalledWith(1, {
-      answerStatus: "完整",
+      answerStatus: "模糊",
       answerText: "我的回答",
-      selfRating: 4
+      selfRating: null
     });
   });
 

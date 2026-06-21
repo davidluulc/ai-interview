@@ -27,17 +27,16 @@ describe("TrainingPracticePanel", () => {
     const wrapper = mount(TrainingPracticePanel, { props: validProps() });
 
     await wrapper.get('[data-testid="practice-answer"]').setValue("我的回答");
-    await wrapper.get('[data-testid="answer-status-complete"]').trigger("click");
-    await wrapper.get('[data-testid="self-rating-4"]').trigger("click");
     await wrapper.get('[data-testid="submit-practice"]').trigger("click");
 
     expect(wrapper.emitted("update:answerText")?.[0]).toEqual(["我的回答"]);
-    expect(wrapper.emitted("update:answerStatus")?.[0]).toEqual(["完整"]);
-    expect(wrapper.emitted("update:selfRating")?.[0]).toEqual([4]);
     expect(wrapper.emitted("submit")).toHaveLength(1);
+    expect(wrapper.text()).not.toContain("回答状态");
+    expect(wrapper.text()).not.toContain("自评分");
+    expect(wrapper.text()).toContain("提交给 AI 批改");
   });
 
-  it("shows latest practice result", () => {
+  it("shows practice attempt count without making mastery the main signal", () => {
     const wrapper = mount(TrainingPracticePanel, {
       props: {
         ...validProps(),
@@ -54,11 +53,11 @@ describe("TrainingPracticePanel", () => {
       }
     });
 
-    expect(wrapper.text()).toContain("最新掌握度 85");
-    expect(wrapper.text()).toContain("累计练习 2 次");
+    expect(wrapper.text()).toContain("已练习 2 次");
+    expect(wrapper.text()).not.toContain("最新掌握度");
   });
 
-  it("renders correction feedback and disables duplicate submit", async () => {
+  it("renders coach review and disables duplicate submit", async () => {
     const wrapper = mount(TrainingPracticePanel, {
       props: {
         ...validProps(),
@@ -74,12 +73,15 @@ describe("TrainingPracticePanel", () => {
           attemptCount: 2,
           metadata: {
             lastPractice: {
-              feedback: {
+              review: {
+                score: 62,
                 qualityLabel: "部分覆盖",
-                coveredKeyPoints: ["Hit@K"],
+                referenceAnswer: "参考答案正文",
+                strengths: ["已覆盖：Hit@K"],
+                issues: ["缺少关键点：MRR"],
                 missingKeyPoints: ["MRR"],
-                correctionTips: ["建议补充：MRR"],
-                nextAction: "补齐缺失要点"
+                rewrittenAnswer: "建议改写版本",
+                nextPractice: "下一步练习重点"
               }
             }
           }
@@ -87,10 +89,12 @@ describe("TrainingPracticePanel", () => {
       }
     });
 
-    expect(wrapper.text()).toContain("练习反馈");
+    expect(wrapper.text()).toContain("AI 批改结果");
     expect(wrapper.text()).toContain("部分覆盖");
-    expect(wrapper.text()).toContain("已覆盖：Hit@K");
-    expect(wrapper.text()).toContain("建议补充：MRR");
+    expect(wrapper.text()).toContain("参考答案正文");
+    expect(wrapper.text()).toContain("缺少关键点：MRR");
+    expect(wrapper.text()).toContain("建议改写版本");
+    expect(wrapper.text()).toContain("下一步练习重点");
     expect(wrapper.get('[data-testid="submit-practice"]').attributes("disabled")).toBeDefined();
 
     await wrapper.get('[data-testid="submit-practice"]').trigger("click");

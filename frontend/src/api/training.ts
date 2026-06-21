@@ -31,6 +31,17 @@ export interface TrainingPracticeFeedback {
   nextAction: string;
 }
 
+export interface TrainingPracticeReview {
+  score: number;
+  qualityLabel: string;
+  referenceAnswer: string;
+  strengths: string[];
+  issues: string[];
+  missingKeyPoints: string[];
+  rewrittenAnswer: string;
+  nextPractice: string;
+}
+
 export interface TrainingTaskListResponse {
   items: TrainingTask[];
 }

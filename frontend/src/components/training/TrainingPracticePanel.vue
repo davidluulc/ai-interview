@@ -56,47 +56,29 @@
         />
       </label>
 
-      <div class="choice-row">
-        <span>回答状态</span>
-        <button
-          v-for="option in answerStatusOptions"
-          :key="option.value"
-          type="button"
-          :class="{ active: answerStatus === option.value }"
-          :data-testid="option.testId"
-          @click="$emit('update:answerStatus', option.value)"
-        >
-          {{ option.label }}
-        </button>
-      </div>
-
-      <div class="choice-row">
-        <span>自评分</span>
-        <button
-          v-for="rating in [1, 2, 3, 4, 5]"
-          :key="rating"
-          type="button"
-          :class="{ active: selfRating === rating }"
-          :data-testid="`self-rating-${rating}`"
-          @click="$emit('update:selfRating', rating)"
-        >
-          {{ rating }}
-        </button>
-      </div>
-
-      <div v-if="result" class="result-card">
-        <strong>最新掌握度 {{ result.masteryScore }}</strong>
-        <span>累计练习 {{ result.attemptCount || 0 }} 次</span>
-      </div>
-
-      <article v-if="practiceFeedback" class="feedback-card">
-        <h4>练习反馈 · {{ practiceFeedback.qualityLabel }}</h4>
-        <p v-if="practiceFeedback.coveredKeyPoints.length">已覆盖：{{ practiceFeedback.coveredKeyPoints.join("、") }}</p>
-        <p v-if="practiceFeedback.missingKeyPoints.length">待补充：{{ practiceFeedback.missingKeyPoints.join("、") }}</p>
-        <ul v-if="practiceFeedback.correctionTips.length">
-          <li v-for="tip in practiceFeedback.correctionTips" :key="tip">{{ tip }}</li>
-        </ul>
-        <p>{{ practiceFeedback.nextAction }}</p>
+      <article v-if="practiceReview" class="review-card">
+        <div class="review-head">
+          <h4>AI 批改结果 · {{ practiceReview.qualityLabel }}</h4>
+          <span>参考评分 {{ practiceReview.score }}</span>
+        </div>
+        <section>
+          <h5>参考答案</h5>
+          <p>{{ practiceReview.referenceAnswer }}</p>
+        </section>
+        <section v-if="practiceReview.issues.length">
+          <h5>需要纠正</h5>
+          <ul>
+            <li v-for="issue in practiceReview.issues" :key="issue">{{ issue }}</li>
+          </ul>
+        </section>
+        <section>
+          <h5>建议改写</h5>
+          <p>{{ practiceReview.rewrittenAnswer }}</p>
+        </section>
+        <section>
+          <h5>下一步练习</h5>
+          <p>{{ practiceReview.nextPractice }}</p>
+        </section>
       </article>
 
       <div class="panel-actions">
@@ -107,8 +89,9 @@
           :disabled="practiceSubmitting || practiceSubmitted"
           @click="$emit('submit')"
         >
-          {{ practiceSubmitting ? "提交中..." : practiceSubmitted ? "已提交" : "提交练习" }}
+          {{ practiceSubmitting ? "批改中..." : practiceSubmitted ? "已批改" : "提交给 AI 批改" }}
         </button>
+        <span v-if="result" class="muted">已练习 {{ result.attemptCount || 0 }} 次</span>
       </div>
     </div>
   </section>
@@ -138,21 +121,11 @@ defineEmits<{
   reset: [];
 }>();
 
-const answerStatusOptions: Array<{
-  label: string;
-  value: trainingApi.TrainingAnswerStatus;
-  testId: string;
-}> = [
-  { label: "不会", value: "不会", testId: "answer-status-unknown" },
-  { label: "模糊", value: "模糊", testId: "answer-status-fuzzy" },
-  { label: "完整", value: "完整", testId: "answer-status-complete" }
-];
-
-const practiceFeedback = computed<trainingApi.TrainingPracticeFeedback | null>(() => {
+const practiceReview = computed<trainingApi.TrainingPracticeReview | null>(() => {
   const metadata = props.result?.metadata as Record<string, unknown> | undefined;
   const lastPractice = metadata?.lastPractice as Record<string, unknown> | undefined;
-  const feedback = lastPractice?.feedback as trainingApi.TrainingPracticeFeedback | undefined;
-  return feedback || null;
+  const review = lastPractice?.review as trainingApi.TrainingPracticeReview | undefined;
+  return review || null;
 });
 
 function modeText(mode: trainingApi.TrainingPractice["mode"]): string {
@@ -174,7 +147,7 @@ function difficultyText(difficulty: trainingApi.TrainingPractice["difficulty"]):
 .empty-practice,
 .guidance-card,
 .template-card,
-.feedback-card,
+.review-card,
 .result-card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -189,7 +162,6 @@ function difficultyText(difficulty: trainingApi.TrainingPractice["difficulty"]):
 }
 
 .panel-head,
-.choice-row,
 .panel-actions,
 .result-card {
   display: flex;
@@ -252,7 +224,7 @@ p {
 .empty-practice,
 .guidance-card,
 .template-card,
-.feedback-card,
+.review-card,
 .result-card {
   display: grid;
   gap: 10px;
@@ -309,32 +281,45 @@ button {
   opacity: 0.62;
 }
 
-.ghost-action,
-.choice-row button {
+.ghost-action {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
-}
-
-.choice-row {
-  flex-wrap: wrap;
-}
-
-.choice-row span {
-  color: var(--color-text-muted);
-  font-weight: 800;
-}
-
-.choice-row button.active {
-  border-color: var(--color-accent);
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
 }
 
 .result-card {
   grid-template-columns: repeat(2, minmax(0, auto));
   justify-content: start;
   background: var(--color-surface-muted);
+}
+
+.review-card {
+  background: var(--color-surface-muted);
+}
+
+.review-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.review-head span {
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-weight: 800;
+  padding: 4px 10px;
+}
+
+.review-card section {
+  display: grid;
+  gap: 6px;
+}
+
+.review-card h5 {
+  margin: 0;
 }
 
 @media (max-width: 720px) {

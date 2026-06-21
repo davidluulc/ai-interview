@@ -177,6 +177,47 @@ def build_practice_feedback(task: TrainingTask, answer_text: str) -> dict[str, A
     }
 
 
+def build_practice_review(task: TrainingTask, answer_text: str) -> dict[str, Any]:
+    from .weakness_training_templates import get_training_template
+
+    template = get_training_template(task.weak_tag)
+    answer_key_points = _safe_template_list(template.get("answerKeyPoints"))[:8]
+    common_mistakes = _safe_template_list(template.get("commonMistakes"))[:4]
+    feedback = build_practice_feedback(task, answer_text)
+    covered = feedback["coveredKeyPoints"]
+    missing = feedback["missingKeyPoints"]
+    score = int(round((len(covered) / len(answer_key_points)) * 100)) if answer_key_points else 0
+    reference_answer = (
+        f"这道题可以按这些要点回答：{'、'.join(answer_key_points)}。"
+        if answer_key_points
+        else "这道题建议按背景、职责、做法、结果和复盘来回答。"
+    )
+    issues = [f"缺少关键点：{point}" for point in missing[:5]]
+    if not str(answer_text or "").strip():
+        issues.insert(0, "当前回答为空，需要先写出自己的理解。")
+    for mistake in common_mistakes:
+        if mistake and mistake not in issues:
+            issues.append(f"注意避免：{mistake}")
+    rewritten_answer = (
+        f"建议改写为：{reference_answer} 结合你的项目时，补充具体场景、实现方式和验证结果。"
+    )
+    next_practice = (
+        "先对照参考答案补齐缺失点，再用自己的项目经历复述一遍。"
+        if missing
+        else "下一步把答案压缩到 1 分钟，并加入一个真实项目细节。"
+    )
+    return {
+        "score": score,
+        "qualityLabel": feedback["qualityLabel"],
+        "referenceAnswer": reference_answer,
+        "strengths": [f"已覆盖：{point}" for point in covered],
+        "issues": issues,
+        "missingKeyPoints": missing,
+        "rewrittenAnswer": rewritten_answer,
+        "nextPractice": next_practice,
+    }
+
+
 def practice_submission_fingerprint(answer_status: str, answer_text: str, self_rating: int | None) -> str:
     return dump_json(
         {
@@ -260,6 +301,7 @@ def complete_training_task(
         "answerPreview": str(answer_text or "")[:300],
         "selfRating": self_rating,
         "feedback": build_practice_feedback(task, answer_text),
+        "review": build_practice_review(task, answer_text),
         "submissionFingerprint": fingerprint,
         "duplicateSubmission": False,
         "completedAt": task.last_practiced_at.isoformat() if task.last_practiced_at else "",

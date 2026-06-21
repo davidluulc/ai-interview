@@ -197,9 +197,9 @@ export const useTrainingStore = defineStore("training", () => {
     practiceError.value = "";
     try {
       const updated = await trainingApi.completeTrainingTask(selectedTaskId.value, {
-        answerStatus: practiceAnswerStatus.value,
+        answerStatus: "模糊",
         answerText: practiceAnswerText.value,
-        selfRating: selfRating.value
+        selfRating: null
       });
       tasks.value = replaceTask(tasks.value, updated);
       lastPracticeResult.value = updated;
