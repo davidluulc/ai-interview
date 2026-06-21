@@ -17,6 +17,11 @@ htmlcov/
 .idea/
 .vscode/
 .superpowers/
+.agents/
+
+# Private job-search notes; keep outside the public repository.
+career/
+求职材料/
 
 node_modules/
 dist/
@@ -29,6 +34,7 @@ data/*.db
 data/*.sqlite
 data/*.sqlite3
 data/backups/
+logs/
 *.log
 
 .DS_Store

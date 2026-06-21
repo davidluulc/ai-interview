@@ -9,10 +9,11 @@
 优先看：
 
 ```text
+docs/PROJECT_STATUS.md
 docs/roadmap/current-state.md
 ```
 
-它是当前唯一可信的项目状态入口，负责回答：
+`docs/PROJECT_STATUS.md` 是公开短入口，`docs/roadmap/current-state.md` 是当前唯一可信的完整项目状态入口，负责回答：
 
 - 现在真实落地了什么。
 - 哪些内容已经完成，不要重复开发。
@@ -32,15 +33,17 @@ docs/project-baseline.md
 ## 3. 部署资料
 
 ```text
+docs/DEPLOYMENT.md
 docs/deployment/
 ```
 
 推荐阅读：
 
-1. `vps-deploy-v1.md`
-2. `troubleshooting.md`
-3. `backup-and-rollback.md`
-4. `nginx-cloudflare-https.md`
+1. `docs/DEPLOYMENT.md`
+2. `vps-deploy-v1.md`
+3. `troubleshooting.md`
+4. `backup-and-rollback.md`
+5. `nginx-cloudflare-https.md`
 
 当前项目已经完成 IP + 8080 端口公网演示，后续域名和 HTTPS 可以继续参考这些文档。
 
@@ -77,12 +80,24 @@ docs/project-explanation/
 重点文件：
 
 - `ai-interview-system-overview.md`
+- `data-model.md`
 - `project-demo-script.md`
 - `interview-deep-dive-qa.md`
 - `resume-bullets-python-backend.md`
 - `resume-bullets-ai-application.md`
 
-## 7. Spec 和 Plan
+注意：公开仓库里的 `resume-bullets-*` 是历史项目讲解材料。BOSS 项目描述、附件简历 bullet、面试讲解稿和求职策略应放在仓库外私有目录，不提交 GitHub。
+
+## 7. 排障复盘
+
+```text
+docs/TROUBLESHOOTING.md
+docs/deployment/troubleshooting.md
+```
+
+排障文档只沉淀能体现工程判断的问题，例如生产数据库迁移、Nginx 502/504、embedding provider 切换、Docker 权限和 VPS GitHub 拉取超时。不记录纯粘贴、路径记错等低价值操作问题。
+
+## 8. Spec 和 Plan
 
 已经完成的历史文档：
 
