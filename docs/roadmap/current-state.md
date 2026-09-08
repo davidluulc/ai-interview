@@ -468,3 +468,16 @@ VECTOR_SEARCH_BACKEND 透传进 app/worker 容器。
 - 待办：公网部署窗口：① 先备份 postgres 数据卷（spec §0 红线）；② 命令在 app 容器内执行（db 服务未发布宿主端口）：`docker compose exec app alembic upgrade head` → `docker compose exec app python scripts/backfill_embedding_vec.py`；③ 回填输出必须 `skipped_dimension_mismatch=0` 才允许切 `VECTOR_SEARCH_BACKEND=pgvector`；④ 索引构建期间写入会短暂阻塞（非 CONCURRENTLY），预期内 → 灰度切 VECTOR_SEARCH_BACKEND=pgvector → 观察 HNSW+强过滤退化
 - 待办：排序行为差异已记录：pgvector 路径纯分数排序，无本人优先重排（与 SQLite 版差异，测试已钉住）
 - 待办：tests/test_deployment_config.py 的镜像断言仍检查 postgres:16 子串（当前由真实注释满足）——后续把断言改为解析 compose 后断言 pgvector/pgvector:pg16。
+
+```text
+S3 RRF 融合实验已完成：retrieve_hybrid_chunks 新增 rrf 融合（rrf_fuse，按名次倒数 1/(60+rank)，零改动既有 weighted 路径）；
+HYBRID_FUSION_MODE 配置开关（weighted | rrf，默认 weighted，backend_python/config.py）；
+实验脚本 scripts/rag_fusion_experiment.py（bm25 / vector / hybrid-weighted / hybrid-rrf 四组，k=3，
+hit@3 / MRR / keywordCoverage / 耗时，38 例来自 data/rag_evaluation_cases.json，--mock-vector 静态向量对照组）；
+实验报告与默认值决策见 docs/experiments/rag-fusion-comparison.md。决策：默认保持 weighted——mock 对照组
+rrf 胜 hit@3（0.9737 vs 0.9474）但 MRR 负于 weighted（0.8860 vs 0.8991），且 mock 方法论仅比较专用
+（静态 3 维向量、14/38 例默认映射 [1,0,0]），真实向量组本地不可得（无 embedding key）。
+```
+
+- 待办：部署窗口 pgvector 切换后用真实向量复跑 fusion 实验（`python scripts/rag_fusion_experiment.py`）——注意 seed 语料 embedding_model=`evaluation-static` ≠ 默认 `text-embedding-v4`，向量检索按模型名过滤，复跑前需设 `EMBEDDING_MODEL=evaluation-static` 或用真实 embedding 重新灌 seed，否则向量侧为空（详见 docs/experiments/rag-fusion-comparison.md 复跑陷阱）。
+- 待办：按预设切换条件决定是否翻默认：若真实向量复跑 rrf hit@3 仍 ≥ weighted，则 `HYBRID_FUSION_MODE` 默认切 rrf（backend_python/config.py 默认值 + .env.example 注释 + 测试默认值断言，一行级改动）。
