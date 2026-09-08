@@ -14,8 +14,9 @@
   文案取自 backend_python/prompts/interview.py 与 interview_agent.py 的语气。
 
 运行方式：仓库根目录 `python -m mcp_server.run_stdio`（stdio，默认 transport）
-或 `python -m mcp_server.run_http`（streamable-http，默认 0.0.0.0:8000/mcp，
-可用 MCP_HOST/MCP_PORT 覆盖）；也可 `from mcp_server.server import mcp` 导入。
+或 `python -m mcp_server.run_http`（streamable-http，默认 127.0.0.1:8000/mcp
+（compose 覆盖为 0.0.0.0），可用 MCP_HOST/MCP_PORT 覆盖）；也可
+`from mcp_server.server import mcp` 导入。
 文件顶部的 sys.path 引导保证 `python mcp_server/server.py` 也可直接运行
 （与 scripts/backfill_embedding_vec.py 同一模式）。
 """

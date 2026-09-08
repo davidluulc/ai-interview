@@ -49,3 +49,17 @@ def structured_output_enabled() -> bool:
     """LLM_STRUCTURED_OUTPUT=chain（默认）| legacy。运行时动态读取，便于灰度与回滚。"""
     value = os.getenv("LLM_STRUCTURED_OUTPUT", "chain").strip().lower()
     return value not in {"legacy", "off", "0", "false"}
+
+
+def mcp_tools_enabled() -> bool:
+    """MCP_TOOLS_ENABLED（默认关闭）。运行时动态读取，便于灰度与回滚。
+
+    取值 1/true/on/yes（大小写不敏感）视为开启；默认 off——未显式配置时
+    langgraph_agent_v3 分派保持应用内检索，不依赖 MCP server 进程。
+    """
+    return env_bool("MCP_TOOLS_ENABLED", False)
+
+
+# langgraph_agent_v3 启用 MCP 检索工具时连接的 streamable-http 端点；
+# compose 部署经 app 服务环境覆盖为 http://mcp:8000/mcp。
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://127.0.0.1:8000/mcp").strip()

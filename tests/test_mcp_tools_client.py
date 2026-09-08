@@ -329,5 +329,23 @@ def test_build_mcp_tool_fns_maps_graph_v3_keys_to_mcp_tools() -> None:
     assert session.calls[2]["arguments"] == {"query": "项目深挖", "limit": 3}
 
 
+def test_build_mcp_tool_fns_with_none_factory_falls_back_in_process() -> None:
+    """client_factory=None（MCP 关闭）时三个闭包仍可用：走 in-process 回退。
+
+    role/question 以 db=None/user_id=None 命中静态语料兜底；memory 闭包临时开
+    SessionLocal 只做只读 SELECT（与 agent_runtime 闭包同形，仓内测试惯例允许
+    触及本地 dev sqlite，见 tests/test_admin_users.py 等）。
+    """
+    fns = build_mcp_tool_fns(None)
+
+    role_hits = fns["retrieve_role_knowledge"](profile={}, next_stage="s", tool_query="q")
+    question_hits = fns["retrieve_question_bank"](profile={}, next_stage="s", tool_query="q")
+    memory_hits = fns["retrieve_candidate_memory"](profile={}, next_stage="s", tool_query="q")
+
+    assert isinstance(role_hits, list)
+    assert isinstance(question_hits, list)
+    assert isinstance(memory_hits, list)
+
+
 def _ok(structured_content: dict) -> FakeCallToolResult:
     return FakeCallToolResult(structured_content=structured_content)
