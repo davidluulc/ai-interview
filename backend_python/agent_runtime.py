@@ -81,7 +81,10 @@ def _failed_quality_gate(reason: str) -> dict[str, Any]:
 
 
 def _build_langgraph_v3_tool_fns(
-    *, application_profile_id: int | None = None
+    *,
+    application_profile_id: int | None = None,
+    user_id: int | None = None,
+    db: Any = None,
 ) -> dict[str, Callable[..., list[dict[str, Any]]]]:
     """为 v3 分派构建 tool_fns：把 mainline 检索同源的三个检索函数适配成
     v3 tools 节点约定 ``tool_fn(profile, next_stage, tool_query) -> list[dict]``。
@@ -89,10 +92,13 @@ def _build_langgraph_v3_tool_fns(
     检索词优先使用 plan 节点给出的 tool_query，为空时回退 next_stage；
     检索函数与 routes/langgraph_agent._real_retrieve_context 同源
     （rag.retrieve_role_context / question_rag.retrieve_questions /
-    candidate_memory.retrieve_candidate_memory）。role/question 在无请求级
-    db 上下文时走各自的静态语料兜底；memory 检索需要 Session，按
-    _real_retrieve_context 的模式临时开 SessionLocal。工具内部异常由
-    v3 tools 节点捕获并降级为空结果，不会中断分派。
+    candidate_memory.retrieve_candidate_memory）。
+
+    作用域参数（路由层接线时传入）：user_id 用于记忆检索的用户隔离
+    （retrieve_role_context / retrieve_questions 亦接受 user_id，一并透传）；
+    db 提供时被三个检索共用，未提供时 role/question 走静态语料兜底、
+    memory 按 _real_retrieve_context 的模式临时开 SessionLocal。
+    工具内部异常由 v3 tools 节点捕获并降级为空结果，不会中断分派。
     """
 
     def _query(next_stage: str, tool_query: str) -> str:
@@ -103,26 +109,37 @@ def _build_langgraph_v3_tool_fns(
     ) -> list[dict[str, Any]]:
         from .rag import retrieve_role_context
 
-        return retrieve_role_context(profile, _query(next_stage, tool_query), limit=3)
+        return retrieve_role_context(
+            profile, _query(next_stage, tool_query), limit=3, db=db, user_id=user_id
+        )
 
     def retrieve_question_bank(
         profile: dict[str, Any], next_stage: str = "", tool_query: str = ""
     ) -> list[dict[str, Any]]:
         from .question_rag import retrieve_questions
 
-        return retrieve_questions(profile, _query(next_stage, tool_query), limit=3)
+        return retrieve_questions(
+            profile, _query(next_stage, tool_query), limit=3, db=db, user_id=user_id
+        )
 
     def retrieve_candidate_memory(
         profile: dict[str, Any], next_stage: str = "", tool_query: str = ""
     ) -> list[dict[str, Any]]:
         from .candidate_memory import retrieve_candidate_memory as retrieve_memory
-        from .database import SessionLocal
 
-        db = SessionLocal()
-        try:
-            return retrieve_memory(db, profile, limit=3, application_profile_id=application_profile_id)
-        finally:
-            db.close()
+        if db is None:
+            from .database import SessionLocal
+
+            session = SessionLocal()
+            try:
+                return retrieve_memory(
+                    session, profile, limit=3, user_id=user_id, application_profile_id=application_profile_id
+                )
+            finally:
+                session.close()
+        return retrieve_memory(
+            db, profile, limit=3, user_id=user_id, application_profile_id=application_profile_id
+        )
 
     return {
         "retrieve_role_knowledge": retrieve_role_knowledge,

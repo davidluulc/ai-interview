@@ -1,6 +1,10 @@
 import asyncio
 
-from backend_python.agent_runtime import normalize_agent_runtime, run_agent_runtime
+from backend_python.agent_runtime import (
+    _build_langgraph_v3_tool_fns,
+    normalize_agent_runtime,
+    run_agent_runtime,
+)
 from backend_python.langgraph_agent import graph_v3
 from backend_python.langgraph_agent.graph_v3 import (
     MAX_PLANNING_STEPS,
@@ -583,3 +587,50 @@ def test_agent_runtime_v3_failure_falls_back_to_classic(monkeypatch) -> None:
     assert result["qualityGate"]["passed"] is False
     assert "LangGraph runtime 执行失败" in result["qualityGate"]["reasons"]
     assert result["runtimeAudit"]["fallbackUsed"] is True
+
+
+def test_build_langgraph_v3_tool_fns_scopes_retrieval_with_user_and_db(monkeypatch) -> None:
+    import backend_python.candidate_memory as candidate_memory_module
+    import backend_python.question_rag as question_rag_module
+    import backend_python.rag as rag_module
+
+    calls: list[tuple[str, dict]] = []
+
+    def fake_role_context(*args, **kwargs):
+        calls.append(("role", {"args": args, "kwargs": kwargs}))
+        return [{"title": "role hit"}]
+
+    def fake_questions(*args, **kwargs):
+        calls.append(("question", {"args": args, "kwargs": kwargs}))
+        return [{"question": "bank hit"}]
+
+    def fake_memory(*args, **kwargs):
+        calls.append(("memory", {"args": args, "kwargs": kwargs}))
+        return [{"memory": "hit"}]
+
+    # 闭包内部是惰性 import（from .rag import ...），每次调用都从源模块
+    # 取属性，因此 patch 源模块属性即可拦截。
+    monkeypatch.setattr(rag_module, "retrieve_role_context", fake_role_context)
+    monkeypatch.setattr(question_rag_module, "retrieve_questions", fake_questions)
+    monkeypatch.setattr(candidate_memory_module, "retrieve_candidate_memory", fake_memory)
+
+    sentinel_db = object()
+    tool_fns = _build_langgraph_v3_tool_fns(application_profile_id=9, user_id=7, db=sentinel_db)
+
+    assert tool_fns["retrieve_role_knowledge"](profile={}, next_stage="s", tool_query="q") == [{"title": "role hit"}]
+    assert tool_fns["retrieve_question_bank"](profile={}, next_stage="s", tool_query="q") == [{"question": "bank hit"}]
+    assert tool_fns["retrieve_candidate_memory"](profile={}, next_stage="s", tool_query="q") == [{"memory": "hit"}]
+
+    by_tool = dict(calls)
+    assert set(by_tool) == {"role", "question", "memory"}
+
+    # role/question：tool_query 作为检索词，db + user_id 透传（签名均支持）
+    assert by_tool["role"]["args"] == ({}, "q")
+    assert by_tool["role"]["kwargs"] == {"limit": 3, "db": sentinel_db, "user_id": 7}
+    assert by_tool["question"]["args"] == ({}, "q")
+    assert by_tool["question"]["kwargs"] == {"limit": 3, "db": sentinel_db, "user_id": 7}
+
+    # memory：传入的 db 必须被复用（不得另开 SessionLocal），且 user_id +
+    # application_profile_id 一并下发，保证用户隔离
+    assert by_tool["memory"]["args"] == (sentinel_db, {})
+    assert by_tool["memory"]["kwargs"] == {"limit": 3, "user_id": 7, "application_profile_id": 9}
