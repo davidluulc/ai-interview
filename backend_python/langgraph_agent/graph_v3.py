@@ -14,6 +14,7 @@ from backend_python.agent_trace import build_node_trace, build_tool_call_summary
 from backend_python.langgraph_agent.checkpoint_store import empty_checkpoint_summary, normalize_thread_id
 from backend_python.langgraph_agent.nodes import (
     analyze_answer_node,
+    apply_policy_node,
     generate_question_node,
     observe_state_node,
     update_memory_node,
@@ -188,6 +189,7 @@ def make_plan_node(
                         "readyToAsk": bool(plan.get("readyToAsk")),
                         "selectedTools": list(plan.get("selectedTools") or []),
                         "decisionSource": decision_source,
+                        "overrideReason": str(plan.get("overrideReason") or ""),
                     },
                     fallback_used=fallback_used,
                     error=error_summary,
@@ -302,7 +304,12 @@ def build_interview_graph_v3(
     structured_call_fn: Callable[..., Awaitable[tuple[Any, dict[str, Any]]]],
     tool_fns: dict[str, Callable[..., list[dict[str, Any]]]],
 ):
-    """组装 v3 面试图：observe_state → analyze_answer → plan ⇄ tools → generate_question → update_memory → END。
+    """组装 v3 面试图：observe_state → analyze_answer → apply_policy → plan ⇄ tools → generate_question → update_memory → END。
+
+    apply_policy 在 plan 之前执行：analyze_answer 产出的 answerAnalysis 喂给
+    规则策略引擎（agent_policy.apply_agent_policy），policy 结果写入 state，
+    供 build_plan_messages 的 policyAdvice 与 apply_policy_guardrail 的强触发
+    覆盖消费——保证「模型建议、规则执行」分层在 v3 图内闭环。
 
     条件路由 route_after_plan：end_interview 直接收束到 END；readyToAsk 或规划步数
     超限（MAX_PLANNING_STEPS）走 generate_question；否则进 tools 执行本轮选中的
@@ -314,6 +321,7 @@ def build_interview_graph_v3(
     graph = StateGraph(InterviewGraphState)
     graph.add_node("observe_state", observe_state_node)
     graph.add_node("analyze_answer", analyze_answer_node)
+    graph.add_node("apply_policy", apply_policy_node)
     graph.add_node("plan", make_plan_node(structured_call_fn))
     graph.add_node("tools", make_tools_node(tool_fns))
     graph.add_node("generate_question", generate_question_node)
@@ -321,7 +329,8 @@ def build_interview_graph_v3(
 
     graph.add_edge(START, "observe_state")
     graph.add_edge("observe_state", "analyze_answer")
-    graph.add_edge("analyze_answer", "plan")
+    graph.add_edge("analyze_answer", "apply_policy")
+    graph.add_edge("apply_policy", "plan")
     graph.add_conditional_edges(
         "plan",
         route_after_plan,

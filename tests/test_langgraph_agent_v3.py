@@ -393,6 +393,7 @@ def test_v3_graph_integration_plan_tools_loop_then_generate():
     assert [entry["nodeName"] for entry in result["nodeTrace"]] == [
         "observe_state",
         "analyze_answer",
+        "apply_policy",
         "plan",
         "tools",
         "plan",
@@ -438,9 +439,118 @@ def test_v3_graph_terminates_when_plan_never_ready():
 
     assert result["planningSteps"] == MAX_PLANNING_STEPS
     node_names = [entry["nodeName"] for entry in result["nodeTrace"]]
-    assert node_names.count("tools") == 1
-    assert node_names[-2:] == ["generate_question", "update_memory"]
+    assert node_names == [
+        "observe_state",
+        "analyze_answer",
+        "apply_policy",
+        "plan",
+        "tools",
+        "plan",
+        "generate_question",
+        "update_memory",
+    ]
     assert result["nextQuestion"].get("prompt")
+
+
+def test_v3_graph_policy_guardrail_live_end_to_end():
+    """策略护栏端到端激活：3 连弱回答 → apply_policy → 覆盖模型的 deep_follow_up。
+
+    全程不 monkeypatch 节点：history 里 3 条含弱回答标记的答案驱动
+    analyze_answer 产出 weakAnswerStreak=3，apply_policy 据此给出
+    switch_topic，plan 节点的 apply_policy_guardrail 覆盖模型规划。
+    """
+
+    async def model_wants_deep_follow_up(**kwargs):
+        model = AgentPlanModel(
+            readyToAsk=True,
+            selectedTools=[],
+            toolQuery="",
+            nextAction="deep_follow_up",
+            difficulty="medium",
+            focus="RAG 基础",
+            reason="模型认为回答尚可，继续深挖。",
+        )
+        return model, {"stages": [], "finalStage": "json_schema", "attemptCount": 1}
+
+    weak_history = [
+        {"question": "讲讲 RAG 的重排环节。", "answer": "不会"},
+        {"question": "Agent 的工具调用怎么理解？", "answer": "不知道"},
+        {"question": "向量检索和关键词检索的差异？", "answer": "不清楚"},
+    ]
+
+    result = asyncio.run(
+        run_interview_graph_v3(
+            thread_id="t",
+            profile={"targetRole": "AI 应用开发"},
+            history=weak_history,
+            next_stage="技术追问",
+            structured_call_fn=model_wants_deep_follow_up,
+            tool_fns={"retrieve_question_bank": _fake_tool("retrieve_question_bank", 1, [])},
+        )
+    )
+
+    # 模型规划是 deep_follow_up，策略引擎给出 switch_topic，护栏必须生效。
+    assert result["planDecision"]["nextAction"] == "switch_topic"
+    assert result["planDecision"]["decisionSource"] == "guardrail"
+    assert result["planDecision"]["overrideReason"]
+    assert result["decision"]["nextAction"] == "switch_topic"
+    assert result["decision"]["decisionSource"] == "guardrail"
+    assert result["policy"]["recommendedAction"] == "switch_topic"
+    # overrideReason 必须进 plan 节点 trace（文档承诺的「overrideReason 进 trace」）。
+    plan_trace = [entry for entry in result["nodeTrace"] if entry["nodeName"] == "plan"][-1]
+    assert plan_trace["outputSummary"]["overrideReason"] == result["planDecision"]["overrideReason"]
+    assert "apply_policy" in [entry["nodeName"] for entry in result["nodeTrace"]]
+    assert result["nextQuestion"].get("prompt")
+
+
+def test_v3_graph_end_interview_routes_to_end_without_question():
+    """钉住当前 end_interview 收束行为：plan 判定后直接 END，不出题、不写记忆。
+
+    已知劣化（接线前必须解决）：若 langgraph_agent_v3 接入 routes 分派层，
+    本路径的空 nextQuestion 会让 evaluate_runtime_quality 的 nonEmptyQuestion
+    检查必然失败（"LangGraph 没有生成可展示的问题"），质量门不通过后回退
+    classic 兜底——接线前需设计收尾问题或豁免规则。
+    """
+
+    async def model_ends_interview(**kwargs):
+        model = AgentPlanModel(
+            readyToAsk=False,
+            selectedTools=["retrieve_question_bank"],
+            toolQuery="收尾",
+            nextAction="end_interview",
+            difficulty="medium",
+            focus="收尾",
+            reason="候选人表现已充分，建议结束面试。",
+        )
+        return model, {"stages": [], "finalStage": "json_schema", "attemptCount": 1}
+
+    tool_calls_log = []
+
+    result = asyncio.run(
+        run_interview_graph_v3(
+            thread_id="t",
+            profile={"targetRole": "AI 应用开发"},
+            history=[],
+            next_stage="综合追问",
+            structured_call_fn=model_ends_interview,
+            tool_fns={
+                "retrieve_question_bank": _fake_tool("retrieve_question_bank", 1, tool_calls_log),
+            },
+        )
+    )
+
+    assert result["nextQuestion"] == {}
+    assert result["memoryUpdate"] == {}
+    assert result["planDecision"]["nextAction"] == "end_interview"
+    assert [entry["nodeName"] for entry in result["nodeTrace"]] == [
+        "observe_state",
+        "analyze_answer",
+        "apply_policy",
+        "plan",
+    ]
+    # 路由优先级：end_interview 判定在 readyToAsk/planningSteps 之前，
+    # 因此 readyToAsk=False 也不会进 tools 循环。
+    assert tool_calls_log == []
 
 
 def test_v3_runner_passes_recursion_limit():

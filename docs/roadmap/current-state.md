@@ -483,8 +483,8 @@ rrf 胜 hit@3（0.9737 vs 0.9474）但 MRR 负于 weighted（0.8860 vs 0.8991）
 - 待办：按预设切换条件决定是否翻默认：若真实向量复跑 rrf hit@3 仍 ≥ weighted，则 `HYBRID_FUSION_MODE` 默认切 rrf（backend_python/config.py 默认值 + .env.example 注释 + 测试默认值断言，一行级改动）。
 
 ```text
-S4 LangGraph v3 已完成：plan⇄tools 条件路由循环（模型经 AgentPlanModel 自主选择检索工具与查询词，MAX_PLANNING_STEPS=2 + recursion_limit=25 双保险）、apply_policy_guardrail 规则覆盖（overrideReason 进 trace）、runtime langgraph_agent_v3 注册并复用 quality gate / fallback classic。默认 runtime 仍为 langgraph_mainline，v3 未接入 route 层。
+S4 LangGraph v3 已完成（final review fix wave 后）：plan⇄tools 条件路由循环（模型经 AgentPlanModel 自主选择检索工具与查询词，MAX_PLANNING_STEPS=2 + recursion_limit=25 双保险）、apply_policy 节点已入图（analyze_answer → apply_policy → plan，策略引擎产出 policy 喂给 build_plan_messages 的 policyAdvice 与护栏）、apply_policy_guardrail 规则覆盖（overrideReason 进 plan trace）、runtime langgraph_agent_v3 注册并复用 quality gate / fallback classic。默认 runtime 仍为 langgraph_mainline，v3 未接入 route 层；end_interview 路径当前收束为空 nextQuestion（已被测试钉住，接线前需设计收尾问题或豁免规则）。
 ```
 
-- 待办：v3 route 接线（runtime_policy 允许 langgraph_agent_v3 经 payload 选择；接线时必须向 _build_langgraph_v3_tool_fns 传 user_id 与请求级 db——见 S4 账本）；shadow 观察后再评估切 mainline。
+- 待办：v3 route 接线（runtime_policy 允许 langgraph_agent_v3 经 payload 选择；接线时必须向 _build_langgraph_v3_tool_fns 传 user_id 与请求级 db——见 S4 账本）；接线时需扩展 routes/interview.py visibleRuntime 消费集合（当前仅 langgraph/langgraph_mainline）；end_interview 在 gate 下必然失败转 classic——接线前需设计收尾问题或豁免规则；shadow 观察后再评估切 mainline。
 - 待办：v3 checkpointer 集成（当前 recursion_limit + thread_id 仅为 trace 兼容）；planDecision 未携带 structured-chain 元数据（S5 可补）。
