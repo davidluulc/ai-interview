@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
 from .config import QWEN_MODEL
+from .llm_client import extract_json
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -81,3 +83,37 @@ def build_tool_call_payload(
         ],
         "tool_choice": {"type": "function", "function": {"name": schema_model.__name__}},
     }
+
+
+def message_content(data: dict[str, Any]) -> str:
+    choices = data.get("choices") or []
+    if not choices:
+        return ""
+    return str(choices[0].get("message", {}).get("content") or "")
+
+
+def parse_tool_arguments(data: dict[str, Any]) -> dict[str, Any]:
+    choices = data.get("choices") or []
+    tool_calls = choices[0].get("message", {}).get("tool_calls") if choices else None
+    if not tool_calls:
+        raise LLMFormatError("Response has no tool_calls.")
+    arguments = tool_calls[0].get("function", {}).get("arguments")
+    if not arguments:
+        raise LLMFormatError("Tool call has no arguments.")
+    try:
+        parsed = json.loads(arguments)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise LLMFormatError(f"Tool arguments is not valid JSON: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise LLMFormatError("Tool arguments must be a JSON object.")
+    return parsed
+
+
+def parse_content_json(content: str) -> dict[str, Any]:
+    try:
+        parsed = extract_json(content)
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise LLMFormatError(f"Content is not valid JSON: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise LLMFormatError("Content JSON must be an object.")
+    return parsed
