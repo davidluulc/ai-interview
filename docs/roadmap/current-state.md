@@ -33,13 +33,15 @@
 
 当前 active spec：
 ```text
-docs/specs/active/admin-observability-ux-v3-design.md
+docs/specs/active/agent-v3-upgrade-design.md
 ```
 
 当前 active plan：
 ```text
-docs/plans/active/admin-observability-ux-v3.md
+docs/plans/active/agent-v3-upgrade-stage1-structured-output.md
 ```
+
+Agent v3 升级包（S1 结构化输出 → S2 pgvector → S3 融合实验 → S4 真图化 → S5 MCP），预算与停止条件见 spec §0 Goal Card。
 
 最近完成归档：
 ```text

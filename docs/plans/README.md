@@ -8,16 +8,17 @@
 
 当前 active plan：
 ```text
-docs/plans/active/admin-observability-ux-v3.md
+docs/plans/active/agent-v3-upgrade-stage1-structured-output.md
 ```
 
 当前 active spec：
 ```text
-docs/specs/active/admin-observability-ux-v3-design.md
+docs/specs/active/agent-v3-upgrade-design.md
 ```
 
 最近完成并归档的 plan：
 ```text
+docs/plans/active/admin-observability-ux-v3.md（主体完成，公网 smoke 未做，见 current-state 待办）
 docs/plans/completed/admin-report-productization-v2.md
 docs/plans/completed/production-ux-auth-hardening-v1.md
 docs/plans/completed/public-demo-stabilization-rag-seed-v1.md
