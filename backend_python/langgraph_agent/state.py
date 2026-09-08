@@ -18,6 +18,9 @@ class InterviewGraphState(TypedDict, total=False):
     retrievalQuality: dict[str, Any]
     policy: dict[str, Any]
     policySummary: dict[str, Any]
+    planningSteps: int
+    planDecision: dict[str, Any]
+    selectedToolResults: dict[str, Any]
     roleHits: list[dict[str, Any]]
     questionHits: list[dict[str, Any]]
     memoryHits: list[dict[str, Any]]
