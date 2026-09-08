@@ -78,6 +78,15 @@ focused backend observability/debug pytest: 14 passed, 1 warning
 focused frontend admin tests: 2 files passed, 30 tests passed
 ```
 
+```text
+S1 结构化输出降级链已完成：json_schema → tool_call → free_json(校正重试) 三段链，
+异常按传输/格式分层，Agent 决策与出题两个调用点已接入，LLM_STRUCTURED_OUTPUT=legacy 可整体回滚。
+报告生成与简历解析仍在 legacy 通道，留待后续机械迁移。
+```
+
+- 待办：tests/test_project_entrypoints.py 的 README 断言（localhost:8000）自 cb9d806 起即失败——main 上 README 改写时删掉了该串，需要决定是改测试断言还是补 README 说明（范围外，本阶段未修）。
+- 待办：S1 待公网 smoke（DashScope json_schema strict 真实支持度需线上验证；验证不通过时三段链会自动落到 function calling 段）。
+
 ## 3. Admin & Report Productization V2 完成情况
 
 本阶段已把“代码里有能力，但公网演示观感不明显”的后台和报告能力完成产品化收口：
