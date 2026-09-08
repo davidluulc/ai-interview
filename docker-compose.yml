@@ -17,6 +17,7 @@ services:
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
       EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-}
       EMBEDDING_REQUIRE_MODEL_MATCH: ${EMBEDDING_REQUIRE_MODEL_MATCH:-true}
+      VECTOR_SEARCH_BACKEND: ${VECTOR_SEARCH_BACKEND:-sqlite}
       DASHSCOPE_RERANK_MODEL: ${DASHSCOPE_RERANK_MODEL:-qwen3-rerank}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-60}
       LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
@@ -56,6 +57,7 @@ services:
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
       EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-}
       EMBEDDING_REQUIRE_MODEL_MATCH: ${EMBEDDING_REQUIRE_MODEL_MATCH:-true}
+      VECTOR_SEARCH_BACKEND: ${VECTOR_SEARCH_BACKEND:-sqlite}
       DASHSCOPE_RERANK_MODEL: ${DASHSCOPE_RERANK_MODEL:-qwen3-rerank}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-60}
       LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
@@ -79,7 +81,8 @@ services:
     restart: unless-stopped
 
   db:
-    image: postgres:16
+    # pgvector/pgvector:pg16 = postgres:16 + 预装 vector 扩展（rag_chunks.embedding_vec 的 HNSW 检索依赖它）
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ai_interview}
       POSTGRES_USER: ${POSTGRES_USER:-ai_interview}

@@ -456,3 +456,14 @@ HTTPS / 域名
 -> 继续开发下一轮增强功能
 ```
 - 待办：S1 代码级小清扫（后续阶段顺手处理）：structured_output.py 未用的 import time / TypeVar T、不可达 TypeError 分支、终态 raise 缺 from、interview_agent normalize 前死赋值、重试元组可放宽至 httpx.RequestError 覆盖 DecodingError。
+
+```text
+S2 pgvector 检索后端已完成：rag_chunks 新增 embedding_vec vector(2048) + HNSW halfvec 表达式索引（alembic 20260909_0001）；
+PgVectorStore 两段式检索（halfvec 近似召回 + 全精度 cosine 重排）；VECTOR_SEARCH_BACKEND 按配置切换（默认 sqlite 不变）；
+摄取链路双写（create_rag_document_with_embeddings 同时写 embedding_json 与 embedding_vec，仅 PostgreSQL 生效）；
+回填脚本 scripts/backfill_embedding_vec.py（幂等，维度不符跳过并计数）；compose db 镜像 postgres:16 → pgvector/pgvector:pg16，
+VECTOR_SEARCH_BACKEND 透传进 app/worker 容器。
+```
+
+- 待办：公网部署窗口：alembic upgrade head → 回填脚本 → 灰度切 VECTOR_SEARCH_BACKEND=pgvector → 观察 HNSW+强过滤退化
+- 待办：排序行为差异已记录：pgvector 路径纯分数排序，无本人优先重排（与 SQLite 版差异，测试已钉住）

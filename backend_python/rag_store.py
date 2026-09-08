@@ -5,9 +5,10 @@ import re
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from .config import EMBEDDING_DIMENSIONS_INT
 from .db_models import RagChunk, RagDocument
 from .embedding_client import current_embedding_model, embed_text
 from .knowledge_bases import VALID_KNOWLEDGE_BASES
@@ -247,6 +248,29 @@ def create_rag_document(
     return document
 
 
+def write_embedding_vec_columns(db: Session, chunk_embeddings: list[tuple[RagChunk, list[float]]]) -> None:
+    """Double-write ready embeddings into ``rag_chunks.embedding_vec`` on PostgreSQL.
+
+    SQLite deployments (the default) have no ``embedding_vec`` column and skip
+    this entirely. PostgreSQL rows without a vector (pre-migration rows, or
+    embeddings whose dimensions differ from ``EMBEDDING_DIMENSIONS``) are
+    covered by ``scripts/backfill_embedding_vec.py``; dimension mismatches are
+    skipped here for the same reason the backfill skips them.
+    """
+    if db.get_bind().dialect.name != "postgresql":
+        return
+    # Deferred import: pg_vector_store imports helpers from this module.
+    from .pg_vector_store import embedding_literal
+
+    for chunk, embedding in chunk_embeddings:
+        if not embedding or len(embedding) != EMBEDDING_DIMENSIONS_INT:
+            continue
+        db.execute(
+            text("UPDATE rag_chunks SET embedding_vec = CAST(:vec AS vector) WHERE id = :chunk_id"),
+            {"vec": embedding_literal(embedding), "chunk_id": chunk.id},
+        )
+
+
 async def create_rag_document_with_embeddings(
     db: Session,
     *,
@@ -278,6 +302,7 @@ async def create_rag_document_with_embeddings(
     db.commit()
     db.refresh(document)
 
+    chunk_embeddings: list[tuple[RagChunk, list[float]]] = []
     for index, chunk_record in enumerate(chunk_records):
         chunk_content = str(chunk_record["content"])
         embedding: list[float] = []
@@ -305,6 +330,9 @@ async def create_rag_document_with_embeddings(
             embedding_status=embedding_status,
         )
         db.add(chunk)
+        chunk_embeddings.append((chunk, embedding))
+    db.flush()
+    write_embedding_vec_columns(db, chunk_embeddings)
     db.commit()
     db.refresh(document)
     return document
