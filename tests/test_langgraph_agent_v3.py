@@ -4,8 +4,12 @@ from backend_python.langgraph_agent.graph_v3 import (
     MAX_PLANNING_STEPS,
     AgentPlanModel,
     apply_policy_guardrail,
+    build_interview_graph_v3,
     make_plan_node,
+    make_tools_node,
+    route_after_plan,
 )
+from backend_python.langgraph_agent.state import build_initial_graph_state
 from backend_python.structured_output import StructuredOutputExhausted
 
 
@@ -162,3 +166,231 @@ def test_plan_node_forces_ready_to_ask_at_max_planning_steps():
 
     assert result["planningSteps"] == MAX_PLANNING_STEPS
     assert result["planDecision"]["readyToAsk"] is True
+
+
+def _tools_node_state(**plan_overrides):
+    plan = {
+        "readyToAsk": False,
+        "selectedTools": [],
+        "toolQuery": "RAG 检索质量",
+        "nextAction": "deep_follow_up",
+        "difficulty": "medium",
+        "focus": "RAG 基础",
+        "reason": "继续检索。",
+        "decisionSource": "model",
+    }
+    plan.update(plan_overrides)
+    return {
+        "profile": {"targetRole": "AI 应用开发"},
+        "history": [],
+        "nextStage": "项目追问",
+        "planningSteps": 1,
+        "planDecision": plan,
+        "nodeTrace": [],
+    }
+
+
+def _fake_tool(tool_name: str, hit_count: int, calls_log: list):
+    def tool_fn(profile: dict, next_stage: str, tool_query: str):
+        calls_log.append(
+            {
+                "toolName": tool_name,
+                "profile": profile,
+                "nextStage": next_stage,
+                "toolQuery": tool_query,
+            }
+        )
+        return [
+            {"id": f"{tool_name}-{index}", "content": f"{tool_name} 命中内容 {index}"}
+            for index in range(hit_count)
+        ]
+
+    return tool_fn
+
+
+def test_route_after_plan_end_generate_tools_branches():
+    end_state = {"planDecision": {"nextAction": "end_interview", "readyToAsk": True}, "planningSteps": 1}
+    generate_state = {"planDecision": {"nextAction": "deep_follow_up", "readyToAsk": True}, "planningSteps": 1}
+    tools_state = {"planDecision": {"nextAction": "deep_follow_up", "readyToAsk": False}, "planningSteps": 1}
+
+    assert route_after_plan(end_state) == "end"
+    assert route_after_plan(generate_state) == "generate"
+    assert route_after_plan(tools_state) == "tools"
+
+
+def test_route_after_plan_max_planning_steps_routes_to_generate():
+    state = {
+        "planDecision": {"nextAction": "deep_follow_up", "readyToAsk": False},
+        "planningSteps": MAX_PLANNING_STEPS,
+    }
+
+    assert route_after_plan(state) == "generate"
+
+
+def test_tools_node_runs_only_selected_tools():
+    calls_log = []
+    tool_fns = {
+        "retrieve_role_knowledge": _fake_tool("retrieve_role_knowledge", 1, calls_log),
+        "retrieve_question_bank": _fake_tool("retrieve_question_bank", 2, calls_log),
+        "retrieve_candidate_memory": _fake_tool("retrieve_candidate_memory", 3, calls_log),
+    }
+    state = _tools_node_state(
+        selectedTools=["retrieve_role_knowledge", "retrieve_question_bank"],
+        toolQuery="RAG 重排",
+    )
+
+    result = make_tools_node(tool_fns)(state)
+
+    assert [call["toolName"] for call in calls_log] == [
+        "retrieve_role_knowledge",
+        "retrieve_question_bank",
+    ]
+    assert calls_log[0]["toolQuery"] == "RAG 重排"
+    assert calls_log[0]["nextStage"] == "项目追问"
+    assert calls_log[0]["profile"] == {"targetRole": "AI 应用开发"}
+    assert len(result["selectedToolResults"]["role"]) == 1
+    assert len(result["selectedToolResults"]["question"]) == 2
+    assert result["selectedToolResults"]["memory"] == []
+    tools_trace = result["nodeTrace"][-1]
+    assert tools_trace["nodeName"] == "tools"
+    assert tools_trace["outputSummary"]["skippedTools"] == ["retrieve_candidate_memory"]
+    assert tools_trace["outputSummary"]["toolCalls"][0]["outputSummary"]["hitCount"] == 1
+    assert tools_trace["fallbackUsed"] is False
+
+
+def test_tools_node_isolates_per_tool_failures():
+    calls_log = []
+
+    def broken_tool(profile: dict, next_stage: str, tool_query: str):
+        calls_log.append({"toolName": "retrieve_question_bank"})
+        raise RuntimeError("题库服务超时")
+
+    tool_fns = {
+        "retrieve_role_knowledge": _fake_tool("retrieve_role_knowledge", 1, calls_log),
+        "retrieve_question_bank": broken_tool,
+        "retrieve_candidate_memory": _fake_tool("retrieve_candidate_memory", 2, calls_log),
+    }
+    state = _tools_node_state(
+        selectedTools=[
+            "retrieve_role_knowledge",
+            "retrieve_question_bank",
+            "retrieve_candidate_memory",
+        ]
+    )
+
+    result = make_tools_node(tool_fns)(state)
+
+    assert [call["toolName"] for call in calls_log] == [
+        "retrieve_role_knowledge",
+        "retrieve_question_bank",
+        "retrieve_candidate_memory",
+    ]
+    assert len(result["selectedToolResults"]["role"]) == 1
+    assert result["selectedToolResults"]["question"] == []
+    assert len(result["selectedToolResults"]["memory"]) == 2
+    tools_trace = result["nodeTrace"][-1]
+    failed_calls = [
+        call
+        for call in tools_trace["outputSummary"]["toolCalls"]
+        if call["toolName"] == "retrieve_question_bank"
+    ]
+    assert len(failed_calls) == 1
+    assert failed_calls[0]["success"] is False
+    assert "题库服务超时" in failed_calls[0]["error"]
+    assert tools_trace["fallbackUsed"] is True
+
+
+def test_tools_node_empty_selection_skips_all_tools():
+    calls_log = []
+    tool_fns = {
+        "retrieve_role_knowledge": _fake_tool("retrieve_role_knowledge", 1, calls_log),
+        "retrieve_question_bank": _fake_tool("retrieve_question_bank", 2, calls_log),
+        "retrieve_candidate_memory": _fake_tool("retrieve_candidate_memory", 3, calls_log),
+    }
+    state = _tools_node_state(selectedTools=[])
+
+    result = make_tools_node(tool_fns)(state)
+
+    assert calls_log == []
+    assert result["selectedToolResults"] == {"role": [], "question": [], "memory": []}
+    tools_trace = result["nodeTrace"][-1]
+    assert sorted(tools_trace["outputSummary"]["skippedTools"]) == [
+        "retrieve_candidate_memory",
+        "retrieve_question_bank",
+        "retrieve_role_knowledge",
+    ]
+    assert tools_trace["outputSummary"]["toolCalls"] == []
+
+
+def test_v3_graph_integration_plan_tools_loop_then_generate():
+    plan_call_count = []
+
+    async def fake_structured_call(**kwargs):
+        plan_call_count.append(kwargs)
+        if len(plan_call_count) == 1:
+            model = AgentPlanModel(
+                readyToAsk=False,
+                selectedTools=["retrieve_question_bank"],
+                toolQuery="RAG 追问",
+                nextAction="deep_follow_up",
+                difficulty="medium",
+                focus="RAG 检索质量",
+                reason="第一轮先查题库再决定。",
+            )
+        else:
+            model = AgentPlanModel(
+                readyToAsk=True,
+                selectedTools=[],
+                toolQuery="",
+                nextAction="deep_follow_up",
+                difficulty="medium",
+                focus="RAG 检索质量",
+                reason="题库命中已足够出题。",
+            )
+        return model, {"stages": [], "finalStage": "json_schema", "attemptCount": 1}
+
+    tool_calls_log = []
+
+    def fake_role_tool(profile: dict, next_stage: str, tool_query: str):
+        tool_calls_log.append("retrieve_role_knowledge")
+        return [{"id": "role-1", "content": "岗位知识命中"}]
+
+    def fake_question_tool(profile: dict, next_stage: str, tool_query: str):
+        tool_calls_log.append("retrieve_question_bank")
+        return [{"id": "question-1", "content": "题库命中题目"}]
+
+    def fake_memory_tool(profile: dict, next_stage: str, tool_query: str):
+        tool_calls_log.append("retrieve_candidate_memory")
+        return [{"id": "memory-1", "content": "画像命中"}]
+
+    graph = build_interview_graph_v3(
+        structured_call_fn=fake_structured_call,
+        tool_fns={
+            "retrieve_role_knowledge": fake_role_tool,
+            "retrieve_question_bank": fake_question_tool,
+            "retrieve_candidate_memory": fake_memory_tool,
+        },
+    )
+
+    state = build_initial_graph_state(
+        profile={"targetRole": "AI 应用开发"},
+        history=[],
+        next_stage="项目追问",
+    )
+    state["policy"] = {}
+
+    result = asyncio.run(graph.ainvoke(state))
+
+    assert result["nextQuestion"].get("prompt")
+    assert [entry["nodeName"] for entry in result["nodeTrace"]] == [
+        "observe_state",
+        "analyze_answer",
+        "plan",
+        "tools",
+        "plan",
+        "generate_question",
+        "update_memory",
+    ]
+    assert result["planningSteps"] == 2
+    assert result["selectedToolResults"]["question"]
+    assert tool_calls_log == ["retrieve_question_bank"]

@@ -1,15 +1,26 @@
-"""LangGraph v3 图的规划（plan）节点：模型驱动选工具 + 策略护栏 + 强制收敛。"""
+"""LangGraph v3 图：plan 节点（模型驱动选工具 + 策略护栏）+ tools 节点 + 条件路由 + 图组装。"""
 
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel
 
-from backend_python.agent_trace import build_node_trace, summarize_text
+from backend_python.agent_trace import build_node_trace, build_tool_call_summary, summarize_text
+from backend_python.langgraph_agent.nodes import (
+    analyze_answer_node,
+    generate_question_node,
+    observe_state_node,
+    update_memory_node,
+)
+from backend_python.langgraph_agent.state import InterviewGraphState
 from backend_python.structured_output import StructuredOutputExhausted
+
+logger = logging.getLogger(__name__)
 
 VALID_TOOLS = {
     "retrieve_role_knowledge",
@@ -17,6 +28,12 @@ VALID_TOOLS = {
     "retrieve_candidate_memory",
 }
 MAX_PLANNING_STEPS = 2
+
+TOOL_RESULT_BUCKETS = {
+    "retrieve_role_knowledge": "role",
+    "retrieve_question_bank": "question",
+    "retrieve_candidate_memory": "memory",
+}
 
 
 class AgentPlanModel(BaseModel):
@@ -173,3 +190,138 @@ def make_plan_node(
         }
 
     return plan_node
+
+
+def route_after_plan(state: dict[str, Any]) -> str:
+    """纯函数：plan 之后的条件路由，返回 "tools" | "generate" | "end"。
+
+    - planDecision.nextAction == "end_interview" → "end"（直接收束，state 原样保留）；
+    - planDecision.readyToAsk 为真，或 planningSteps 已达 MAX_PLANNING_STEPS → "generate"；
+    - 其余情况 → "tools"（回到检索循环，步数上限保证有界）。
+    """
+    plan_decision = dict(state.get("planDecision") or {})
+    if str(plan_decision.get("nextAction") or "") == "end_interview":
+        return "end"
+    if plan_decision.get("readyToAsk") or int(state.get("planningSteps") or 0) >= MAX_PLANNING_STEPS:
+        return "generate"
+    return "tools"
+
+
+def make_tools_node(
+    tool_fns: dict[str, Callable[..., list[dict[str, Any]]]],
+) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    """工厂：返回 v3 图的 tools 节点，只执行 planDecision.selectedTools 命中的工具。
+
+    工具调用约定（Task 4 / S5 的真实检索工具必须满足）::
+
+        tool_fn(profile: dict, next_stage: str, tool_query: str) -> list[dict]
+
+    - profile：候选人画像（来自 state["profile"]）；
+    - next_stage：本轮追问阶段（来自 state["nextStage"]）；
+    - tool_query：plan 节点给出的统一检索词（planDecision["toolQuery"]）；
+    - 返回值：命中条目列表 list[dict]；抛出的异常由本节点捕获并降级为空结果。
+
+    节点返回 partial：selectedToolResults（固定 role/question/memory 三键，未选中
+    或失败的工具对应空列表），以及 nodeTrace（含每个工具的 toolCall 摘要——
+    命中数/成功位/错误信息——和 skippedTools 未选中工具列表，保证可观测性）。
+    selectedTools 会被收敛到 tool_fns 实际注册的键；单个工具失败只影响自己的桶，
+    不会中断其他工具。
+    """
+
+    def tools_node(state: dict[str, Any]) -> dict[str, Any]:
+        plan_decision = dict(state.get("planDecision") or {})
+        selected_tools = [
+            tool_name
+            for tool_name in list(plan_decision.get("selectedTools") or [])
+            if tool_name in tool_fns
+        ]
+        skipped_tools = [tool_name for tool_name in tool_fns if tool_name not in selected_tools]
+        profile = dict(state.get("profile") or {})
+        next_stage = str(state.get("nextStage") or "")
+        tool_query = str(plan_decision.get("toolQuery") or "")
+        selected_tool_results: dict[str, list[dict[str, Any]]] = {"role": [], "question": [], "memory": []}
+        tool_calls: list[dict[str, Any]] = []
+        for tool_name in selected_tools:
+            hits: list[dict[str, Any]] = []
+            error = ""
+            success = True
+            try:
+                hits = list(
+                    tool_fns[tool_name](profile=profile, next_stage=next_stage, tool_query=tool_query) or []
+                )
+            except Exception as exc:  # 单个工具失败不能拖垮其他工具
+                logger.warning("tools 节点工具 %s 调用失败：%s", tool_name, exc)
+                error = summarize_text(exc, limit=120)
+                success = False
+                hits = []
+            bucket = TOOL_RESULT_BUCKETS.get(tool_name)
+            if bucket is not None:
+                selected_tool_results[bucket] = hits
+            tool_calls.append(
+                build_tool_call_summary(
+                    tool_name=tool_name,
+                    input_summary={"toolQuery": tool_query},
+                    output_summary={"hitCount": len(hits)},
+                    success=success,
+                    error=error,
+                )
+            )
+        return {
+            "selectedToolResults": selected_tool_results,
+            "nodeTrace": [
+                *_trace_list(state),
+                build_node_trace(
+                    node_name="tools",
+                    input_summary={
+                        "selectedTools": selected_tools,
+                        "toolQuery": tool_query,
+                    },
+                    output_summary={
+                        "roleHitCount": len(selected_tool_results["role"]),
+                        "questionHitCount": len(selected_tool_results["question"]),
+                        "memoryHitCount": len(selected_tool_results["memory"]),
+                        "skippedTools": skipped_tools,
+                        "toolCalls": tool_calls,
+                    },
+                    fallback_used=any(not call["success"] for call in tool_calls),
+                ),
+            ],
+        }
+
+    return tools_node
+
+
+def build_interview_graph_v3(
+    *,
+    structured_call_fn: Callable[..., Awaitable[tuple[Any, dict[str, Any]]]],
+    tool_fns: dict[str, Callable[..., list[dict[str, Any]]]],
+):
+    """组装 v3 面试图：observe_state → analyze_answer → plan ⇄ tools → generate_question → update_memory → END。
+
+    条件路由 route_after_plan：end_interview 直接收束到 END；readyToAsk 或规划步数
+    超限（MAX_PLANNING_STEPS）走 generate_question；否则进 tools 执行本轮选中的
+    检索工具后回到 plan，形成有界循环。
+
+    v3.0 不接 checkpointer：断点续跑/回放依赖图之外的线程状态持久化实现，
+    checkpointer 集成延后（deferred），避免与 v2 图的 memory saver 语义混用。
+    """
+    graph = StateGraph(InterviewGraphState)
+    graph.add_node("observe_state", observe_state_node)
+    graph.add_node("analyze_answer", analyze_answer_node)
+    graph.add_node("plan", make_plan_node(structured_call_fn))
+    graph.add_node("tools", make_tools_node(tool_fns))
+    graph.add_node("generate_question", generate_question_node)
+    graph.add_node("update_memory", update_memory_node)
+
+    graph.add_edge(START, "observe_state")
+    graph.add_edge("observe_state", "analyze_answer")
+    graph.add_edge("analyze_answer", "plan")
+    graph.add_conditional_edges(
+        "plan",
+        route_after_plan,
+        {"tools": "tools", "generate": "generate_question", "end": END},
+    )
+    graph.add_edge("tools", "plan")
+    graph.add_edge("generate_question", "update_memory")
+    graph.add_edge("update_memory", END)
+    return graph.compile()
