@@ -32,10 +32,39 @@ services:
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/2}
       CELERY_TASK_ALWAYS_EAGER: ${CELERY_TASK_ALWAYS_EAGER:-false}
+      # langgraph_agent_v3 检索工具经 MCP server（默认关闭；开启前需确认 mcp 服务可达）
+      MCP_TOOLS_ENABLED: ${MCP_TOOLS_ENABLED:-false}
+      MCP_SERVER_URL: ${MCP_SERVER_URL:-http://mcp:8000/mcp}
     depends_on:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  mcp:
+    # MCP server：与 app 同镜像跑 streamable-http transport（检索/出题/复盘工具）。
+    # MCP_HOST 显式覆盖为 0.0.0.0（默认回环策略是给本机进程的；容器内必须绑全网卡
+    # 才能被 app 经服务名访问）。只 expose 不 ports：仅 compose 内网可达，不发布到宿主。
+    image: ai-interview-app:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "mcp_server.run_http"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://ai_interview:replace_with_postgres_password@db:5432/ai_interview}
+      AUTO_INIT_DB: ${AUTO_INIT_DB:-false}
+      REDIS_ENABLED: ${REDIS_ENABLED:-true}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/2}
+      CELERY_TASK_ALWAYS_EAGER: ${CELERY_TASK_ALWAYS_EAGER:-false}
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8000"
+    depends_on:
+      db:
         condition: service_healthy
     expose:
       - "8000"

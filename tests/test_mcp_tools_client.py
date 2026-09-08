@@ -8,7 +8,14 @@
   is_error 结果 → 回退 in_process_fn，transport="mcp-fallback"。
 - client_factory=None → 直接 in-process（sync / async in_process_fn 都支持）。
 - build_mcp_tool_fns：graph_v3 约定的三个检索键 → 正确的 MCP 工具名与
-  payload {"query": ..., "limit": 3}（tool_query 优先，next_stage 兜底）。
+  payload {"query": ..., "limit": 3}（tool_query 优先，next_stage 兜底）；
+  client_factory=None（MCP 关闭）时三个闭包走 in-process 回退仍可用。
+
+覆盖 Stage 5 Task 4 交付：
+- build_streamable_http_factory：streamable_http_client → ClientSession →
+  initialize 的组装顺序（monkeypatch SDK 入口，不起服务）；连接+握手超预算
+  → 异常上抛，经 call_tool_with_fallback 回退 in-process（transport=mcp-fallback）。
+- agent_runtime v3 分派的 MCP 开关（mcp_tools_enabled）见本文件末尾的分派测试。
 """
 
 import asyncio
@@ -345,6 +352,164 @@ def test_build_mcp_tool_fns_with_none_factory_falls_back_in_process() -> None:
     assert isinstance(role_hits, list)
     assert isinstance(question_hits, list)
     assert isinstance(memory_hits, list)
+
+
+# ---------------------------------------------------------------------------
+# 6. build_streamable_http_factory（真实客户端工厂，SDK 入口打桩）
+# ---------------------------------------------------------------------------
+
+
+def test_build_streamable_http_factory_connects_initializes_and_enforces_timeout(monkeypatch) -> None:
+    """真实工厂的组装契约：连接+initialize 在超时预算内，退出按 LIFO 收尾。"""
+    import mcp as mcp_pkg
+
+    import backend_python.mcp_tools_client as mtc
+
+    events: list[str] = []
+    seen_streams: dict = {}
+
+    @asynccontextmanager
+    async def fake_transport(url):
+        events.append(f"transport-enter:{url}")
+        try:
+            yield ("read-stream", "write-stream", lambda: "session-id")
+        finally:
+            events.append("transport-exit")
+
+    class FakeClientSession:
+        async def __aenter__(self):
+            events.append("session-enter")
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            events.append("session-exit")
+            return False
+
+        async def initialize(self):
+            events.append("initialize")
+
+    session = FakeClientSession()
+
+    def make_session(read, write):
+        seen_streams["streams"] = (read, write)
+        return session
+
+    monkeypatch.setattr("mcp.client.streamable_http.streamable_http_client", fake_transport)
+    monkeypatch.setattr(mcp_pkg, "ClientSession", make_session)
+
+    factory = mtc.build_streamable_http_factory("http://127.0.0.1:8231/mcp")
+
+    async def happy_path() -> None:
+        async with factory() as got:
+            assert got is session
+            assert events == [
+                "transport-enter:http://127.0.0.1:8231/mcp",
+                "session-enter",
+                "initialize",
+            ]
+
+    asyncio.run(happy_path())
+    assert seen_streams["streams"] == ("read-stream", "write-stream")
+    assert events == [
+        "transport-enter:http://127.0.0.1:8231/mcp",
+        "session-enter",
+        "initialize",
+        "session-exit",
+        "transport-exit",
+    ]
+
+    # connect+initialize 超预算 → 异常上抛，由 call_tool_with_fallback 回退 in-process
+    @asynccontextmanager
+    async def stuck_transport(url):
+        await asyncio.sleep(999)
+        yield  # pragma: no cover
+
+    monkeypatch.setattr("mcp.client.streamable_http.streamable_http_client", stuck_transport)
+    stuck_factory = mtc.build_streamable_http_factory(
+        "http://127.0.0.1:8231/mcp", timeout_seconds=0.05
+    )
+
+    async def timeout_path() -> None:
+        outcome = await call_tool_with_fallback(
+            "retrieve_role_knowledge",
+            {"query": "q", "limit": 3},
+            in_process_fn=lambda: [{"title": "inproc", "content": ""}],
+            client_factory=stuck_factory,
+        )
+        assert outcome == {
+            "result": [{"title": "inproc", "content": ""}],
+            "transport": "mcp-fallback",
+        }
+
+    asyncio.run(timeout_path())
+
+
+# ---------------------------------------------------------------------------
+# 7. agent_runtime v3 分派的 MCP 开关
+# ---------------------------------------------------------------------------
+
+
+def test_v3_dispatch_switches_tool_fns_on_mcp_tools_enabled(monkeypatch) -> None:
+    """mcp_tools_enabled() 开 → v3 分派喂 MCP 版 tool_fns；默认关 → 应用内闭包。"""
+    import backend_python.agent_runtime as agent_runtime_module
+    from backend_python.langgraph_agent import graph_v3 as graph_v3_module
+
+    sentinel = {
+        "retrieve_role_knowledge": lambda *args, **kwargs: [],
+        "retrieve_question_bank": lambda *args, **kwargs: [],
+        "retrieve_candidate_memory": lambda *args, **kwargs: [],
+    }
+    captured: dict = {}
+
+    async def fake_run_interview_graph_v3(**kwargs):
+        captured.update(kwargs)
+        return {
+            "question": {"content": "v3 mcp dispatch question"},
+            "decision": {"nextAction": "deep_follow_up", "difficulty": "medium"},
+            "checkpointSummary": {"exists": True, "threadId": kwargs["thread_id"]},
+        }
+
+    async def classic_runner(**kwargs):
+        return {"question": {"content": "classic question"}}
+
+    async def langgraph_runner(**kwargs):
+        return {"nextQuestion": {"content": "v2 question"}}
+
+    monkeypatch.setattr(graph_v3_module, "run_interview_graph_v3", fake_run_interview_graph_v3)
+    monkeypatch.setattr(agent_runtime_module, "build_mcp_tool_fns", lambda factory: sentinel)
+    monkeypatch.setattr(agent_runtime_module, "mcp_tools_enabled", lambda: True)
+
+    payload = {"profile": {"targetRole": "后端"}, "answer": "还好"}
+    result = asyncio.run(
+        agent_runtime_module.run_agent_runtime(
+            agent_runtime="langgraph_agent_v3",
+            thread_id="v3-mcp-on",
+            classic_runner=classic_runner,
+            langgraph_runner=langgraph_runner,
+            payload=payload,
+        )
+    )
+    assert result["visibleRuntime"] == "langgraph_agent_v3"
+    assert captured["tool_fns"] is sentinel
+
+    # 默认关闭 → 应用内闭包（不经 build_mcp_tool_fns，形状与 v3 tools 约定一致）
+    monkeypatch.setattr(agent_runtime_module, "mcp_tools_enabled", lambda: False)
+    asyncio.run(
+        agent_runtime_module.run_agent_runtime(
+            agent_runtime="langgraph_agent_v3",
+            thread_id="v3-mcp-off",
+            classic_runner=classic_runner,
+            langgraph_runner=langgraph_runner,
+            payload=payload,
+        )
+    )
+    assert captured["thread_id"] == "v3-mcp-off"
+    assert captured["tool_fns"] is not sentinel
+    assert set(captured["tool_fns"]) == {
+        "retrieve_role_knowledge",
+        "retrieve_question_bank",
+        "retrieve_candidate_memory",
+    }
 
 
 def _ok(structured_content: dict) -> FakeCallToolResult:

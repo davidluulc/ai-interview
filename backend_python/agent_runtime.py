@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Awaitable, Callable
 
+from .config import MCP_SERVER_URL, mcp_tools_enabled
 from .langgraph_agent import graph_v3
+from .mcp_tools_client import build_mcp_tool_fns, build_streamable_http_factory
 from .runtime_audit import build_runtime_audit
 from .runtime_compare import compare_runtime_outputs
 from .runtime_quality_gate import evaluate_runtime_quality
@@ -246,7 +248,13 @@ async def run_agent_runtime(
                 agent_mode=v3_agent_mode,
                 application_profile_id=v3_application_profile_id,
                 structured_call_fn=call_model_structured,
-                tool_fns=_build_langgraph_v3_tool_fns(application_profile_id=v3_application_profile_id),
+                # MCP 开关（MCP_TOOLS_ENABLED，默认关）：开 → 检索经 MCP server
+                # （失败自动回退应用内检索）；关 → mainline 同源的应用内闭包。
+                tool_fns=(
+                    build_mcp_tool_fns(build_streamable_http_factory(MCP_SERVER_URL))
+                    if mcp_tools_enabled()
+                    else _build_langgraph_v3_tool_fns(application_profile_id=v3_application_profile_id)
+                ),
             )
             quality_gate = evaluate_runtime_quality(langgraph_result, recent_questions=recent_questions)
         except Exception as exc:

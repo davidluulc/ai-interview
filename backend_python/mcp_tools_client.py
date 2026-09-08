@@ -35,6 +35,7 @@ import asyncio
 import inspect
 import json
 import logging
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,49 @@ async def call_tool_with_fallback(
     except Exception as exc:
         logger.warning("MCP 工具 %s 调用失败，回退 in-process：%s", tool, exc)
         return {"result": await _await_or_call(in_process_fn), "transport": "mcp-fallback"}
+
+
+def build_streamable_http_factory(
+    url: str, *, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
+) -> Callable[[], Any]:
+    """组装真实 streamable-http 工厂，形状满足 client_factory 约定：
+    ``factory() -> async CM(yield ClientSession)``。
+
+    连接（``streamable_http_client(url)``）→ ``ClientSession`` 进入 →
+    ``initialize()`` 全部在 ``asyncio.wait_for(timeout_seconds)`` 预算内完成
+    （``call_tool_with_fallback`` 只包 call_tool 调用本身，不包连接握手）；
+    超时/连接失败抛出的异常由 ``call_tool_with_fallback`` 捕获并回退
+    in-process。SDK 2.2.0 客户端入口是
+    ``mcp.client.streamable_http.streamable_http_client``（惰性导入，便于
+    测试替身按源模块打桩）。
+    """
+
+    async def _open() -> tuple[AsyncExitStack, Any]:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamable_http_client
+
+        stack = AsyncExitStack()
+        try:
+            streams = await stack.enter_async_context(streamable_http_client(url))
+            session = await stack.enter_async_context(ClientSession(streams[0], streams[1]))
+            await session.initialize()
+        except BaseException:
+            await stack.aclose()
+            raise
+        return stack, session
+
+    @asynccontextmanager
+    async def _session() -> Any:
+        stack, session = await asyncio.wait_for(_open(), timeout=timeout_seconds)
+        try:
+            yield session
+        finally:
+            await stack.aclose()
+
+    def factory() -> Any:
+        return _session()
+
+    return factory
 
 
 def build_mcp_tool_fns(client_factory: Callable[[], Any] | None) -> dict[str, Callable[..., list[dict[str, Any]]]]:
