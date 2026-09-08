@@ -7,8 +7,10 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from .config import VECTOR_SEARCH_BACKEND
 from .db_models import RagChunk, RagDocument
 from .embedding_client import current_embedding_model, embed_text
+from .pg_vector_store import PgVectorStore
 from .query_rewrite import build_query_variants
 from .rag_store import VALID_KNOWLEDGE_BASES, chunk_matches_metadata_filter, normalize_metadata_filter, parse_json
 from .rerank_client import rerank_documents
@@ -331,7 +333,7 @@ def retrieve_vector_chunks(
     if not query_embedding:
         return []
 
-    store = SQLiteVectorStore(db)
+    store = PgVectorStore(db) if VECTOR_SEARCH_BACKEND == "pgvector" else SQLiteVectorStore(db)
     results = store.search(
         user_id=user_id,
         knowledge_base=knowledge_base,
