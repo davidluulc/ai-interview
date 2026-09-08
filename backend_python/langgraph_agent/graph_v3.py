@@ -11,13 +11,18 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel
 
 from backend_python.agent_trace import build_node_trace, build_tool_call_summary, summarize_text
+from backend_python.langgraph_agent.checkpoint_store import empty_checkpoint_summary, normalize_thread_id
 from backend_python.langgraph_agent.nodes import (
     analyze_answer_node,
     generate_question_node,
     observe_state_node,
     update_memory_node,
 )
-from backend_python.langgraph_agent.state import InterviewGraphState
+from backend_python.langgraph_agent.state import (
+    InterviewGraphState,
+    assert_graph_state_jsonable,
+    build_initial_graph_state,
+)
 from backend_python.structured_output import StructuredOutputExhausted
 
 logger = logging.getLogger(__name__)
@@ -28,6 +33,7 @@ VALID_TOOLS = {
     "retrieve_candidate_memory",
 }
 MAX_PLANNING_STEPS = 2
+V3_RECURSION_LIMIT = 25
 
 TOOL_RESULT_BUCKETS = {
     "retrieve_role_knowledge": "role",
@@ -325,3 +331,60 @@ def build_interview_graph_v3(
     graph.add_edge("generate_question", "update_memory")
     graph.add_edge("update_memory", END)
     return graph.compile()
+
+
+def build_v3_invoke_config(thread_id: str) -> dict[str, Any]:
+    """v3 的 ainvoke config：recursion_limit 死循环兜底 + thread_id 归一化。
+
+    对齐 v2 checkpoint.build_graph_config 的 configurable.thread_id 归一化模式；
+    额外带上 recursion_limit，作为 MAX_PLANNING_STEPS 之外的第二道保险
+    （即使路由逻辑回归失效，LangGraph 也会在超限时抛 GraphRecursionError
+    而不是无限挂起）。
+    """
+    return {
+        "recursion_limit": V3_RECURSION_LIMIT,
+        "configurable": {"thread_id": normalize_thread_id(thread_id)},
+    }
+
+
+async def run_interview_graph_v3(
+    *,
+    thread_id: str,
+    profile: dict[str, Any] | None = None,
+    history: list[dict[str, Any]] | None = None,
+    next_stage: str = "",
+    agent_mode: str = "interview",
+    application_profile_id: int | None = None,
+    structured_call_fn: Callable[..., Awaitable[tuple[Any, dict[str, Any]]]],
+    tool_fns: dict[str, Callable[..., list[dict[str, Any]]]],
+) -> dict[str, Any]:
+    """v3 runner 封装：初始 state 组装 → graph.ainvoke → 结果信封补齐。
+
+    与 v2 的 run_interview_graph_v2 对齐的部分：build_initial_graph_state 组装
+    初始状态（thread_id / application_profile_id / profile / history /
+    next_stage / agent_mode），返回 dict(result) 并附加 "threadId"
+    （空值归一为 "default-thread"），最终 assert_graph_state_jsonable。
+
+    与 v2 不同的部分：v3.0 的图不接 checkpointer（见
+    build_interview_graph_v3），因此 config 里的 configurable.thread_id 仅保留
+    trace 兼容、不做断点持久化；checkpointSummary 复用
+    checkpoint_store.empty_checkpoint_summary 的键面（下游 _runtime_response /
+    质量门按 v2 键面读取，避免 KeyError），但把 enabled 置为 False 表示
+    v3.0 检查点未启用。
+    """
+    state = build_initial_graph_state(
+        thread_id=thread_id,
+        application_profile_id=application_profile_id,
+        profile=profile,
+        history=history,
+        next_stage=next_stage,
+        agent_mode=agent_mode,
+    )
+    graph = build_interview_graph_v3(structured_call_fn=structured_call_fn, tool_fns=tool_fns)
+    result = dict(await graph.ainvoke(state, config=build_v3_invoke_config(thread_id)))
+    checkpoint_summary = empty_checkpoint_summary(thread_id)
+    checkpoint_summary["enabled"] = False
+    result["checkpointSummary"] = checkpoint_summary
+    result["threadId"] = str(thread_id or "default-thread")
+    assert_graph_state_jsonable(result)
+    return result

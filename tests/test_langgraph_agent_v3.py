@@ -5,9 +5,11 @@ from backend_python.langgraph_agent.graph_v3 import (
     AgentPlanModel,
     apply_policy_guardrail,
     build_interview_graph_v3,
+    build_v3_invoke_config,
     make_plan_node,
     make_tools_node,
     route_after_plan,
+    run_interview_graph_v3,
 )
 from backend_python.langgraph_agent.state import build_initial_graph_state
 from backend_python.structured_output import StructuredOutputExhausted
@@ -394,3 +396,78 @@ def test_v3_graph_integration_plan_tools_loop_then_generate():
     assert result["planningSteps"] == 2
     assert result["selectedToolResults"]["question"]
     assert tool_calls_log == ["retrieve_question_bank"]
+
+
+def test_v3_graph_terminates_when_plan_never_ready():
+    async def never_ready_call(**kwargs):
+        model = AgentPlanModel(
+            readyToAsk=False,
+            selectedTools=["retrieve_question_bank"],
+            toolQuery="RAG 追问",
+            nextAction="deep_follow_up",
+            difficulty="medium",
+            focus="RAG 检索质量",
+            reason="无论检索到什么都判定信息不足。",
+        )
+        return model, {"stages": [], "finalStage": "json_schema", "attemptCount": 1}
+
+    tool_calls_log = []
+
+    # 若 MAX_PLANNING_STEPS 兜底失效，plan ⇄ tools 会无限循环，
+    # asyncio.run 会抛出 GraphRecursionError 而不是正常返回。
+    result = asyncio.run(
+        run_interview_graph_v3(
+            thread_id="t",
+            profile={"targetRole": "AI 应用开发"},
+            history=[],
+            next_stage="技术追问",
+            structured_call_fn=never_ready_call,
+            tool_fns={
+                "retrieve_role_knowledge": _fake_tool("retrieve_role_knowledge", 1, tool_calls_log),
+                "retrieve_question_bank": _fake_tool("retrieve_question_bank", 2, tool_calls_log),
+                "retrieve_candidate_memory": _fake_tool("retrieve_candidate_memory", 3, tool_calls_log),
+            },
+        )
+    )
+
+    assert result["planningSteps"] == MAX_PLANNING_STEPS
+    node_names = [entry["nodeName"] for entry in result["nodeTrace"]]
+    assert node_names.count("tools") == 1
+    assert node_names[-2:] == ["generate_question", "update_memory"]
+    assert result["nextQuestion"].get("prompt")
+
+
+def test_v3_runner_passes_recursion_limit():
+    assert build_v3_invoke_config("t") == {
+        "recursion_limit": 25,
+        "configurable": {"thread_id": "t"},
+    }
+    assert build_v3_invoke_config("")["configurable"]["thread_id"] == "default-thread"
+
+    async def ready_call(**kwargs):
+        model = AgentPlanModel(
+            readyToAsk=True,
+            selectedTools=[],
+            toolQuery="",
+            nextAction="deep_follow_up",
+            difficulty="medium",
+            focus="RAG 基础",
+            reason="画像信息已足够出题。",
+        )
+        return model, {"stages": [], "finalStage": "json_schema", "attemptCount": 1}
+
+    result = asyncio.run(
+        run_interview_graph_v3(
+            thread_id="t",
+            profile={"targetRole": "AI 应用开发"},
+            history=[],
+            next_stage="技术追问",
+            structured_call_fn=ready_call,
+            tool_fns={"retrieve_question_bank": _fake_tool("retrieve_question_bank", 1, [])},
+        )
+    )
+
+    assert result["threadId"] == "t"
+    assert result["checkpointSummary"]["enabled"] is False
+    assert result["checkpointSummary"]["exists"] is False
+    assert result["checkpointSummary"]["threadId"] == "t"
