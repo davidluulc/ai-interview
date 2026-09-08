@@ -488,3 +488,10 @@ S4 LangGraph v3 已完成（final review fix wave 后）：plan⇄tools 条件�
 
 - 待办：v3 route 接线（runtime_policy 允许 langgraph_agent_v3 经 payload 选择；接线时必须向 _build_langgraph_v3_tool_fns 传 user_id 与请求级 db——见 S4 账本）；接线时需扩展 routes/interview.py visibleRuntime 消费集合（当前仅 langgraph/langgraph_mainline）；end_interview 在 gate 下必然失败转 classic——接线前需设计收尾问题或豁免规则；shadow 观察后再评估切 mainline。
 - 待办：v3 checkpointer 集成（当前 recursion_limit + thread_id 仅为 trace 兼容）；planDecision 未携带 structured-chain 元数据（S5 可补）。
+
+```text
+S5 MCP Server 化已完成：官方 mcp SDK v2（MCPServer）暴露 Tools×5（三检索/出题/复盘）、Resource（rag://knowledge-bases）、Prompts×2（interviewer/coach persona）；stdio 与 streamable-http 双传输（默认环回绑定，compose 内网显式 0.0.0.0 不发布宿主端口）；客户端适配层带内容清洗、连接+初始化+调用三级超时与进程内 fallback；agent_runtime v3 分支经 MCP_TOOLS_ENABLED 开关（默认关）切换 MCP/进程内工具源；集成冒烟（MCP_INTEGRATION=1）真实往返验证 transport=mcp。
+```
+
+- 待办：MCP 工具启用前需解决服务账号 user_id=1 与按请求 user_id/application_profile_id 的租户隔离（当前 MCP 路径统一 user_id=1 范围）；公网部署窗口评估后再启用 MCP_TOOLS_ENABLED。
+- 待办：MCP 小清扫（后续顺手）：carried-B 测试改 tmp sqlite、smoke 子进程输出重定向、worker 服务 MCP env 传递评估。
