@@ -36,3 +36,9 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/1")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/2")
 CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", True)
+
+
+def structured_output_enabled() -> bool:
+    """LLM_STRUCTURED_OUTPUT=chain（默认）| legacy。运行时动态读取，便于灰度与回滚。"""
+    value = os.getenv("LLM_STRUCTURED_OUTPUT", "chain").strip().lower()
+    return value not in {"legacy", "off", "0", "false"}

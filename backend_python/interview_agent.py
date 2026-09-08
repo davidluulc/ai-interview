@@ -5,6 +5,7 @@ from .agent_policy import apply_agent_policy
 from .agent_state import build_interview_agent_state
 from .candidate_memory import build_candidate_profile
 from .rag_quality import evaluate_retrieval_quality
+from .structured_output import AgentDecisionModel
 from .weakness_training_templates import select_training_template_hint
 from .weakness_strategy import select_weakness_strategy
 
@@ -433,36 +434,49 @@ async def decide_next_action(
     state: dict[str, Any],
     *,
     call_model_fn: Callable[..., Awaitable[dict[str, Any]]],
+    structured_call_fn: Callable[..., Awaitable[tuple[Any, dict[str, Any]]]] | None = None,
 ) -> dict[str, Any]:
     fallback = build_fallback_decision(state)
-    try:
-        result = await call_model_fn(
-            temperature=0.2,
-            messages=[
-                {"role": "system", "content": AGENT_SYSTEM_PROMPT},
+    messages = [
+        {"role": "system", "content": AGENT_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": json.dumps(
                 {
-                    "role": "user",
-                    "content": json.dumps(
-                        {
-                            "state": state,
-                            "fallbackDecision": fallback,
-                            "outputSchema": {
-                                "nextAction": "string",
-                                "stage": "string",
-                                "difficulty": "basic|medium|hard",
-                                "focus": "string",
-                                "reason": "string",
-                                "tools": "string[]",
-                                "triggerRules": "string[]",
-                                "agentMode": "coach|interview",
-                                "shouldUpdateMemory": "boolean",
-                            },
-                        },
-                        ensure_ascii=False,
-                    ),
+                    "state": state,
+                    "fallbackDecision": fallback,
+                    "outputSchema": {
+                        "nextAction": "string",
+                        "stage": "string",
+                        "difficulty": "basic|medium|hard",
+                        "focus": "string",
+                        "reason": "string",
+                        "tools": "string[]",
+                        "triggerRules": "string[]",
+                        "agentMode": "coach|interview",
+                        "shouldUpdateMemory": "boolean",
+                    },
                 },
-            ],
-        )
+                ensure_ascii=False,
+            ),
+        },
+    ]
+    if structured_call_fn is not None:
+        try:
+            model, chain_meta = await structured_call_fn(
+                messages=messages,
+                schema_model=AgentDecisionModel,
+                temperature=0.2,
+            )
+            raw = model.model_dump()
+            raw["structuredChain"] = chain_meta
+            decision = normalize_agent_decision(raw, fallback, state=state)
+            decision["structuredChain"] = chain_meta  # normalize 按固定键重建，需回填链路元数据
+            return decision
+        except Exception:
+            pass  # 落回 legacy 通道
+    try:
+        result = await call_model_fn(temperature=0.2, messages=messages)
         return normalize_agent_decision(result, fallback, state=state)
     except Exception:
         return {**fallback, "fallbackUsed": True}

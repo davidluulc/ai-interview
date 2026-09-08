@@ -232,3 +232,80 @@ def test_chain_raises_exhausted_when_all_stages_fail(monkeypatch):
             temperature=0.2,
         ))
     assert len(exc_info.value.chain) >= 3
+
+
+from backend_python.interview_agent import build_agent_state, decide_next_action
+from backend_python import config as project_config
+
+
+class _AgentDecisionStub(BaseModel):
+    nextAction: str
+    stage: str
+    difficulty: str
+    focus: str
+    reason: str
+    tools: list
+    triggerRules: list
+    agentMode: str
+    shouldUpdateMemory: bool
+
+
+def _agent_state():
+    return build_agent_state(
+        profile={"targetRole": "AI 应用开发"},
+        history=[],
+        next_stage="项目追问",
+        role_hits=[],
+        question_hits=[],
+        memory_hits=[],
+    )
+
+
+def test_decide_next_action_uses_structured_fn_when_provided():
+    async def fake_structured(**kwargs):
+        return _AgentDecisionStub(
+            nextAction="deep_follow_up",
+            stage="项目追问",
+            difficulty="hard",
+            focus="RAG 检索链路",
+            reason="上一轮回答覆盖不足",
+            tools=[],
+            triggerRules=[],
+            agentMode="interview",
+            shouldUpdateMemory=True,
+        ), {"stages": [], "finalStage": "json_schema", "attemptCount": 1}
+
+    async def legacy_should_not_run(**kwargs):
+        raise AssertionError("legacy path must not run when structured fn succeeds")
+
+    decision = run(decide_next_action(
+        _agent_state(),
+        call_model_fn=legacy_should_not_run,
+        structured_call_fn=fake_structured,
+    ))
+    assert decision["nextAction"] == "deep_follow_up"
+    assert decision["structuredChain"]["finalStage"] == "json_schema"
+
+
+def test_decide_next_action_falls_back_when_structured_exhausted():
+    async def fake_structured(**kwargs):
+        raise so.StructuredOutputExhausted(chain=[{"stage": "json_schema", "status": "transport_error"}])
+
+    async def legacy(**kwargs):
+        return {"nextAction": "switch_topic", "stage": "换方向", "difficulty": "basic",
+                "focus": "", "reason": "", "tools": [], "triggerRules": [],
+                "agentMode": "interview", "shouldUpdateMemory": False}
+
+    decision = run(decide_next_action(
+        _agent_state(),
+        call_model_fn=legacy,
+        structured_call_fn=fake_structured,
+    ))
+    assert decision["nextAction"] == "switch_topic"
+
+
+def test_config_flag_defaults_to_chain_and_respects_legacy(monkeypatch):
+    monkeypatch.delenv("LLM_STRUCTURED_OUTPUT", raising=False)
+    assert project_config.structured_output_enabled() is True
+    monkeypatch.setenv("LLM_STRUCTURED_OUTPUT", "legacy")
+    assert project_config.structured_output_enabled() is False

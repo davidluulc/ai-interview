@@ -267,3 +267,28 @@ async def _free_json_corrective(
         return None
     _record(chain, "free_json_retry", "ok")
     return validated
+
+
+class AgentDecisionModel(BaseModel):
+    """面试 Agent 的下一步动作决策。"""
+
+    nextAction: str
+    stage: str
+    difficulty: str
+    focus: str
+    reason: str
+    tools: list[str]
+    triggerRules: list[str]
+    agentMode: str
+    shouldUpdateMemory: bool
+
+
+class QuestionDraftModel(BaseModel):
+    """生成的下一道面试题草稿。extra=allow 保留模型附带字段，避免下游缺 key。"""
+
+    model_config = {"extra": "allow"}
+
+    stage: str
+    stability: str
+    focus: str
+    prompt: str

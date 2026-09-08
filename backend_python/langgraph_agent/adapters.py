@@ -6,8 +6,10 @@ from backend_python.agent_tools import (
     retrieve_question_bank_tool,
     retrieve_role_knowledge_tool,
 )
+from backend_python.config import structured_output_enabled
 from backend_python.interview_agent import build_agent_state, decide_next_action
 from backend_python.rag_quality import evaluate_retrieval_quality
+from backend_python.structured_output import call_model_structured
 
 
 def retrieve_real_context_for_graph(
@@ -75,5 +77,10 @@ async def decide_real_action_for_graph(
         memory_hits=memory_hits,
         agent_mode=agent_mode,
     )
-    decision = await decide_next_action(agent_state, call_model_fn=call_model_fn)
+    structured_call_fn = call_model_structured if structured_output_enabled() else None
+    decision = await decide_next_action(
+        agent_state,
+        call_model_fn=call_model_fn,
+        structured_call_fn=structured_call_fn,
+    )
     return {"agentState": agent_state, "decision": decision}
