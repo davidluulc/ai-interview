@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from typing import Any, TypeVar
 
+import httpx
 from pydantic import BaseModel
 
-from .config import QWEN_MODEL
-from .llm_client import extract_json
+from .config import DASHSCOPE_API_KEY, LLM_MAX_RETRIES, LLM_TIMEOUT_SECONDS, QWEN_MODEL
+from .llm_client import extract_json, post_chat_completion
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -117,3 +120,26 @@ def parse_content_json(content: str) -> dict[str, Any]:
     if not isinstance(parsed, dict):
         raise LLMFormatError("Content JSON must be an object.")
     return parsed
+
+
+async def _send(payload: dict[str, Any]) -> dict[str, Any]:
+    if not DASHSCOPE_API_KEY:
+        raise LLMTransportError("Missing DASHSCOPE_API_KEY in .env.")
+    last_error: Exception | None = None
+    for attempt in range(LLM_MAX_RETRIES + 1):
+        try:
+            async with httpx.AsyncClient(timeout=LLM_TIMEOUT_SECONDS) as client:
+                response = await post_chat_completion(client, payload)
+            if response.status_code == 429 or response.status_code >= 500:
+                raise LLMTransportError(f"provider status {response.status_code}")
+            if response.status_code >= 400:
+                raise LLMFormatError(f"provider status {response.status_code}: {response.text[:200]}")
+            return response.json()
+        except LLMFormatError:
+            raise
+        except (LLMTransportError, httpx.TimeoutException, httpx.NetworkError) as exc:
+            last_error = exc
+            if attempt < LLM_MAX_RETRIES:
+                await asyncio.sleep(0.3 * (attempt + 1))
+                continue
+    raise LLMTransportError(f"transport failed after retries: {last_error}")

@@ -1,6 +1,7 @@
 import asyncio
 from typing import Any
 
+import httpx
 import pytest
 from pydantic import BaseModel
 
@@ -86,3 +87,51 @@ def test_parse_content_json_supports_plain_and_fenced():
 def test_parse_content_json_raises_format_error_on_garbage():
     with pytest.raises(so.LLMFormatError):
         so.parse_content_json("这不是 JSON")
+
+
+class _FakeTransport:
+    """按脚本顺序返回 httpx.Response，记录调用次数。"""
+
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    async def __call__(self, client, payload):
+        self.calls.append(payload)
+        status, body = self.responses.pop(0)
+        return httpx.Response(
+            status,
+            json=body,
+            request=httpx.Request("POST", "https://example.test/v1/chat/completions"),
+        )
+
+
+def test_send_returns_json_on_success(monkeypatch):
+    transport = _FakeTransport([(200, {"choices": [{"message": {"content": "{}"}}]})])
+    monkeypatch.setattr(so, "DASHSCOPE_API_KEY", "test-key")
+    monkeypatch.setattr(so, "post_chat_completion", transport)
+    data = run(so._send({"model": "m"}))
+    assert data["choices"][0]["message"]["content"] == "{}"
+
+
+def test_send_retries_transport_error_then_raises(monkeypatch):
+    transport = _FakeTransport([(429, {"error": "rate"}) for _ in range(5)])
+    monkeypatch.setattr(so, "DASHSCOPE_API_KEY", "test-key")
+    monkeypatch.setattr(so, "post_chat_completion", transport)
+    monkeypatch.setattr(so.asyncio, "sleep", _no_sleep)
+    with pytest.raises(so.LLMTransportError):
+        run(so._send({"model": "m"}))
+    assert len(transport.calls) == so.LLM_MAX_RETRIES + 1
+
+
+async def _no_sleep(_seconds):
+    return None
+
+
+def test_send_raises_format_error_immediately_on_4xx(monkeypatch):
+    transport = _FakeTransport([(400, {"error": "response_format not supported"})])
+    monkeypatch.setattr(so, "DASHSCOPE_API_KEY", "test-key")
+    monkeypatch.setattr(so, "post_chat_completion", transport)
+    with pytest.raises(so.LLMFormatError):
+        run(so._send({"model": "m"}))
+    assert len(transport.calls) == 1
