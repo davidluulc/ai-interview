@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 from typing import Any, TypeVar
 
@@ -10,6 +11,8 @@ from pydantic import BaseModel, ValidationError
 
 from .config import DASHSCOPE_API_KEY, LLM_MAX_RETRIES, LLM_TIMEOUT_SECONDS, QWEN_MODEL
 from .llm_client import extract_json, post_chat_completion
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -140,10 +143,13 @@ async def _send(payload: dict[str, Any]) -> dict[str, Any]:
                 raise LLMTransportError(f"provider status {response.status_code}")
             if response.status_code >= 400:
                 raise LLMFormatError(f"provider status {response.status_code}: {response.text[:200]}")
-            return response.json()
+            try:
+                return response.json()
+            except Exception as exc:
+                raise LLMFormatError(f"invalid provider response body: {exc}") from exc
         except LLMFormatError:
             raise
-        except (LLMTransportError, httpx.TimeoutException, httpx.NetworkError) as exc:
+        except (LLMTransportError, httpx.TransportError) as exc:
             last_error = exc
             if attempt < LLM_MAX_RETRIES:
                 await asyncio.sleep(0.3 * (attempt + 1))
@@ -230,6 +236,7 @@ async def call_model_structured(
         _record(chain, stage, "ok")
         return validated, _meta(chain, final_stage=stage)
 
+    logger.warning("structured chain exhausted stages=%s", chain)
     raise StructuredOutputExhausted(chain)
 
 
@@ -263,7 +270,12 @@ async def _free_json_corrective(
         raw = parse_content_json(message_content(data))
         validated = schema_model.model_validate(raw)
     except (LLMTransportError, LLMFormatError, ValidationError) as exc:
-        _record(chain, "free_json_retry", "format_error", exc)
+        _record(
+            chain,
+            "free_json_retry",
+            "transport_error" if isinstance(exc, LLMTransportError) else "format_error",
+            exc,
+        )
         return None
     _record(chain, "free_json_retry", "ok")
     return validated

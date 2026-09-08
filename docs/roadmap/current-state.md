@@ -86,6 +86,7 @@ S1 结构化输出降级链已完成：json_schema → tool_call → free_json(�
 
 - 待办：tests/test_project_entrypoints.py 的 README 断言（localhost:8000）自 cb9d806 起即失败——main 上 README 改写时删掉了该串，需要决定是改测试断言还是补 README 说明（范围外，本阶段未修）。
 - 待办：S1 待公网 smoke（DashScope json_schema strict 真实支持度需线上验证；验证不通过时三段链会自动落到 function calling 段）。
+- 待办：S1 链最坏延迟放大（3 段×重试×超时 叠加，远超旧通道）——公网 smoke 时实测并决定是否需要链级 deadline。
 
 ## 3. Admin & Report Productization V2 完成情况
 

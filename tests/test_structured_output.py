@@ -144,6 +144,43 @@ def test_send_raises_format_error_immediately_on_4xx(monkeypatch):
     assert len(transport.calls) == 1
 
 
+def test_send_raises_format_error_on_malformed_200_body(monkeypatch):
+    bad_response = httpx.Response(200, content=b"not-json", request=httpx.Request("POST", "https://t"))
+    calls = {"n": 0}
+
+    async def fake_post(client, payload):
+        calls["n"] += 1
+        return bad_response
+
+    monkeypatch.setattr(so, "DASHSCOPE_API_KEY", "test-key")
+    monkeypatch.setattr(so, "post_chat_completion", fake_post)
+    with pytest.raises(so.LLMFormatError):
+        run(so._send({"model": "m"}))
+    assert calls["n"] == 1  # 格式错误不重试
+
+
+def test_send_retries_protocol_error_then_succeeds(monkeypatch):
+    ok_response = httpx.Response(
+        200,
+        json={"choices": [{"message": {"content": "{}"}}]},
+        request=httpx.Request("POST", "https://t"),
+    )
+    calls = {"n": 0}
+
+    async def fake_post(client, payload):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise httpx.ProtocolError("boom")
+        return ok_response
+
+    monkeypatch.setattr(so, "DASHSCOPE_API_KEY", "test-key")
+    monkeypatch.setattr(so, "post_chat_completion", fake_post)
+    monkeypatch.setattr(so.asyncio, "sleep", _no_sleep)
+    data = run(so._send({"model": "m"}))
+    assert data["choices"][0]["message"]["content"] == "{}"
+    assert calls["n"] == 2  # ProtocolError 按传输错误段内重试
+
+
 def _ok_content(extra=None):
     payload = {"nextAction": "deep_follow_up", "difficulty": "medium"}
     if extra:
@@ -232,6 +269,39 @@ def test_chain_raises_exhausted_when_all_stages_fail(monkeypatch):
             temperature=0.2,
         ))
     assert len(exc_info.value.chain) >= 3
+
+
+def test_chain_records_all_stages_and_corrective_failure(monkeypatch):
+    # 段①②传输失败 → 段③内容合法但缺必填字段（ValidationError）→ 校正重试传输失败
+    responses: list[Any] = [
+        so.LLMTransportError("down"),  # json_schema
+        so.LLMTransportError("down"),  # tool_call
+        _resp(content=json.dumps({"nextAction": "deep_follow_up"})),  # free_json 缺 difficulty
+        so.LLMTransportError("down"),  # free_json_retry
+    ]
+    calls = {"n": 0}
+
+    async def fake_send(payload):
+        item = responses[calls["n"]]
+        calls["n"] += 1
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    monkeypatch.setattr(so, "_send", fake_send)
+    with pytest.raises(so.StructuredOutputExhausted) as exc_info:
+        run(so.call_model_structured(
+            messages=[{"role": "user", "content": "go"}],
+            schema_model=SampleModel,
+            temperature=0.2,
+        ))
+    chain = exc_info.value.chain
+    assert [entry["stage"] for entry in chain] == [
+        "json_schema", "tool_call", "free_json", "free_json_retry",
+    ]
+    assert [entry["status"] for entry in chain] == [
+        "transport_error", "transport_error", "format_error", "transport_error",
+    ]
 
 
 from backend_python.interview_agent import build_agent_state, decide_next_action
@@ -352,3 +422,61 @@ def test_safe_question_model_falls_back_to_legacy(monkeypatch):
     ))
     assert data["prompt"] == "legacy 题"
     assert data.get("structuredFallbackUsed") is True
+
+
+def test_safe_question_model_flag_off_skips_structured(monkeypatch):
+    from backend_python.routes import interview as interview_routes
+
+    async def structured_must_not_run(**kwargs):
+        raise AssertionError("structured must not run when flag off")
+
+    legacy_dict = {"stage": "x", "stability": "y", "focus": "z", "prompt": "legacy 题"}
+
+    async def fake_legacy(**kwargs):
+        return dict(legacy_dict)
+
+    monkeypatch.setenv("LLM_STRUCTURED_OUTPUT", "legacy")
+    monkeypatch.setattr(interview_routes, "call_model_structured", structured_must_not_run)
+    monkeypatch.setattr(interview_routes, "call_model", fake_legacy)
+    data = run(interview_routes.safe_call_question_model(
+        messages=[{"role": "user", "content": "go"}], temperature=0.3,
+    ))
+    assert data == legacy_dict
+    assert "structuredFallbackUsed" not in data
+
+
+def test_decide_real_action_passes_none_when_flag_off(monkeypatch):
+    from backend_python.langgraph_agent import adapters
+
+    async def structured_must_not_run(**kwargs):
+        raise AssertionError("structured must not run when flag off")
+
+    async def fake_legacy_call_model(**kwargs):
+        return {
+            "nextAction": "deep_follow_up",
+            "stage": "项目追问",
+            "difficulty": "medium",
+            "focus": "RAG 检索链路",
+            "reason": "上一轮回答覆盖不足",
+            "tools": [],
+            "triggerRules": [],
+            "agentMode": "interview",
+            "shouldUpdateMemory": False,
+        }
+
+    monkeypatch.setenv("LLM_STRUCTURED_OUTPUT", "legacy")
+    monkeypatch.setattr(adapters, "call_model_structured", structured_must_not_run)
+    result = run(adapters.decide_real_action_for_graph(
+        profile={"targetRole": "AI 应用开发"},
+        history=[],
+        next_stage="项目追问",
+        agent_mode="interview",
+        role_hits=[],
+        question_hits=[],
+        memory_hits=[],
+        call_model_fn=fake_legacy_call_model,
+    ))
+    decision = result["decision"]
+    assert decision["nextAction"] == "deep_follow_up"
+    assert decision["fallbackUsed"] is False
+    assert "structuredChain" not in decision

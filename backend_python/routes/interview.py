@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from typing import Any
 
@@ -43,6 +44,8 @@ from ..structured_output import (
 )
 from ..training_tags import merge_weak_tags
 from ..training_tasks import list_candidate_training_tasks, select_agent_training_task
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/interview", tags=["interview"])
 
@@ -486,8 +489,9 @@ async def safe_call_question_model(*, messages: list[dict[str, Any]], temperatur
             data = model.model_dump()
             data["structuredChain"] = chain_meta
             return data
-        except (StructuredOutputExhausted, LLMTransportError):
-            pass  # 落回 legacy，保持既有契约
+        except (StructuredOutputExhausted, LLMTransportError) as exc:
+            # 落回 legacy，保持既有契约
+            logger.warning("structured question model failed, falling back to legacy: %s", exc)
     try:
         data = await call_model(messages=messages, temperature=temperature)
         if structured_output_enabled():

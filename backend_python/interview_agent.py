@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any, Awaitable, Callable
 
 from .agent_policy import apply_agent_policy
@@ -8,6 +9,8 @@ from .rag_quality import evaluate_retrieval_quality
 from .structured_output import AgentDecisionModel
 from .weakness_training_templates import select_training_template_hint
 from .weakness_strategy import select_weakness_strategy
+
+logger = logging.getLogger(__name__)
 
 WEAK_ANSWER_MARKERS = ("不会", "不知道", "写不出来", "不清楚", "不了解", "没接触")
 VALID_AGENT_MODES = {"coach", "interview"}
@@ -473,8 +476,9 @@ async def decide_next_action(
             decision = normalize_agent_decision(raw, fallback, state=state)
             decision["structuredChain"] = chain_meta  # normalize 按固定键重建，需回填链路元数据
             return decision
-        except Exception:
-            pass  # 落回 legacy 通道
+        except Exception as exc:
+            # 落回 legacy 通道
+            logger.warning("structured decision failed, falling back to legacy: %s", exc)
     try:
         result = await call_model_fn(temperature=0.2, messages=messages)
         return normalize_agent_decision(result, fallback, state=state)
