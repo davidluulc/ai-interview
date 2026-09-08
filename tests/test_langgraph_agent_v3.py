@@ -1,5 +1,7 @@
 import asyncio
 
+from backend_python.agent_runtime import normalize_agent_runtime, run_agent_runtime
+from backend_python.langgraph_agent import graph_v3
 from backend_python.langgraph_agent.graph_v3 import (
     MAX_PLANNING_STEPS,
     AgentPlanModel,
@@ -12,7 +14,7 @@ from backend_python.langgraph_agent.graph_v3 import (
     run_interview_graph_v3,
 )
 from backend_python.langgraph_agent.state import build_initial_graph_state
-from backend_python.structured_output import StructuredOutputExhausted
+from backend_python.structured_output import StructuredOutputExhausted, call_model_structured
 
 
 def _plan_fixture(**overrides):
@@ -471,3 +473,113 @@ def test_v3_runner_passes_recursion_limit():
     assert result["checkpointSummary"]["enabled"] is False
     assert result["checkpointSummary"]["exists"] is False
     assert result["checkpointSummary"]["threadId"] == "t"
+
+
+# ---------------------------------------------------------------------------
+# Task 4（S4）：runtime 注册 + shadow 分派（agent_runtime 分派层接线）
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_agent_runtime_accepts_langgraph_agent_v3() -> None:
+    assert normalize_agent_runtime("langgraph_agent_v3") == "langgraph_agent_v3"
+    # 未知 runtime 仍然回退默认 mainline
+    assert normalize_agent_runtime("totally_unknown_runtime") == "langgraph_mainline"
+
+
+def test_agent_runtime_dispatches_langgraph_agent_v3(monkeypatch) -> None:
+    captured: dict = {}
+
+    async def fake_run_interview_graph_v3(**kwargs):
+        captured.update(kwargs)
+        return {
+            "question": {"content": "v3 dispatch question"},
+            "decision": {"nextAction": "deep_follow_up", "difficulty": "medium"},
+            "checkpointSummary": {"exists": True, "threadId": kwargs["thread_id"]},
+        }
+
+    monkeypatch.setattr(graph_v3, "run_interview_graph_v3", fake_run_interview_graph_v3)
+
+    async def classic_runner(**kwargs):
+        return {
+            "question": {"content": "classic question"},
+            "decision": {"nextAction": "deep_follow_up", "difficulty": "medium"},
+        }
+
+    async def langgraph_runner(**kwargs):
+        return {
+            "nextQuestion": {"content": "v2 question"},
+            "decision": {"nextAction": "deep_follow_up", "difficulty": "medium"},
+        }
+
+    result = asyncio.run(
+        run_agent_runtime(
+            agent_runtime="langgraph_agent_v3",
+            thread_id="runtime-v3",
+            classic_runner=classic_runner,
+            langgraph_runner=langgraph_runner,
+            payload={
+                "answer": "还可以",
+                "profile": {"targetRole": "AI 应用开发"},
+                "history": [{"question": "什么是 RAG？", "answer": "检索增强生成"}],
+                "next_stage": "技术追问",
+                "agent_mode": "interview",
+                "application_profile_id": 7,
+            },
+        )
+    )
+
+    assert result["runtime"] == "langgraph_agent_v3"
+    assert result["visibleRuntime"] == "langgraph_agent_v3"
+    assert result["question"]["content"] == "v3 dispatch question"
+    assert result["qualityGate"]["passed"] is True
+    assert result["fallbackRuntime"] == ""
+    # 分派层必须把 v3 需要的依赖原样传给 run_interview_graph_v3
+    assert captured["thread_id"] == "runtime-v3"
+    assert captured["structured_call_fn"] is call_model_structured
+    assert set(captured["tool_fns"]) == {
+        "retrieve_role_knowledge",
+        "retrieve_question_bank",
+        "retrieve_candidate_memory",
+    }
+    assert captured["profile"] == {"targetRole": "AI 应用开发"}
+    assert captured["history"] == [{"question": "什么是 RAG？", "answer": "检索增强生成"}]
+    assert captured["next_stage"] == "技术追问"
+    assert captured["agent_mode"] == "interview"
+    assert captured["application_profile_id"] == 7
+
+
+def test_agent_runtime_v3_failure_falls_back_to_classic(monkeypatch) -> None:
+    async def fake_run_interview_graph_v3(**kwargs):
+        raise RuntimeError("v3 graph exploded")
+
+    monkeypatch.setattr(graph_v3, "run_interview_graph_v3", fake_run_interview_graph_v3)
+
+    async def classic_runner(**kwargs):
+        return {
+            "question": {"content": "classic fallback question"},
+            "decision": {"nextAction": "deep_follow_up", "difficulty": "medium"},
+        }
+
+    async def langgraph_runner(**kwargs):
+        return {
+            "nextQuestion": {"content": "v2 question"},
+            "decision": {"nextAction": "deep_follow_up", "difficulty": "medium"},
+        }
+
+    result = asyncio.run(
+        run_agent_runtime(
+            agent_runtime="langgraph_agent_v3",
+            thread_id="runtime-v3-error",
+            classic_runner=classic_runner,
+            langgraph_runner=langgraph_runner,
+            payload={"answer": "不会", "recentQuestions": ["什么是 RAG？"]},
+        )
+    )
+
+    assert result["runtime"] == "classic"
+    assert result["visibleRuntime"] == "classic"
+    assert result["fallbackRuntime"] == "classic"
+    assert result["question"]["content"] == "classic fallback question"
+    assert result["qualityGate"]["passed"] is False
+    assert "LangGraph runtime 执行失败" in result["qualityGate"]["reasons"]
+    assert result["runtimeAudit"]["fallbackUsed"] is True

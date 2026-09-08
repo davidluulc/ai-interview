@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import Any, Awaitable, Callable
 
+from .langgraph_agent import graph_v3
 from .runtime_audit import build_runtime_audit
 from .runtime_compare import compare_runtime_outputs
 from .runtime_quality_gate import evaluate_runtime_quality
+from .structured_output import call_model_structured
 
 
 RuntimeRunner = Callable[..., Awaitable[dict[str, Any]]]
@@ -12,7 +14,7 @@ RuntimeRunner = Callable[..., Awaitable[dict[str, Any]]]
 
 def normalize_agent_runtime(value: str | None) -> str:
     runtime = str(value or "langgraph_mainline").strip().lower()
-    allowed = {"classic", "langgraph", "shadow", "langgraph_canary", "langgraph_mainline"}
+    allowed = {"classic", "langgraph", "shadow", "langgraph_canary", "langgraph_mainline", "langgraph_agent_v3"}
     return runtime if runtime in allowed else "langgraph_mainline"
 
 
@@ -78,6 +80,57 @@ def _failed_quality_gate(reason: str) -> dict[str, Any]:
     }
 
 
+def _build_langgraph_v3_tool_fns(
+    *, application_profile_id: int | None = None
+) -> dict[str, Callable[..., list[dict[str, Any]]]]:
+    """为 v3 分派构建 tool_fns：把 mainline 检索同源的三个检索函数适配成
+    v3 tools 节点约定 ``tool_fn(profile, next_stage, tool_query) -> list[dict]``。
+
+    检索词优先使用 plan 节点给出的 tool_query，为空时回退 next_stage；
+    检索函数与 routes/langgraph_agent._real_retrieve_context 同源
+    （rag.retrieve_role_context / question_rag.retrieve_questions /
+    candidate_memory.retrieve_candidate_memory）。role/question 在无请求级
+    db 上下文时走各自的静态语料兜底；memory 检索需要 Session，按
+    _real_retrieve_context 的模式临时开 SessionLocal。工具内部异常由
+    v3 tools 节点捕获并降级为空结果，不会中断分派。
+    """
+
+    def _query(next_stage: str, tool_query: str) -> str:
+        return str(tool_query or next_stage or "")
+
+    def retrieve_role_knowledge(
+        profile: dict[str, Any], next_stage: str = "", tool_query: str = ""
+    ) -> list[dict[str, Any]]:
+        from .rag import retrieve_role_context
+
+        return retrieve_role_context(profile, _query(next_stage, tool_query), limit=3)
+
+    def retrieve_question_bank(
+        profile: dict[str, Any], next_stage: str = "", tool_query: str = ""
+    ) -> list[dict[str, Any]]:
+        from .question_rag import retrieve_questions
+
+        return retrieve_questions(profile, _query(next_stage, tool_query), limit=3)
+
+    def retrieve_candidate_memory(
+        profile: dict[str, Any], next_stage: str = "", tool_query: str = ""
+    ) -> list[dict[str, Any]]:
+        from .candidate_memory import retrieve_candidate_memory as retrieve_memory
+        from .database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            return retrieve_memory(db, profile, limit=3, application_profile_id=application_profile_id)
+        finally:
+            db.close()
+
+    return {
+        "retrieve_role_knowledge": retrieve_role_knowledge,
+        "retrieve_question_bank": retrieve_question_bank,
+        "retrieve_candidate_memory": retrieve_candidate_memory,
+    }
+
+
 async def run_agent_runtime(
     *,
     agent_runtime: str | None,
@@ -133,6 +186,74 @@ async def run_agent_runtime(
                 checkpoint_summary=response["checkpointSummary"],
                 comparison_summary=None,
                 visible_runtime="langgraph_mainline",
+            )
+            return response
+
+        classic_result = await classic_runner(**common)
+        response = _runtime_response(runtime="classic", thread_id=thread_id, result=classic_result)
+        response["visibleRuntime"] = "classic"
+        response["fallbackRuntime"] = "classic"
+        response["qualityGate"] = quality_gate
+        response["comparisonSummary"] = None
+        response["runtimeTrace"] = (
+            langgraph_result.get("runtimeTrace") if isinstance(langgraph_result.get("runtimeTrace"), list) else []
+        )
+        response["runtimeAudit"] = build_runtime_audit(
+            policy=policy,
+            quality_gate=quality_gate,
+            checkpoint_summary=langgraph_result.get("checkpointSummary")
+            if isinstance(langgraph_result.get("checkpointSummary"), dict)
+            else {},
+            comparison_summary=None,
+            visible_runtime="classic",
+        )
+        return response
+
+    if runtime == "langgraph_agent_v3":
+        # v3 shadow 分派：profile/history 等输入从 payload 读取（路由层后续
+        # 选择 v3 时按同键传入），structured_call_fn 固定走
+        # call_model_structured（其内部自带降级链）；tool_fns 由 mainline
+        # 同源检索函数适配而来。失败路径与 mainline 完全一致：
+        # _failed_langgraph_result → 质量门 → fallback classic。
+        v3_profile = payload.get("profile") if isinstance(payload.get("profile"), dict) else {}
+        v3_history = payload.get("history") if isinstance(payload.get("history"), list) else []
+        v3_next_stage = str(payload.get("next_stage") or payload.get("nextStage") or "")
+        v3_agent_mode = str(payload.get("agent_mode") or payload.get("agentMode") or "interview")
+        v3_application_profile_id = payload.get("application_profile_id") or payload.get("applicationProfileId")
+        try:
+            langgraph_result = await graph_v3.run_interview_graph_v3(
+                thread_id=thread_id,
+                profile=v3_profile,
+                history=v3_history,
+                next_stage=v3_next_stage,
+                agent_mode=v3_agent_mode,
+                application_profile_id=v3_application_profile_id,
+                structured_call_fn=call_model_structured,
+                tool_fns=_build_langgraph_v3_tool_fns(application_profile_id=v3_application_profile_id),
+            )
+            quality_gate = evaluate_runtime_quality(langgraph_result, recent_questions=recent_questions)
+        except Exception as exc:
+            langgraph_result = _failed_langgraph_result(thread_id, exc)
+            quality_gate = _failed_quality_gate("LangGraph runtime 执行失败")
+
+        policy = {
+            "requestedRuntime": "langgraph_agent_v3",
+            "allowedRuntime": "langgraph_agent_v3",
+            "fallbackRuntime": "classic",
+            "reasons": ["请求使用 LangGraph agent v3 runtime"],
+        }
+
+        if quality_gate["passed"]:
+            response = _runtime_response(runtime="langgraph_agent_v3", thread_id=thread_id, result=langgraph_result)
+            response["visibleRuntime"] = "langgraph_agent_v3"
+            response["qualityGate"] = quality_gate
+            response["comparisonSummary"] = None
+            response["runtimeAudit"] = build_runtime_audit(
+                policy=policy,
+                quality_gate=quality_gate,
+                checkpoint_summary=response["checkpointSummary"],
+                comparison_summary=None,
+                visible_runtime="langgraph_agent_v3",
             )
             return response
 
