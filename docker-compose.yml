@@ -48,12 +48,20 @@ services:
     # MCP server：与 app 同镜像跑 streamable-http transport（检索/出题/复盘工具）。
     # MCP_HOST 显式覆盖为 0.0.0.0（默认回环策略是给本机进程的；容器内必须绑全网卡
     # 才能被 app 经服务名访问）。只 expose 不 ports：仅 compose 内网可达，不发布到宿主。
+    # 服务本身未鉴权：默认不随 docker compose up 启动，需 --profile mcp 显式启用。
+    profiles: ["mcp"]
     image: ai-interview-app:local
     build:
       context: .
       dockerfile: Dockerfile
     command: ["python", "-m", "mcp_server.run_http"]
+    # draft_interview_question / generate_interview_report 工具在服务进程内调 LLM，
+    # 需与 worker 一致透传 LLM 相关 env（否则启动后调用即报 Missing DASHSCOPE_API_KEY）。
     environment:
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-replace_with_dashscope_api_key}
+      QWEN_MODEL: ${QWEN_MODEL:-qwen-plus}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-60}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://ai_interview:replace_with_postgres_password@db:5432/ai_interview}
       AUTO_INIT_DB: ${AUTO_INIT_DB:-false}
       REDIS_ENABLED: ${REDIS_ENABLED:-true}

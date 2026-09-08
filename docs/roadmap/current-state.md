@@ -494,4 +494,5 @@ S5 MCP Server 化已完成：官方 mcp SDK v2（MCPServer）暴露 Tools×5（�
 ```
 
 - 待办：MCP 工具启用前需解决服务账号 user_id=1 与按请求 user_id/application_profile_id 的租户隔离（当前 MCP 路径统一 user_id=1 范围）；公网部署窗口评估后再启用 MCP_TOOLS_ENABLED。
+- 待办：启用 MCP 时以 --profile mcp 启动服务；DASHSCOPE_API_KEY 已随 compose 传入，启用前仍需先解决租户隔离（见上条待办）。
 - 待办：MCP 小清扫（后续顺手）：carried-B 测试改 tmp sqlite、smoke 子进程输出重定向、worker 服务 MCP env 传递评估。

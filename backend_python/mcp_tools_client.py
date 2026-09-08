@@ -186,6 +186,7 @@ def build_mcp_tool_fns(client_factory: Callable[[], Any] | None) -> dict[str, Ca
                 client_factory=client_factory,
             )
         )
+        logger.info("mcp tool %s transport=%s", "retrieve_role_knowledge", outcome.get("transport"))
         return outcome["result"]
 
     def retrieve_question_bank(
@@ -200,6 +201,7 @@ def build_mcp_tool_fns(client_factory: Callable[[], Any] | None) -> dict[str, Ca
                 client_factory=client_factory,
             )
         )
+        logger.info("mcp tool %s transport=%s", "retrieve_question_bank", outcome.get("transport"))
         return outcome["result"]
 
     def retrieve_candidate_memory(
@@ -214,6 +216,7 @@ def build_mcp_tool_fns(client_factory: Callable[[], Any] | None) -> dict[str, Ca
                 client_factory=client_factory,
             )
         )
+        logger.info("mcp tool %s transport=%s", "retrieve_candidate_profile", outcome.get("transport"))
         return outcome["result"]
 
     def _in_process_role(profile: dict[str, Any], query: str) -> Callable[[], list[dict[str, Any]]]:
