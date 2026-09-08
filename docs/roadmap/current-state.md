@@ -467,3 +467,4 @@ VECTOR_SEARCH_BACKEND 透传进 app/worker 容器。
 
 - 待办：公网部署窗口：alembic upgrade head → 回填脚本 → 灰度切 VECTOR_SEARCH_BACKEND=pgvector → 观察 HNSW+强过滤退化
 - 待办：排序行为差异已记录：pgvector 路径纯分数排序，无本人优先重排（与 SQLite 版差异，测试已钉住）
+- 待办：tests/test_deployment_config.py 的镜像断言仍检查 postgres:16 子串（当前由真实注释满足）——后续把断言改为解析 compose 后断言 pgvector/pgvector:pg16。
