@@ -131,7 +131,7 @@ S4 真图化 ──► S5 MCP（v3 runtime 的工具经 MCP 暴露）
 
 **目标设计**：
 
-- 新服务 `mcp_server/`：官方 `mcp` Python SDK；**Tools**=三检索+出题+复盘；**Resources**=知识库文档列表；**Prompts**=面试官 persona 模板（凑齐三类能力，对应考点地图模块五）。
+- 新服务 `mcp_server/`：官方 `mcp` Python SDK **v2**（注意：v2 已将 FastMCP 更名为 `MCPServer`，`from mcp.server.mcpserver import MCPServer`）；**Tools**=三检索+出题+复盘；**Resources**=知识库文档列表；**Prompts**=面试官 persona 模板（凑齐三类能力，对应考点地图模块五）。
 - 主应用作 MCP client（`langchain-mcp-adapters` 或原生 client）在 v3 runtime 调用；docker-compose 增加该服务；stdio（本地）/streamable-http（容器）。
 - 信任边界：MCP 返回内容进 prompt 前清洗 + 长度限制；MCP 故障 fallback 进程内直调，不阻塞主链路。
 - 调用 trace 复用 `build_tool_call_summary` 进诊断后台。
