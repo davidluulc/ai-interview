@@ -1,4 +1,5 @@
 import asyncio
+import json
 from typing import Any
 
 import httpx
@@ -78,6 +79,12 @@ def test_parse_tool_arguments_raises_format_error_when_missing():
         so.parse_tool_arguments(_resp(content="no tool calls here"))
 
 
+def test_parse_tool_arguments_raises_format_error_on_malformed_structure():
+    malformed = {"choices": [{"message": {"tool_calls": [{"function": None}]}}]}
+    with pytest.raises(so.LLMFormatError):
+        so.parse_tool_arguments(malformed)
+
+
 def test_parse_content_json_supports_plain_and_fenced():
     assert so.parse_content_json('{"a": 1}') == {"a": 1}
     fenced = '说明文字\n```json\n{"a": 2}\n```'
@@ -135,3 +142,93 @@ def test_send_raises_format_error_immediately_on_4xx(monkeypatch):
     with pytest.raises(so.LLMFormatError):
         run(so._send({"model": "m"}))
     assert len(transport.calls) == 1
+
+
+def _ok_content(extra=None):
+    payload = {"nextAction": "deep_follow_up", "difficulty": "medium"}
+    if extra:
+        payload.update(extra)
+    return _resp(content=json.dumps(payload, ensure_ascii=False))
+
+
+def _tool_ok():
+    return _resp(tool_arguments='{"nextAction": "switch_topic", "difficulty": "basic"}')
+
+
+def test_chain_succeeds_on_first_stage(monkeypatch):
+    async def fake_send(payload):
+        assert payload["response_format"]["type"] == "json_schema"
+        return _ok_content()
+
+    monkeypatch.setattr(so, "_send", fake_send)
+    model, meta = run(so.call_model_structured(
+        messages=[{"role": "user", "content": "go"}],
+        schema_model=SampleModel,
+        temperature=0.2,
+    ))
+    assert model.nextAction == "deep_follow_up"
+    assert meta["finalStage"] == "json_schema"
+    assert meta["stages"][-1]["status"] == "ok"
+
+
+def test_chain_falls_to_tool_call_on_schema_error(monkeypatch):
+    # 段①内容合法但缺字段 → ValidationError → 段② tool_call 成功
+    bad = _resp(content=json.dumps({"nextAction": "deep_follow_up"}))
+    calls = {"n": 0}
+
+    async def fake_send(payload):
+        calls["n"] += 1
+        return bad if calls["n"] == 1 else _tool_ok()
+
+    monkeypatch.setattr(so, "_send", fake_send)
+    model, meta = run(so.call_model_structured(
+        messages=[{"role": "user", "content": "go"}],
+        schema_model=SampleModel,
+        temperature=0.2,
+    ))
+    assert model.nextAction == "switch_topic"
+    assert meta["finalStage"] == "tool_call"
+    assert meta["stages"][0]["status"] == "format_error"
+
+
+def test_chain_corrective_retry_in_free_json(monkeypatch):
+    # 段①② provider 4xx（format）→ 段③首次缺字段 → 校正重试成功
+    responses = [
+        httpx.Response(400, json={"error": "x"}, request=httpx.Request("POST", "https://t")),
+        httpx.Response(400, json={"error": "x"}, request=httpx.Request("POST", "https://t")),
+        _resp(content=json.dumps({"difficulty": "medium"})),
+        _ok_content(),
+    ]
+    calls = {"n": 0}
+
+    async def fake_send(payload):
+        item = responses[calls["n"]]
+        calls["n"] += 1
+        if isinstance(item, httpx.Response):
+            if item.status_code >= 400:
+                raise so.LLMFormatError(f"provider status {item.status_code}")
+            return item.json()
+        return item
+
+    monkeypatch.setattr(so, "_send", fake_send)
+    model, meta = run(so.call_model_structured(
+        messages=[{"role": "user", "content": "go"}],
+        schema_model=SampleModel,
+        temperature=0.2,
+    ))
+    assert model.nextAction == "deep_follow_up"
+    assert meta["finalStage"] == "free_json_retry"
+
+
+def test_chain_raises_exhausted_when_all_stages_fail(monkeypatch):
+    async def fake_send(payload):
+        raise so.LLMTransportError("down")
+
+    monkeypatch.setattr(so, "_send", fake_send)
+    with pytest.raises(so.StructuredOutputExhausted) as exc_info:
+        run(so.call_model_structured(
+            messages=[{"role": "user", "content": "go"}],
+            schema_model=SampleModel,
+            temperature=0.2,
+        ))
+    assert len(exc_info.value.chain) >= 3

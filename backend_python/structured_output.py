@@ -6,7 +6,7 @@ import time
 from typing import Any, TypeVar
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from .config import DASHSCOPE_API_KEY, LLM_MAX_RETRIES, LLM_TIMEOUT_SECONDS, QWEN_MODEL
 from .llm_client import extract_json, post_chat_completion
@@ -98,10 +98,16 @@ def message_content(data: dict[str, Any]) -> str:
 def parse_tool_arguments(data: dict[str, Any]) -> dict[str, Any]:
     choices = data.get("choices") or []
     tool_calls = choices[0].get("message", {}).get("tool_calls") if choices else None
-    if not tool_calls:
+    if not isinstance(tool_calls, list) or not tool_calls:
         raise LLMFormatError("Response has no tool_calls.")
-    arguments = tool_calls[0].get("function", {}).get("arguments")
-    if not arguments:
+    tool_call = tool_calls[0]
+    if not isinstance(tool_call, dict):
+        raise LLMFormatError("Tool call entry must be an object.")
+    function = tool_call.get("function")
+    if not isinstance(function, dict):
+        raise LLMFormatError("Tool call function must be an object.")
+    arguments = function.get("arguments")
+    if not isinstance(arguments, str) or not arguments:
         raise LLMFormatError("Tool call has no arguments.")
     try:
         parsed = json.loads(arguments)
@@ -143,3 +149,121 @@ async def _send(payload: dict[str, Any]) -> dict[str, Any]:
                 await asyncio.sleep(0.3 * (attempt + 1))
                 continue
     raise LLMTransportError(f"transport failed after retries: {last_error}")
+
+
+_STAGES = ("json_schema", "tool_call", "free_json")
+
+
+def _record(chain: list[dict[str, Any]], stage: str, status: str, detail: Any = "") -> None:
+    chain.append({"stage": stage, "status": status, "detail": str(detail)[:200]})
+
+
+def _meta(chain: list[dict[str, Any]], *, final_stage: str) -> dict[str, Any]:
+    return {"stages": chain, "finalStage": final_stage, "attemptCount": len(chain)}
+
+
+def _payload_for(
+    stage: str,
+    *,
+    messages: list[dict[str, Any]],
+    schema_model: type[BaseModel],
+    temperature: float,
+    model_name: str,
+) -> dict[str, Any]:
+    if stage == "json_schema":
+        return build_json_schema_payload(
+            messages=messages, schema_model=schema_model, temperature=temperature, model_name=model_name
+        )
+    if stage == "tool_call":
+        return build_tool_call_payload(
+            messages=messages, schema_model=schema_model, temperature=temperature, model_name=model_name
+        )
+    return {
+        "model": model_name,
+        "messages": messages,
+        "temperature": temperature,
+        "response_format": {"type": "json_object"},
+    }
+
+
+async def call_model_structured(
+    *,
+    messages: list[dict[str, Any]],
+    schema_model: type[BaseModel],
+    temperature: float = 0.2,
+    model_name: str = QWEN_MODEL,
+) -> tuple[Any, dict[str, Any]]:
+    chain: list[dict[str, Any]] = []
+    free_messages = list(messages)
+    for stage in _STAGES:
+        payload = _payload_for(
+            stage,
+            messages=free_messages if stage == "free_json" else messages,
+            schema_model=schema_model,
+            temperature=temperature,
+            model_name=model_name,
+        )
+        try:
+            data = await _send(payload)
+        except (LLMTransportError, LLMFormatError) as exc:
+            _record(chain, stage, "transport_error" if isinstance(exc, LLMTransportError) else "format_error", exc)
+            continue
+
+        raw: dict[str, Any] = {}
+        try:
+            raw = parse_tool_arguments(data) if stage == "tool_call" else parse_content_json(message_content(data))
+            validated = schema_model.model_validate(raw)
+        except (LLMFormatError, ValidationError) as exc:
+            _record(chain, stage, "format_error", exc)
+            if stage == "free_json":
+                retry_ok = await _free_json_corrective(
+                    free_messages=free_messages,
+                    schema_model=schema_model,
+                    temperature=temperature,
+                    model_name=model_name,
+                    chain=chain,
+                )
+                if retry_ok is not None:
+                    return retry_ok, _meta(chain, final_stage="free_json_retry")
+            continue
+
+        _record(chain, stage, "ok")
+        return validated, _meta(chain, final_stage=stage)
+
+    raise StructuredOutputExhausted(chain)
+
+
+async def _free_json_corrective(
+    *,
+    free_messages: list[dict[str, Any]],
+    schema_model: type[BaseModel],
+    temperature: float,
+    model_name: str,
+    chain: list[dict[str, Any]],
+) -> Any | None:
+    corrective_messages = [
+        *free_messages,
+        {"role": "assistant", "content": json.dumps({"output": "（上次输出不合规）"}, ensure_ascii=False)},
+        {
+            "role": "user",
+            "content": (
+                "上一次输出未通过 schema 校验。请严格按字段要求重新输出，"
+                "只输出一个 JSON 对象，不要包含任何解释或代码围栏。"
+            ),
+        },
+    ]
+    payload = {
+        "model": model_name,
+        "messages": corrective_messages,
+        "temperature": temperature,
+        "response_format": {"type": "json_object"},
+    }
+    try:
+        data = await _send(payload)
+        raw = parse_content_json(message_content(data))
+        validated = schema_model.model_validate(raw)
+    except (LLMTransportError, LLMFormatError, ValidationError) as exc:
+        _record(chain, "free_json_retry", "format_error", exc)
+        return None
+    _record(chain, "free_json_retry", "ok")
+    return validated
