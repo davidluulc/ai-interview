@@ -455,3 +455,4 @@ HTTPS / 域名
 -> 项目讲解和简历包装
 -> 继续开发下一轮增强功能
 ```
+- 待办：S1 代码级小清扫（后续阶段顺手处理）：structured_output.py 未用的 import time / TypeVar T、不可达 TypeError 分支、终态 raise 缺 from、interview_agent normalize 前死赋值、重试元组可放宽至 httpx.RequestError 覆盖 DecodingError。
