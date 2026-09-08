@@ -465,6 +465,6 @@ PgVectorStore 两段式检索（halfvec 近似召回 + 全精度 cosine 重排�
 VECTOR_SEARCH_BACKEND 透传进 app/worker 容器。
 ```
 
-- 待办：公网部署窗口：alembic upgrade head → 回填脚本 → 灰度切 VECTOR_SEARCH_BACKEND=pgvector → 观察 HNSW+强过滤退化
+- 待办：公网部署窗口：① 先备份 postgres 数据卷（spec §0 红线）；② 命令在 app 容器内执行（db 服务未发布宿主端口）：`docker compose exec app alembic upgrade head` → `docker compose exec app python scripts/backfill_embedding_vec.py`；③ 回填输出必须 `skipped_dimension_mismatch=0` 才允许切 `VECTOR_SEARCH_BACKEND=pgvector`；④ 索引构建期间写入会短暂阻塞（非 CONCURRENTLY），预期内 → 灰度切 VECTOR_SEARCH_BACKEND=pgvector → 观察 HNSW+强过滤退化
 - 待办：排序行为差异已记录：pgvector 路径纯分数排序，无本人优先重排（与 SQLite 版差异，测试已钉住）
 - 待办：tests/test_deployment_config.py 的镜像断言仍检查 postgres:16 子串（当前由真实注释满足）——后续把断言改为解析 compose 后断言 pgvector/pgvector:pg16。

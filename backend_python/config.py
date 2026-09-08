@@ -37,7 +37,11 @@ CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/1")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/2")
 CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", True)
 VECTOR_SEARCH_BACKEND = os.getenv("VECTOR_SEARCH_BACKEND", "sqlite").strip().lower()
-EMBEDDING_DIMENSIONS_INT = int(os.getenv("EMBEDDING_DIMENSIONS") or 2048)
+try:
+    EMBEDDING_DIMENSIONS_INT = int(os.getenv("EMBEDDING_DIMENSIONS") or 2048)
+except (TypeError, ValueError):
+    # 垃圾值兜底为 2048（迁移落地的 vector(2048) 列宽），避免 import 期崩溃。
+    EMBEDDING_DIMENSIONS_INT = 2048
 
 
 def structured_output_enabled() -> bool:

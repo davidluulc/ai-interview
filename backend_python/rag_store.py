@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import math
 import re
 from datetime import datetime
@@ -12,6 +13,8 @@ from .config import EMBEDDING_DIMENSIONS_INT
 from .db_models import RagChunk, RagDocument
 from .embedding_client import current_embedding_model, embed_text
 from .knowledge_bases import VALID_KNOWLEDGE_BASES
+
+logger = logging.getLogger(__name__)
 
 DOCUMENT_STATUSES = {"enabled", "disabled", "archived"}
 DOCUMENT_VISIBILITIES = {"private", "public"}
@@ -263,7 +266,15 @@ def write_embedding_vec_columns(db: Session, chunk_embeddings: list[tuple[RagChu
     from .pg_vector_store import embedding_literal
 
     for chunk, embedding in chunk_embeddings:
-        if not embedding or len(embedding) != EMBEDDING_DIMENSIONS_INT:
+        if not embedding:
+            continue
+        if len(embedding) != EMBEDDING_DIMENSIONS_INT:
+            logger.warning(
+                "Skipping embedding_vec write chunk_id=%s dimensions=%s expected=%s",
+                chunk.id,
+                len(embedding),
+                EMBEDDING_DIMENSIONS_INT,
+            )
             continue
         db.execute(
             text("UPDATE rag_chunks SET embedding_vec = CAST(:vec AS vector) WHERE id = :chunk_id"),

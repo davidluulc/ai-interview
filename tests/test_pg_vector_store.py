@@ -186,6 +186,31 @@ def test_pg_vector_store_upserts_embedding_and_searches_by_distance(db_session) 
     )
 
 
+def test_pg_vector_store_search_fails_soft_on_dimension_mismatch(db_session) -> None:
+    """A query embedding with wrong dimensions returns [] instead of a CAST 500."""
+    marker = f"dim_mismatch_{uuid4().hex}"
+    user = create_user(db_session, "pg_vector_store_dim")
+    chunk = create_vector_chunk(
+        db_session,
+        user_id=user.id,
+        title=f"PG dimension mismatch chunk {marker}",
+        metadata_json=f'{{"positionTag":"ai_app_intern","category":"{marker}"}}',
+    )
+    store = PgVectorStore(db_session)
+    store.upsert_embedding(chunk_id=chunk.id, embedding=unit_vector(0), model="text-embedding-v4")
+
+    assert (
+        store.search(
+            user_id=user.id,
+            knowledge_base="role_knowledge",
+            query_embedding=[0.1, 0.2, 0.3],
+            limit=5,
+            metadata_filter={"category": marker},
+        )
+        == []
+    )
+
+
 def test_pg_vector_store_applies_metadata_filter(db_session) -> None:
     marker = f"filter_{uuid4().hex}"
     user = create_user(db_session, "pg_vector_store_filter")

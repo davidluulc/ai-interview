@@ -92,6 +92,10 @@ class PgVectorStore:
     ) -> list[VectorSearchResult]:
         if not query_embedding:
             return []
+        # Fail soft like the empty path: a mismatched-dimension query would
+        # otherwise fail the vector(2048) CAST below with a 500.
+        if len(query_embedding) != PG_VECTOR_DIMENSIONS:
+            return []
         recall = max(limit * SEARCH_RECALL_MULTIPLIER, SEARCH_MIN_RECALL)
         conditions = [
             "rag_chunks.knowledge_base = :knowledge_base",
