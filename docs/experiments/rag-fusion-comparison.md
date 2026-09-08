@@ -16,7 +16,7 @@
 - 用例：`data/rag_evaluation_cases.json` 共 38 例。
 - 向量侧两种跑法：
   1. 真实 `embed_text`——本地 `.env` 未配置 embedding key，向量一路为空召回（检测详情：`500: Missing embedding API key in .env.`）；
-  2. `--mock-vector` 静态向量对照组——复用 `run_rag_evaluation.py` 的 case→固定 3 维向量映射（24/38 例显式映射，其余 14 例默认 [1,0,0]），使四组在本地完整可评。
+  2. `--mock-vector` 静态向量对照组——复用 `run_rag_evaluation.py` 的 case→固定 3 维向量映射（25/38 例显式映射、其余 13 例默认 [1,0,0]，其中 4 个显式映射亦为 [1,0,0]，故 17 例实际查询同一向量），使四组在本地完整可评。
 
 ## 结果一：真实向量侧（无 key，向量路为空）
 
@@ -48,14 +48,17 @@ weighted 与 rrf 的 top3 顺序完全一致的 case 数：14/38——即 38 例
 
 ## 决策：默认保持 weighted
 
-唯一可比较的证据来自 mock 方法论（静态 3 维向量、分布人工构造、14/38 例默认映射 [1,0,0] 系统性偏向部分内容），且结论本身分裂（hit@3 rrf 胜、MRR weighted 胜），不足以推翻现状默认。真实向量证据本地不可得（无 embedding API key），与 S2 pgvector 切换同窗口补跑。
+唯一可比较的证据来自 mock 方法论（静态 3 维向量、分布人工构造、13/38 例默认映射 [1,0,0]，另有 4 个显式映射同向量，合计 17 例实际查询同一向量，系统性偏向部分内容），且结论本身分裂（hit@3 rrf 胜、MRR weighted 胜），不足以推翻现状默认。真实向量证据本地不可得（无 embedding API key），与 S2 pgvector 切换同窗口补跑。
 
-**切换条件（预设）**：部署窗口 pgvector 切换后用真实向量复跑本实验，若 rrf hit@3 仍 ≥ weighted，则将 `HYBRID_FUSION_MODE` 默认切为 rrf（`backend_python/config.py` 默认值 + `.env.example` 注释 + 测试默认值断言，一行级改动）。
+注：plan 原定的机械决策规则为"rrf 在 hit@3 **或** MRR 上 ≥ weighted 即切默认 rrf"（`docs/plans/active/agent-v3-upgrade-stage3-rrf.md` Task 4），已被总控裁定取代——mock 方法论不构成按规则预设默认值的证据等级，故改为保持 weighted + 真实向量复跑后再按下述切换条件判定（裁定记录见 stage ledger：`.superpowers/sdd/agent-v3-upgrade-stage3-rrf/progress.md`）。
+
+**切换条件（预设）**：部署窗口 pgvector 切换后用真实向量复跑本实验，若 rrf hit@3 仍 ≥ weighted，则将 `HYBRID_FUSION_MODE` 默认切为 rrf（`backend_python/config.py` 默认值 + `.env.example` 注释 + 测试默认值断言，一行级改动）。切换前还需检查 score 消费方（`agent_tools.summarize_hits` 的 topScores 等展示路径），确认 rrf 条目原始 score 的展示口径可接受。
 
 复跑陷阱（实验脚本实测）：seed 语料 embedding_model=`evaluation-static` ≠ 默认 `EMBEDDING_MODEL`=`text-embedding-v4`，向量检索按模型名过滤——复跑前要么设 `EMBEDDING_MODEL=evaluation-static`，要么用真实 embedding 重新灌 seed，否则向量侧同样被模型过滤清空、跑出“结果一”。另外 seed 判定必须以 user=1 可见性视角统计（本地库的全局 chunks 属于其他用户）。
 
 ## 局限
 
+- rrf 融合输出的条目保留首见来源的原始 score（bm25 与 vector 分数量纲不同，rrf 下不可比），排序消费必须读 `rrfScore`。
 - mock 向量分布人工构造（case→固定 3 维向量），与真实 2048 维语义向量不可比；该跑法仅用于本地完整对比两路都有召回时两种融合的排序差异。
 - 种子语料为评测构造，非生产流量分布；case 数 38。
 - 无真实向量组（本地无 key）；真实组待部署窗口 pgvector 环境补跑。

@@ -47,6 +47,7 @@ from backend_python.rag_evaluation_seed import (
 )
 from backend_python import retrieval_service
 from backend_python.retrieval_service import retrieve_chunks, retrieve_hybrid_chunks, run_query_embedding
+from scripts.run_rag_evaluation import MOCK_QUERY_EMBEDDINGS
 
 CASE_PATH = ROOT_DIR / "data" / "rag_evaluation_cases.json"
 OUTPUT_PATH = ROOT_DIR / ".superpowers" / "sdd" / "agent-v3-upgrade-stage3-rrf" / "experiment-output.md"
@@ -194,6 +195,25 @@ def format_metric(value: Any) -> str:
     return f"{float(value):.4f}"
 
 
+def count_mock_vector_coverage(cases: list[dict[str, Any]]) -> dict[str, int]:
+    """统计 mock 静态向量方案在当前用例集上的覆盖（动态计算，避免模板里硬编码数字漂移）。"""
+
+    default_embedding = [1.0, 0.0, 0.0]
+    case_ids = [str(case.get("id") or "") for case in cases]
+    explicit_ids = {case_id for case_id in case_ids if case_id in MOCK_QUERY_EMBEDDINGS}
+    default_count = len(case_ids) - len(explicit_ids)
+    explicit_same_as_default = sum(
+        1 for case_id in explicit_ids if MOCK_QUERY_EMBEDDINGS[case_id] == default_embedding
+    )
+    return {
+        "total": len(case_ids),
+        "explicit": len(explicit_ids),
+        "default": default_count,
+        "explicitSameAsDefault": explicit_same_as_default,
+        "effectiveDefaultVector": default_count + explicit_same_as_default,
+    }
+
+
 def render_report(
     *,
     args: argparse.Namespace,
@@ -289,9 +309,12 @@ def render_report(
             "融合策略差异需在 --mock-vector 跑法或公网 pgvector（真实 2048 维向量）环境复跑后再下结论。"
         )
     if args.mock_vector:
+        coverage = count_mock_vector_coverage(cases)
         lines.append(
             "- 局限（mock 向量）：--mock-vector 使用 run_rag_evaluation.py 的确定性静态 3 维向量（case→固定向量，"
-            "其中 24/38 例有显式映射，其余默认 [1,0,0]），与真实语义 embedding 行为不可比；"
+            f"其中 {coverage['explicit']}/{coverage['total']} 例有显式映射、其余 {coverage['default']} 例默认 [1,0,0]，"
+            f"另有 {coverage['explicitSameAsDefault']} 个显式映射亦为 [1,0,0]，"
+            f"共 {coverage['effectiveDefaultVector']} 例实际查询同一向量），与真实语义 embedding 行为不可比；"
             "该跑法仅用于让四组在本地完整可评、观察两路都有召回时 weighted 与 rrf 的排序差异。"
         )
     lines.append(

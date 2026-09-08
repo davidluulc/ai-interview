@@ -1,6 +1,6 @@
 # 当前项目状态与下一阶段路线
 
-更新时间：2026-06-21
+更新时间：2026-09-09
 
 本文档是当前项目路线的可信入口。判断下一步开发方向时，以本文档为准；旧 spec、旧 plan 和历史学习材料只作为背景资料。
 
@@ -476,7 +476,7 @@ HYBRID_FUSION_MODE 配置开关（weighted | rrf，默认 weighted，backend_pyt
 hit@3 / MRR / keywordCoverage / 耗时，38 例来自 data/rag_evaluation_cases.json，--mock-vector 静态向量对照组）；
 实验报告与默认值决策见 docs/experiments/rag-fusion-comparison.md。决策：默认保持 weighted——mock 对照组
 rrf 胜 hit@3（0.9737 vs 0.9474）但 MRR 负于 weighted（0.8860 vs 0.8991），且 mock 方法论仅比较专用
-（静态 3 维向量、14/38 例默认映射 [1,0,0]），真实向量组本地不可得（无 embedding key）。
+（静态 3 维向量、25/38 例显式映射，13 例默认 [1,0,0]，其中 4 个显式映射亦为 [1,0,0]，17 例实际查询同一向量），真实向量组本地不可得（无 embedding key）。
 ```
 
 - 待办：部署窗口 pgvector 切换后用真实向量复跑 fusion 实验（`python scripts/rag_fusion_experiment.py`）——注意 seed 语料 embedding_model=`evaluation-static` ≠ 默认 `text-embedding-v4`，向量检索按模型名过滤，复跑前需设 `EMBEDDING_MODEL=evaluation-static` 或用真实 embedding 重新灌 seed，否则向量侧为空（详见 docs/experiments/rag-fusion-comparison.md 复跑陷阱）。
