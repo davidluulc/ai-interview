@@ -481,3 +481,10 @@ rrf 胜 hit@3（0.9737 vs 0.9474）但 MRR 负于 weighted（0.8860 vs 0.8991）
 
 - 待办：部署窗口 pgvector 切换后用真实向量复跑 fusion 实验（`python scripts/rag_fusion_experiment.py`）——注意 seed 语料 embedding_model=`evaluation-static` ≠ 默认 `text-embedding-v4`，向量检索按模型名过滤，复跑前需设 `EMBEDDING_MODEL=evaluation-static` 或用真实 embedding 重新灌 seed，否则向量侧为空（详见 docs/experiments/rag-fusion-comparison.md 复跑陷阱）。
 - 待办：按预设切换条件决定是否翻默认：若真实向量复跑 rrf hit@3 仍 ≥ weighted，则 `HYBRID_FUSION_MODE` 默认切 rrf（backend_python/config.py 默认值 + .env.example 注释 + 测试默认值断言，一行级改动）。
+
+```text
+S4 LangGraph v3 已完成：plan⇄tools 条件路由循环（模型经 AgentPlanModel 自主选择检索工具与查询词，MAX_PLANNING_STEPS=2 + recursion_limit=25 双保险）、apply_policy_guardrail 规则覆盖（overrideReason 进 trace）、runtime langgraph_agent_v3 注册并复用 quality gate / fallback classic。默认 runtime 仍为 langgraph_mainline，v3 未接入 route 层。
+```
+
+- 待办：v3 route 接线（runtime_policy 允许 langgraph_agent_v3 经 payload 选择；接线时必须向 _build_langgraph_v3_tool_fns 传 user_id 与请求级 db——见 S4 账本）；shadow 观察后再评估切 mainline。
+- 待办：v3 checkpointer 集成（当前 recursion_limit + thread_id 仅为 trace 兼容）；planDecision 未携带 structured-chain 元数据（S5 可补）。
