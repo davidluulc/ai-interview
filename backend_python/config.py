@@ -36,6 +36,8 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/1")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/2")
 CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", True)
+VECTOR_SEARCH_BACKEND = os.getenv("VECTOR_SEARCH_BACKEND", "sqlite").strip().lower()
+EMBEDDING_DIMENSIONS_INT = int(os.getenv("EMBEDDING_DIMENSIONS") or 2048)
 
 
 def structured_output_enabled() -> bool:
