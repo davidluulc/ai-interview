@@ -9,10 +9,15 @@
   路由层专有逻辑（限流、RAG 日志、agent 编排与守门、runtime 审计）不在 MCP 工具内
   复刻；call_model 为 async，工具内用 asyncio.run 驱动，失败自然抛出（由 MCP 上抛）。
 - 工具只做既有函数的薄包装，绝不编造结果。
+- 资源：rag://knowledge-bases 返回三个知识库的名称/用途/检索工具映射。
+- 提示词：interviewer_persona（面试官风格）与 coach_persona（辅导模式），
+  文案取自 backend_python/prompts/interview.py 与 interview_agent.py 的语气。
 
-运行方式：仓库根目录 `python -m mcp_server.server`（或被 `from mcp_server.server
-import mcp` 导入）。文件顶部的 sys.path 引导保证 `python mcp_server/server.py`
-也可直接运行（与 scripts/backfill_embedding_vec.py 同一模式）。
+运行方式：仓库根目录 `python -m mcp_server.run_stdio`（stdio，默认 transport）
+或 `python -m mcp_server.run_http`（streamable-http，默认 0.0.0.0:8000/mcp，
+可用 MCP_HOST/MCP_PORT 覆盖）；也可 `from mcp_server.server import mcp` 导入。
+文件顶部的 sys.path 引导保证 `python mcp_server/server.py` 也可直接运行
+（与 scripts/backfill_embedding_vec.py 同一模式）。
 """
 
 import asyncio
@@ -34,6 +39,12 @@ from backend_python.candidate_memory import (  # noqa: E402
     retrieve_candidate_memory,
 )
 from backend_python.database import SessionLocal  # noqa: E402
+from backend_python.knowledge_bases import (  # noqa: E402
+    CANDIDATE_MEMORY,
+    KNOWLEDGE_BASE_LABELS,
+    QUESTION_BANK,
+    ROLE_KNOWLEDGE,
+)
 from backend_python.llm_client import call_model  # noqa: E402
 from backend_python.prompts.interview import (  # noqa: E402
     NEXT_QUESTION_SYSTEM_PROMPT,
@@ -184,6 +195,70 @@ def generate_interview_report(profile_json: str, answers_json: str) -> dict:
     finally:
         db.close()
     return asyncio.run(call_model(messages=messages, temperature=0.2))
+
+
+@mcp.resource(
+    "rag://knowledge-bases",
+    name="knowledge_bases",
+    description="三个 RAG 知识库的名称、用途与对应 MCP 检索工具映射。",
+    mime_type="application/json",
+)
+def knowledge_bases_resource() -> dict:
+    """三个 RAG 知识库说明（名称 + 用途 + 检索工具映射），SDK 自动转 JSON。"""
+    knowledge_bases = [
+        {
+            "name": ROLE_KNOWLEDGE,
+            "label": KNOWLEDGE_BASE_LABELS[ROLE_KNOWLEDGE],
+            "purpose": "岗位知识、可追问方向、评分点和风险信号",
+            "retrievalTool": "retrieve_role_knowledge",
+        },
+        {
+            "name": QUESTION_BANK,
+            "label": KNOWLEDGE_BASE_LABELS[QUESTION_BANK],
+            "purpose": "可参考的真实面试题与答题要点",
+            "retrievalTool": "retrieve_question_bank",
+        },
+        {
+            "name": CANDIDATE_MEMORY,
+            "label": KNOWLEDGE_BASE_LABELS[CANDIDATE_MEMORY],
+            "purpose": "候选人历史画像与过往弱点（KB 实名 candidate_memory）",
+            "retrievalTool": "retrieve_candidate_profile",
+        },
+    ]
+    return {
+        "knowledgeBases": knowledge_bases,
+        "note": "三个知识库均通过对应检索工具按 BM25 检索，服务账号 user_id=1。",
+    }
+
+
+@mcp.prompt(
+    name="interviewer_persona",
+    description="面试官风格 persona：真实、专业、有压迫感但不过度刁难。",
+)
+def interviewer_persona() -> str:
+    """面试官 persona 模板，文案取自 backend_python/prompts/interview.py 的面试官语气。"""
+    return (
+        "你是 AI 模拟面试的面试官：真实、专业、有压迫感但不过度刁难。\n"
+        "出题前先用 retrieve_role_knowledge、retrieve_question_bank、retrieve_candidate_profile "
+        "检索岗位知识、题库与候选人画像，或直接调用 draft_interview_question 生成下一题。\n"
+        "问题要具体、短、贴合当前阶段，最多 80 个中文字，一次只问一个大问题。\n"
+        "候选人回答空泛时做聚焦追问；吸收检索资料但不要逐字复述题库原题，也不要在同一考点上重复卡死。"
+    )
+
+
+@mcp.prompt(
+    name="coach_persona",
+    description="辅导模式 persona：稳定客观、偏学习辅导，帮助候选人补基础。",
+)
+def coach_persona() -> str:
+    """辅导模式 persona 模板，语气对齐 interview_agent.py coach 模式与复盘教练提示词。"""
+    return (
+        "你是 AI 模拟面试的复盘教练：稳定、客观、偏学习辅导，不要羞辱用户。\n"
+        "先检索参考依据（retrieve_role_knowledge、retrieve_question_bank、retrieve_candidate_profile），"
+        "再结合逐题回答给反馈；也可以调用 generate_interview_report 生成结构化复盘报告。\n"
+        "反馈要具体、可执行：指出缺失知识点、给出参考方向和下一步训练动作。\n"
+        "候选人基础薄弱时优先帮助补基础，再逐步恢复面试强度。"
+    )
 
 
 if __name__ == "__main__":
