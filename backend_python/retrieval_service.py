@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from .config import VECTOR_SEARCH_BACKEND
+from .config import HYBRID_FUSION_MODE, VECTOR_SEARCH_BACKEND
 from .db_models import RagChunk, RagDocument
 from .embedding_client import current_embedding_model, embed_text
 from .pg_vector_store import PgVectorStore
@@ -413,6 +413,7 @@ def retrieve_hybrid_chunks(
     limit: int,
     metadata_filter: dict[str, Any] | None = None,
     hybrid_weights: dict[str, Any] | None = None,
+    fusion: str = "",
 ) -> list[dict[str, Any]]:
     recall_limit = max(limit * 2, 6)
     bm25_hits = retrieve_chunks(
@@ -432,6 +433,12 @@ def retrieve_hybrid_chunks(
         limit=recall_limit,
         metadata_filter=metadata_filter,
     )
+    mode = (fusion or HYBRID_FUSION_MODE).strip().lower()
+    mode = mode if mode in {"weighted", "rrf"} else "weighted"
+    if mode == "rrf":
+        # rrf 按各路排名融合，天然不使用 bm25/vector 权重（权重仅 weighted 模式生效）。
+        # rrf_fuse 已按 rrfScore 排好序，这里直接返回，不再按 score 重排。
+        return rrf_fuse(bm25_hits, vector_hits, limit=limit)
     weights = normalize_hybrid_weights(hybrid_weights)
     return merge_hybrid_hits(
         bm25_hits,
