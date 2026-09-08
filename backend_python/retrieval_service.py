@@ -181,6 +181,42 @@ def merge_hybrid_hits(
     return results[:limit]
 
 
+def rrf_fuse(
+    bm25_hits: list[dict[str, Any]],
+    vector_hits: list[dict[str, Any]],
+    *,
+    limit: int,
+    k: int = 60,
+) -> list[dict[str, Any]]:
+    merged: dict[int, dict[str, Any]] = {}
+
+    def ensure_item(hit: dict[str, Any]) -> dict[str, Any]:
+        chunk_id = int(hit.get("chunkId") or 0)
+        if chunk_id not in merged:
+            merged[chunk_id] = {
+                **hit,
+                "retrievalMode": "hybrid",
+                "fusion": "rrf",
+                "matchedRetrievalModes": [],
+                "rrfScore": 0.0,
+            }
+        return merged[chunk_id]
+
+    for retrieval_mode, hits in (("bm25", bm25_hits), ("vector", vector_hits)):
+        for rank, hit in enumerate(hits, start=1):
+            item = ensure_item(hit)
+            item["rrfScore"] += 1.0 / (k + rank)
+            if retrieval_mode not in item["matchedRetrievalModes"]:
+                item["matchedRetrievalModes"].append(retrieval_mode)
+
+    results = []
+    for item in merged.values():
+        item["rrfScore"] = round(float(item["rrfScore"]), 4)
+        results.append(item)
+    results.sort(key=lambda item: item["rrfScore"], reverse=True)
+    return results[:limit]
+
+
 def retrieve_multi_query_chunks(
     db: Session,
     *,
