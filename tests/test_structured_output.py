@@ -309,3 +309,46 @@ def test_config_flag_defaults_to_chain_and_respects_legacy(monkeypatch):
     assert project_config.structured_output_enabled() is True
     monkeypatch.setenv("LLM_STRUCTURED_OUTPUT", "legacy")
     assert project_config.structured_output_enabled() is False
+
+
+def test_safe_question_model_prefers_structured(monkeypatch):
+    from backend_python.routes import interview as interview_routes
+
+    class _QuestionStub(BaseModel):
+        model_config = {"extra": "allow"}
+        stage: str
+        stability: str
+        focus: str
+        prompt: str
+
+    async def fake_structured(**kwargs):
+        return _QuestionStub(stage="项目追问", stability="稳定", focus="RAG", prompt="请讲讲..."), {
+            "stages": [], "finalStage": "json_schema", "attemptCount": 1,
+        }
+
+    monkeypatch.setenv("LLM_STRUCTURED_OUTPUT", "chain")
+    monkeypatch.setattr(interview_routes, "call_model_structured", fake_structured)
+    data = run(interview_routes.safe_call_question_model(
+        messages=[{"role": "user", "content": "go"}], temperature=0.3,
+    ))
+    assert data["prompt"] == "请讲讲..."
+    assert data["structuredChain"]["finalStage"] == "json_schema"
+
+
+def test_safe_question_model_falls_back_to_legacy(monkeypatch):
+    from backend_python.routes import interview as interview_routes
+
+    async def broken_structured(**kwargs):
+        raise so.StructuredOutputExhausted(chain=[])
+
+    async def fake_legacy(**kwargs):
+        return {"stage": "x", "stability": "y", "focus": "z", "prompt": "legacy 题"}
+
+    monkeypatch.setenv("LLM_STRUCTURED_OUTPUT", "chain")
+    monkeypatch.setattr(interview_routes, "call_model_structured", broken_structured)
+    monkeypatch.setattr(interview_routes, "call_model", fake_legacy)
+    data = run(interview_routes.safe_call_question_model(
+        messages=[{"role": "user", "content": "go"}], temperature=0.3,
+    ))
+    assert data["prompt"] == "legacy 题"
+    assert data.get("structuredFallbackUsed") is True

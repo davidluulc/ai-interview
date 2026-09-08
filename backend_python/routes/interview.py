@@ -16,6 +16,7 @@ from ..candidate_memory import (
     format_candidate_profile,
     retrieve_candidate_memory,
 )
+from ..config import structured_output_enabled
 from ..database import get_db
 from ..db_models import User
 from ..interview_agent import build_debug_signals
@@ -34,6 +35,12 @@ from ..runtime_audit import build_runtime_audit
 from ..runtime_policy import decide_runtime_policy
 from ..schemas import QuestionRequest, QuestionResponse, ReportRequest, ReportResponse
 from ..security import client_identity, enforce_rate_limit
+from ..structured_output import (
+    LLMTransportError,
+    QuestionDraftModel,
+    StructuredOutputExhausted,
+    call_model_structured,
+)
 from ..training_tags import merge_weak_tags
 from ..training_tasks import list_candidate_training_tasks, select_agent_training_task
 
@@ -469,8 +476,23 @@ def build_model_provider_fallback_question(
 
 
 async def safe_call_question_model(*, messages: list[dict[str, Any]], temperature: float) -> dict[str, Any]:
+    if structured_output_enabled():
+        try:
+            model, chain_meta = await call_model_structured(
+                messages=messages,
+                schema_model=QuestionDraftModel,
+                temperature=temperature,
+            )
+            data = model.model_dump()
+            data["structuredChain"] = chain_meta
+            return data
+        except (StructuredOutputExhausted, LLMTransportError):
+            pass  # 落回 legacy，保持既有契约
     try:
-        return await call_model(messages=messages, temperature=temperature)
+        data = await call_model(messages=messages, temperature=temperature)
+        if structured_output_enabled():
+            data["structuredFallbackUsed"] = True
+        return data
     except HTTPException as exc:
         return {"__provider_error__": exc}
 
