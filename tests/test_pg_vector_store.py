@@ -61,11 +61,12 @@ def create_vector_chunk(
     embedding_status: str = "pending",
     status: str = "enabled",
     visibility: str = "private",
+    knowledge_base: str = "role_knowledge",
 ) -> RagChunk:
     document = RagDocument(
         user_id=user_id,
         title=title,
-        knowledge_base="role_knowledge",
+        knowledge_base=knowledge_base,
         source_type="manual",
         status=status,
         visibility=visibility,
@@ -79,7 +80,7 @@ def create_vector_chunk(
     chunk = RagChunk(
         user_id=user_id,
         document_id=document.id,
-        knowledge_base="role_knowledge",
+        knowledge_base=knowledge_base,
         title=title,
         content=title,
         chunk_index=0,
@@ -171,6 +172,19 @@ def test_pg_vector_store_upserts_embedding_and_searches_by_distance(db_session) 
     assert results[1].score == cosine_similarity(near_vec, mid_vec)
     assert results[0].embedding_model == "text-embedding-v4"
 
+    # The optional embedding_model WHERE branch excludes non-matching models.
+    assert (
+        store.search(
+            user_id=user.id,
+            knowledge_base="role_knowledge",
+            query_embedding=near_vec,
+            embedding_model="other-model",
+            limit=5,
+            metadata_filter={"category": marker},
+        )
+        == []
+    )
+
 
 def test_pg_vector_store_applies_metadata_filter(db_session) -> None:
     marker = f"filter_{uuid4().hex}"
@@ -247,3 +261,83 @@ def test_pg_vector_store_owner_public_visibility_matches_sqlite_semantics(db_ses
         assert result.document_status == "enabled"
         assert result.knowledge_base == "role_knowledge"
         assert result.chunk_id in {public_chunk.id, own_private_chunk.id}
+
+
+def test_pg_vector_store_ranks_purely_by_score_not_own_documents_first(db_session) -> None:
+    marker = f"ordering_{uuid4().hex}"
+    owner = create_user(db_session, "pg_vector_store_order_owner")
+    reader = create_user(db_session, "pg_vector_store_order_reader")
+    # Both scores stay positive (a fully orthogonal "far" vector would score
+    # 0.0 and be skipped like in the SQLite store): near ~0.9806, far ~0.4472.
+    near_vec = tilted_vector(0, 1, 0.2)
+    far_vec = tilted_vector(3, 0, 0.5)
+    public_near = create_vector_chunk(
+        db_session,
+        user_id=owner.id,
+        title=f"PG owner public near chunk {marker}",
+        visibility="public",
+        knowledge_base="ordering_probe",
+        metadata_json=f'{{"positionTag":"ai_app_intern","category":"{marker}_a"}}',
+    )
+    own_far = create_vector_chunk(
+        db_session,
+        user_id=reader.id,
+        title=f"PG reader own far chunk {marker}",
+        visibility="private",
+        knowledge_base="ordering_probe",
+        metadata_json=f'{{"positionTag":"ai_app_intern","category":"{marker}_a"}}',
+    )
+    own_near = create_vector_chunk(
+        db_session,
+        user_id=reader.id,
+        title=f"PG reader own near chunk {marker}",
+        visibility="private",
+        knowledge_base="ordering_probe",
+        metadata_json=f'{{"positionTag":"ai_app_intern","category":"{marker}_b"}}',
+    )
+    public_far = create_vector_chunk(
+        db_session,
+        user_id=owner.id,
+        title=f"PG owner public far chunk {marker}",
+        visibility="public",
+        knowledge_base="ordering_probe",
+        metadata_json=f'{{"positionTag":"ai_app_intern","category":"{marker}_b"}}',
+    )
+    store = PgVectorStore(db_session)
+    for chunk, embedding in (
+        (public_near, near_vec),
+        (own_far, far_vec),
+        (own_near, near_vec),
+        (public_far, far_vec),
+    ):
+        store.upsert_embedding(chunk_id=chunk.id, embedding=embedding, model="text-embedding-v4")
+
+    # Divergence from SQLiteVectorStore: the OTHER user's public chunk outranks
+    # the reader's OWN private chunk. The SQLite store's own-documents-first
+    # re-rank would flip this pair; PgVectorStore orders purely by score.
+    diverged = store.search(
+        user_id=reader.id,
+        knowledge_base="ordering_probe",
+        query_embedding=unit_vector(0),
+        limit=5,
+        metadata_filter={"category": f"{marker}_a"},
+    )
+    assert [result.title for result in diverged] == [
+        f"PG owner public near chunk {marker}",
+        f"PG reader own far chunk {marker}",
+    ]
+    assert diverged[0].owner_user_id == owner.id
+    assert diverged[1].owner_user_id == reader.id
+
+    # Reversed distances: the own chunk wins purely because it scores higher.
+    reversed_order = store.search(
+        user_id=reader.id,
+        knowledge_base="ordering_probe",
+        query_embedding=unit_vector(0),
+        limit=5,
+        metadata_filter={"category": f"{marker}_b"},
+    )
+    assert [result.title for result in reversed_order] == [
+        f"PG reader own near chunk {marker}",
+        f"PG owner public far chunk {marker}",
+    ]
