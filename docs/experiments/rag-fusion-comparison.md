@@ -78,3 +78,16 @@ python scripts/rag_fusion_experiment.py --mock-vector --append
 ```
 
 脚本会自动 seed user=1 的 evaluation 语料（幂等）并双写 stdout 与本地 scratch 输出文件；`--mock-vector` 在进程内 monkeypatch `embed_text` 与 `current_embedding_model`（后者必须返回 `evaluation-static`，向量检索按模型名过滤），不改任何生产文件。
+
+## 复跑：真实向量组（2026-09-09 部署窗口）
+
+环境：本地一次性 pgvector 容器（pgvector/pgvector:pg16），种子语料经 `scripts/reembed_embeddings.py` 用生产同款 zhipu embedding-3 真实嵌入至 2048 维（38/38 成功），`EMBEDDING_MODEL` 与 chunk `embedding_model` 对齐（evaluation-static 陷阱已按 task-3 报告预案处理）。
+
+| 模式 | caseCount | hit@3 | MRR | keywordCoverage | 耗时(ms) |
+| --- | --- | --- | --- | --- | --- |
+| bm25 | 38 | 0.8947 | 0.8772 | 0.8355 | 495.3 |
+| vector（真实） | 38 | 1.0000 | 1.0000 | 0.9934 | 10515.8 |
+| hybrid-weighted | 38 | 1.0000 | 0.9868 | 0.9803 | 12146.8 |
+| hybrid-rrf | 38 | 1.0000 | 0.9868 | 0.9934 | 11936.2 |
+
+两种融合 top3 顺序分歧 22/38。预设切换条件触发（rrf hit@3 ≥ weighted，且 keywordCoverage 更优）→ **默认已切 rrf**（config 默认值 + env 样例 + 生产 .env.production 同步）。局限不变：38 例人工构造、种子语料非生产流量分布。

@@ -173,6 +173,7 @@ def test_retrieve_chunks_hybrid_falls_back_to_bm25_when_vector_fails(monkeypatch
             query="RAG quality",
             limit=3,
             mode="hybrid",
+            fusion="weighted",
         )
 
     assert hits

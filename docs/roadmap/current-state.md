@@ -496,3 +496,12 @@ S5 MCP Server 化已完成：官方 mcp SDK v2（MCPServer）暴露 Tools×5（�
 - 待办：MCP 工具启用前需解决服务账号 user_id=1 与按请求 user_id/application_profile_id 的租户隔离（当前 MCP 路径统一 user_id=1 范围）；公网部署窗口评估后再启用 MCP_TOOLS_ENABLED。
 - 待办：启用 MCP 时以 --profile mcp 启动服务；DASHSCOPE_API_KEY 已随 compose 传入，启用前仍需先解决租户隔离（见上条待办）。
 - 待办：MCP 小清扫（后续顺手）：carried-B 测试改 tmp sqlite、smoke 子进程输出重定向、worker 服务 MCP env 传递评估。
+
+## 部署窗口执行记录（2026-09-09）
+
+- 已完成：双备份（pg_dump + 卷 tar）→ 镜像重建（pip 清华源）→ db 换 pgvector:pg16（collation 警告待办见下）→ alembic 迁移（vector(2048)+halfvec HNSW）→ 生产 EMBEDDING_DIMENSIONS 1024→2048 并重嵌 15 条（zhipu 实测接受 2048）→ 回填门禁 skipped=0 → VECTOR_SEARCH_BACKEND=pgvector 已切换（自检索 score=1.0 验证；22 行时 planner 选 Seq Scan 属正常，索引价值在万级以上，测试库已实证 Index Scan）→ S3 真实向量复跑完成，默认融合已切 rrf（见 docs/experiments/rag-fusion-comparison.md）。
+- 待办：DashScope 免费额度耗尽（403）——公网出题当前走兜底问题，需充值或换 key；充值后重跑 scripts/smoke_structured_output.py 验证 json_schema 段。
+- 待办：重建 app 容器后必须 restart nginx（上游 DNS 缓存旧容器 IP 导致 API 502，静态页 200）。
+- 待办：db collation 版本警告（镜像基 glibc 2.36 < 建库时 2.41，REFRESH 未生效）——无害，后续可选换用 trixie 基镜像消除。
+- 待办：LLM 4xx 中 quota/认证类错误被归类 format_error 触发三段全试（graceful 但浪费两次调用），可加 401/403 短路。
+- 待办：GitHub 推送（WSL 被墙，需 Windows 侧 push；服务器与本地已通过 SSH 直推同步）。
