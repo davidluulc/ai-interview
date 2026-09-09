@@ -154,6 +154,8 @@ def test_retrieve_chunks_hybrid_falls_back_to_bm25_when_vector_fails(monkeypatch
         raise RuntimeError("embedding provider failed")
 
     monkeypatch.setattr("backend_python.retrieval_service.embed_text", fake_embed_text)
+    # 该断言（vectorScore 字段）是 weighted 融合的输出契约，显式钉住模式以免疫默认值变化
+    monkeypatch.setattr("backend_python.retrieval_service.HYBRID_FUSION_MODE", "weighted")
 
     with SessionLocal() as db:
         user = create_hybrid_user(db)
@@ -173,7 +175,6 @@ def test_retrieve_chunks_hybrid_falls_back_to_bm25_when_vector_fails(monkeypatch
             query="RAG quality",
             limit=3,
             mode="hybrid",
-            fusion="weighted",
         )
 
     assert hits
