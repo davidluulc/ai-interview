@@ -61,7 +61,7 @@ flowchart LR
 
 ### 生产架构总览图
 
-[![生产架构总览图](docs/demo/ai-interview-arch.svg)](https://raw.githack.com/davidluulc/ai-interview/main/docs/demo/ai-interview-arch.html)
+[![生产架构总览图](docs/demo/ai-interview-arch.png)](https://raw.githack.com/davidluulc/ai-interview/main/docs/demo/ai-interview-arch.html)
 
 > 上图为静态快照；**推荐点开[交互版](https://raw.githack.com/davidluulc/ai-interview/main/docs/demo/ai-interview-arch.html)**——支持明暗主题切换、缩放、关系高亮、三个导览视图（面试主链路 / RAG 检索链 / 异步与扩展）与 PNG/SVG 导出。图源规格：`docs/demo/ai-interview-arch.json`。
 
