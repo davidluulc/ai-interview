@@ -59,6 +59,12 @@ flowchart LR
   API --> LLM[DashScope / 智谱<br/>Chat / Embedding]
 ```
 
+### 生产架构总览图
+
+![生产架构总览](docs/demo/ai-interview-arch.svg)
+
+交互版（主题切换 / 缩放 / 关系高亮 / 三个导览视图 / 导出）：[在线预览](https://raw.githack.com/davidluulc/ai-interview/main/docs/demo/ai-interview-arch.html)，或克隆仓库后直接用浏览器打开 `docs/demo/ai-interview-arch.html`；图源规格见同目录 `ai-interview-arch.json`。
+
 ## 核心功能
 
 - **投递档案管理**：维护简历、岗位 JD、公司信息、岗位标签和归档状态。
@@ -163,6 +169,7 @@ Nginx -> FastAPI app -> PostgreSQL (pgvector)
 ## 文档导航
 
 - [当前项目状态](docs/roadmap/current-state.md)
+- [生产架构总览图（交互版 HTML）](docs/demo/ai-interview-arch.html)
 - [Agent v3 升级总纲（S1-S5 设计与验收）](docs/specs/active/agent-v3-upgrade-design.md)
 - [数据模型与核心关系](docs/project-explanation/data-model.md)
 - [部署总入口](docs/DEPLOYMENT.md)

@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "AI 模拟面试训练系统 · 生产架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "interview-loop", "label": "面试主链路", "focus": ["users", "nginx", "app", "pg", "llm"], "note": "一次模拟面试请求：从浏览器经 Nginx 到 FastAPI，pgvector 检索与 LLM 结构化输出。" },
+      { "id": "rag-pipeline", "label": "RAG 检索链", "focus": ["app", "pg", "llm"], "note": "BM25 + pgvector(HNSW) 混合召回，RRF 融合后 rerank，Embedding 由智谱提供。" },
+      { "id": "async-and-mcp", "label": "异步与扩展", "focus": ["app", "redis", "worker", "mcp"], "note": "知识库入库走 Celery；MCP 服务默认关闭，经 profile 显式启用。" }
+    ]
+  },
+  "components": [
+    { "id": "users", "type": "external", "label": "求职者 / 管理员", "sublabel": "浏览器", "pos": [40, 300], "size": [130, 60] },
+    { "id": "nginx", "type": "cloud", "label": "Nginx", "sublabel": ":8080 静态 + 反向代理", "pos": [250, 300], "size": [140, 60] },
+    { "id": "app", "type": "backend", "label": "FastAPI 应用", "sublabel": "面试 / RAG / Agent / 三段结构化链", "pos": [470, 300], "size": [170, 70], "tag": "LangGraph" },
+    { "id": "llm", "type": "external", "label": "DashScope / 智谱", "sublabel": "Chat + Embedding", "pos": [470, 140], "size": [150, 60] },
+    { "id": "pg", "type": "database", "label": "PostgreSQL + pgvector", "sublabel": ":5432 · HNSW 向量索引", "pos": [920, 300], "size": [170, 60] },
+    { "id": "mcp", "type": "backend", "label": "MCP Server", "sublabel": "Tools / Resources / Prompts", "pos": [250, 450], "size": [160, 60], "tag": "默认关闭" },
+    { "id": "redis", "type": "messagebus", "label": "Redis", "sublabel": "Session / Celery Broker", "pos": [470, 450], "size": [140, 60] },
+    { "id": "worker", "type": "backend", "label": "Celery Worker", "sublabel": "知识库入库 / RAG 评估", "pos": [700, 450], "size": [150, 60] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Docker Compose · 腾讯云 Lighthouse", "wraps": ["nginx", "app", "pg", "mcp", "redis", "worker"] }
+  ],
+  "connections": [
+    { "id": "users-nginx", "from": "users", "to": "nginx", "label": "HTTP :8080", "variant": "emphasis" },
+    { "id": "nginx-app", "from": "nginx", "to": "app", "label": "/api 代理" },
+    { "id": "app-pg", "from": "app", "to": "pg", "label": "SQL + 向量检索" },
+    { "id": "app-llm", "from": "app", "to": "llm", "label": "Chat / Embedding", "fromSide": "top", "toSide": "bottom" },
+    { "id": "app-redis", "from": "app", "to": "redis", "label": "Session 读写", "fromSide": "bottom", "toSide": "top", "labelDx": 52 },
+    { "id": "redis-worker", "from": "redis", "to": "worker", "label": "任务队列" },
+    { "id": "worker-pg", "from": "worker", "to": "pg", "label": "SQL", "fromSide": "right", "toSide": "bottom" },
+    { "id": "app-mcp", "from": "app", "to": "mcp", "label": "MCP 调用", "variant": "dashed", "fromSide": "bottom", "toSide": "top" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "面试闭环", "items": ["投递档案 → RAG 出题 → Agent 追问 → 逐题复盘 → 薄弱点训练", "公网演示：124.221.230.218:8080"] },
+    { "dot": "emerald", "title": "检索与可靠性", "items": ["BM25 + pgvector 混合，RRF 融合（38 例评测集按数据选定）", "HNSW halfvec 索引 + 精确余弦重打分", "LLM 输出三段降级链，可一键回滚"] },
+    { "dot": "rose", "title": "工程化", "items": ["Docker Compose 全栈编排，Alembic 迁移 + 双备份", "MCP 服务按信任边界设计，默认关闭", "518 项后端测试，子代理驱动流水线交付"] }
+  ]
+}
