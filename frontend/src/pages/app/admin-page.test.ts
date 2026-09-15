@@ -978,6 +978,7 @@ describe("admin page", () => {
     const source = readFileSync("src/pages/app/AdminPage.vue", "utf8");
 
     expect(source).not.toContain("--color-primary");
-    expect(source).toContain("--color-accent");
+    expect(source).not.toContain("--color-accent");
+    expect(source).toContain("--action");
   });
 });

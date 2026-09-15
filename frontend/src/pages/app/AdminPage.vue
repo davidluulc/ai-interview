@@ -1,13 +1,11 @@
 <template>
   <AppLayout>
     <section v-if="isRestoringAuth" class="permission-panel">
-      <p class="eyebrow">Admin Console</p>
       <h1>正在恢复登录状态</h1>
       <p>系统正在根据本地 token 拉取当前用户信息，恢复完成后会继续判断管理员权限。</p>
     </section>
 
     <section v-else-if="!auth.isAdmin" class="permission-panel">
-      <p class="eyebrow">Admin Console</p>
       <h1>当前账号没有管理员权限</h1>
       <p>
         后台入口只对管理员开放。前端隐藏入口只是体验控制，真正的权限校验仍然由后端
@@ -18,7 +16,6 @@
     <section v-else class="admin-page">
       <header class="page-header">
         <div>
-          <p class="eyebrow">Admin Console</p>
           <h1>管理员后台</h1>
         </div>
         <p>观察账号、RAG 质量、Agent 行为和系统配置，让 AI 应用不再是黑箱。</p>
@@ -449,9 +446,11 @@
                   <h3>Agent 决策链路</h3>
                   <p>动作：{{ debugText(admin.selectedAiDebugDetail.agent, "nextActionLabel", "未知动作") }}</p>
                   <p>原因：{{ debugText(admin.selectedAiDebugDetail.agent, "reason", "暂无原因") }}</p>
-                  <span v-if="debugBoolean(admin.selectedAiDebugDetail.agent, 'fallbackUsed')" class="warning-pill">
-                    兜底规则已启用
-                  </span>
+                  <BrutChip
+                    v-if="debugBoolean(admin.selectedAiDebugDetail.agent, 'fallbackUsed')"
+                    label="兜底规则已启用"
+                    tone="warn"
+                  />
                 </article>
 
                 <article v-else-if="admin.selectedAiDebugTab === 'langgraph'" class="debug-panel">
@@ -470,7 +469,7 @@
                     }}
                   </p>
                   <p>恢复决策：{{ debugText(admin.selectedAiDebugDetail.langgraph, "resumeDecision", "暂无") }}</p>
-                  <span v-if="debugInterruptReason" class="warning-pill">{{ debugInterruptReason }}</span>
+                  <BrutChip v-if="debugInterruptReason" :label="debugInterruptReason" tone="warn" />
                   <div class="debug-subsection">
                     <h4>Runtime 对比</h4>
                     <p>可见链路：{{ debugText(admin.selectedAiDebugDetail.langgraph, "visibleRuntime", "未记录") }}</p>
@@ -589,7 +588,7 @@
                 <td>{{ user.email }}</td>
                 <td>{{ user.username }}</td>
                 <td>
-                  <span class="pill">{{ formatRole(user.role) }}</span>
+                  <BrutChip :label="formatRole(user.role)" tone="neutral" />
                 </td>
                 <td>{{ formatDate(user.createdAt) }}</td>
                 <td>
@@ -642,8 +641,15 @@
           <p>用户：{{ forceLogoutCandidate.email }}</p>
           <p>操作后，该用户当前登录态会失效，需要重新登录。</p>
           <div class="modal-actions">
-            <button type="button" class="ghost-action" @click="closeForceLogout">取消</button>
-            <button data-testid="confirm-force-logout" type="button" @click="confirmForceLogout">确认下线</button>
+            <BrutButton variant="ghost" type="button" @click="closeForceLogout">取消</BrutButton>
+            <BrutButton
+              variant="danger"
+              data-testid="confirm-force-logout"
+              type="button"
+              @click="confirmForceLogout"
+            >
+              确认下线
+            </BrutButton>
           </div>
         </section>
       </div>
@@ -703,7 +709,7 @@
           <article v-for="item in admin.ragQuality.items" :key="item.id || queryText(item)" class="log-item">
             <div class="log-heading">
               <strong>{{ queryText(item) }}</strong>
-              <span class="warning-pill">{{ issueLabel(item.issueType) }}</span>
+              <BrutChip :label="issueLabel(item.issueType)" tone="warn" />
             </div>
             <p>检索器：{{ retrieverLabel(retrieverName(item)) }} · 命中 {{ hitCount(item) }} 条</p>
             <p class="advice-line">建议动作：{{ issueAdvice(item) }}</p>
@@ -761,7 +767,7 @@
           <article v-for="task in admin.ragIngestionTasks.items" :key="task.taskId" class="log-item">
             <div class="log-heading">
               <strong>{{ task.title || task.originalFilename || task.taskId }}</strong>
-              <span class="warning-pill">{{ ingestionStatusLabel(task.status) }}</span>
+              <BrutChip :label="ingestionStatusLabel(task.status)" :tone="ingestionStatusTone(task.status)" />
             </div>
             <p>
               {{ retrieverLabel(task.knowledgeBase) }} · 文件 {{ task.originalFilename || "未知文件" }} · 用户
@@ -859,7 +865,7 @@
           <article v-for="log in admin.agentLogs" :key="log.id || log.createdAt || log.reason" class="log-item">
             <div class="log-heading">
               <strong>下一步动作：{{ normalizeAction(log.nextAction || log.next_action) }}</strong>
-              <span v-if="isFallbackUsed(log)" class="warning-pill">{{ fallbackLabel(log) }}</span>
+              <BrutChip v-if="isFallbackUsed(log)" :label="fallbackLabel(log)" tone="warn" />
             </div>
             <p>当前阶段：{{ log.stage || "未知阶段" }} · 难度：{{ difficultyLabel(log.difficulty) }} · 关注点：{{ log.focus || "未知关注点" }}</p>
             <p>判断依据：{{ log.reason || "暂无原因" }}</p>
@@ -950,6 +956,8 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import BrutButton from "@/components/brut/BrutButton.vue";
+import BrutChip from "@/components/brut/BrutChip.vue";
 import AppLayout from "@/layouts/AppLayout.vue";
 import { useAdminStore, type AdminAiDebugTab } from "@/stores/admin";
 import { useAuthStore } from "@/stores/auth";
@@ -1433,6 +1441,12 @@ function ingestionStatusLabel(value = ""): string {
   return map[value] || value || "未知状态";
 }
 
+function ingestionStatusTone(value = ""): "ok" | "warn" | "danger" {
+  if (value === "succeeded" || value === "success") return "ok";
+  if (value === "failed") return "danger";
+  return "warn";
+}
+
 function documentRiskHint(document: AdminRagDocument): string {
   const duplicateCount = duplicateChunkCount(document);
   if (duplicateCount > 0) return `可能存在重复切片：${duplicateCount} 条，建议检查是否重复录入相同资料。`;
@@ -1504,18 +1518,20 @@ function maskDatabaseUrl(value: string): string {
 .admin-page,
 .permission-panel {
   display: grid;
-  gap: 24px;
+  gap: var(--s6);
   max-width: 1180px;
   min-width: 0;
+  font-family: var(--font-ui);
+  color: var(--ink);
 }
 
-.page-header,
+/* T3 工具级：分节 = 2px 墨边面板 + 黑头；投影仅留给交互元素。 */
 .section,
 .permission-panel {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  padding: 24px;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  padding: var(--s5);
   min-width: 0;
 }
 
@@ -1523,61 +1539,75 @@ function maskDatabaseUrl(value: string): string {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
+  gap: var(--s5);
 }
 
 .page-header > p {
   max-width: 520px;
-  color: var(--color-text-muted);
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  color: var(--color-accent);
-  font-size: 13px;
+  color: var(--ink-soft);
+  font-size: var(--text-strong);
   font-weight: 700;
+  line-height: 1.6;
 }
 
 h1,
 h2,
+h3,
+h4,
 p {
   margin: 0;
 }
 
 h1 {
-  font-size: clamp(32px, 5vw, 48px);
-  line-height: 1.05;
+  font-size: var(--text-page);
+  font-weight: 900;
+  line-height: 1.1;
 }
 
 h2 {
-  font-size: 20px;
+  font-size: var(--text-section);
 }
 
 code {
-  border-radius: 6px;
-  background: var(--color-surface-muted);
-  padding: 2px 5px;
+  border: 1px solid var(--line-hair);
+  border-radius: 0;
+  background: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 2px var(--s2);
 }
 
-.permission-panel p,
+.permission-panel p {
+  margin-top: var(--s3);
+  color: var(--ink-soft);
+  font-size: var(--text-strong);
+  font-weight: 700;
+  line-height: 1.7;
+}
+
 .muted {
-  color: var(--color-text-muted);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.7;
 }
 
 .error {
-  border: 1px solid rgba(180, 35, 24, 0.22);
-  border-radius: var(--radius-sm);
-  background: #fff3f0;
-  color: #b42318;
-  padding: 12px 14px;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--danger);
+  color: var(--action-ink);
+  font-weight: 800;
+  padding: var(--s3) var(--s4);
 }
 
 .success-message {
-  border: 1px solid rgba(18, 128, 92, 0.22);
-  border-radius: var(--radius-sm);
-  background: #ecfdf3;
-  color: #027a48;
-  padding: 12px 14px;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--ok);
+  color: var(--action-ink);
+  font-weight: 800;
+  padding: var(--s3) var(--s4);
 }
 
 .section-title,
@@ -1586,12 +1616,31 @@ code {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--s3);
 }
 
-.section-title span {
-  color: var(--color-text-muted);
-  font-size: 13px;
+/* 黑头分节标题条：负 margin 抵消 .section 内边距，铺满面板宽度。 */
+.section > .section-title {
+  background: var(--ink);
+  color: var(--paper);
+  margin: calc(var(--s5) * -1) calc(var(--s5) * -1) var(--s4);
+  padding: var(--s2) var(--s3);
+}
+
+.section > .section-title h2 {
+  color: var(--paper);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.section > .section-title span {
+  color: var(--paper);
+  font-size: var(--text-label);
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .metrics-grid,
@@ -1599,60 +1648,89 @@ code {
 .config-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
-  margin-top: 16px;
+  gap: var(--s3);
+  margin-top: var(--s4);
 }
 
 .metric,
 .quality-grid article,
-.config-grid p,
+.config-grid p {
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  padding: var(--s3) var(--s4);
+}
+
 .log-item {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-muted);
-  padding: 14px;
+  border: 1px solid var(--line-hair);
+  border-radius: 0;
+  background: var(--paper);
+  padding: var(--s3) var(--s4);
 }
 
 .metric span,
 .quality-grid span,
 .config-grid span {
   display: block;
-  margin-bottom: 6px;
-  color: var(--color-text-muted);
-  font-size: 13px;
+  margin-bottom: var(--s1);
+  color: var(--ink-soft);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
 }
 
 .section-help {
-  margin-top: 10px;
-  color: var(--color-text-muted);
+  margin-top: var(--s3);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
   line-height: 1.7;
 }
 
 .metric strong,
 .quality-grid strong {
-  font-size: 26px;
+  font-family: var(--font-mono);
+  font-size: var(--text-section);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
+}
+
+.metric strong {
+  font-size: var(--text-page);
 }
 
 .quality-grid small {
   display: block;
-  margin-top: 8px;
-  color: var(--color-text-muted);
+  margin-top: var(--s2);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
   line-height: 1.5;
 }
 
 .filters {
-  margin: 16px 0;
+  margin: var(--s4) 0;
 }
 
 .filters input,
 .filters select {
   min-height: 42px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
-  padding: 10px 12px;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: 700;
+  padding: var(--s2) var(--s3);
+}
+
+.filters input:focus,
+.filters select:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .filters input {
@@ -1664,31 +1742,43 @@ code {
   max-width: 100%;
   min-width: 0;
   overflow-x: auto;
+  border: 1px solid var(--line-hair);
 }
 
 table {
   width: 100%;
   min-width: 720px;
   border-collapse: collapse;
+  font-size: var(--text-body);
 }
 
+/* T3：表格行用发丝线，仅表头下沿用墨线强调。 */
 th,
 td {
-  border-bottom: 1px solid var(--color-border);
-  padding: 12px;
+  border-bottom: 1px solid var(--line-hair);
+  padding: var(--s3);
   text-align: left;
   vertical-align: top;
   overflow-wrap: anywhere;
 }
 
 th {
-  color: var(--color-text-muted);
-  font-size: 13px;
-  font-weight: 600;
+  border-bottom: var(--line);
+  color: var(--ink-soft);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+td:first-child {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .empty-cell {
-  color: var(--color-text-muted);
+  color: var(--ink-soft);
+  font-weight: 800;
   text-align: center;
 }
 
@@ -1696,46 +1786,77 @@ th {
 .pagination-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--s3);
 }
 
 .pagination-bar {
   justify-content: space-between;
-  margin-top: 14px;
-  color: var(--color-text-muted);
-  font-size: 13px;
+  margin-top: var(--s4);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
 }
 
 .pagination-bar label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--s2);
 }
 
 .pagination-bar select,
 .pagination-bar button,
 .table-action {
   min-height: 36px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
-  padding: 7px 10px;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  font-weight: 800;
+  padding: var(--s2) var(--s3);
 }
 
+.pagination-bar select:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* T3：投影只出现在按钮/激活项上。 */
 .pagination-bar button,
 .table-action {
   cursor: pointer;
+  box-shadow: var(--shadow-2);
+}
+
+.pagination-bar button:focus-visible,
+.table-action:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pagination-bar button:hover:not(:disabled),
+  .table-action:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+}
+
+.pagination-bar button:active:not(:disabled),
+.table-action:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .pagination-bar button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+  box-shadow: none;
 }
 
 .table-action:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+  box-shadow: none;
 }
 
 .modal-backdrop {
@@ -1744,78 +1865,73 @@ th {
   z-index: 40;
   display: grid;
   place-items: center;
-  background: rgba(15, 23, 42, 0.42);
-  padding: 24px;
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
+  padding: var(--s6);
 }
 
 .confirm-modal {
   width: min(420px, 100%);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.22);
-  padding: 22px;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  padding: var(--s5);
+}
+
+.confirm-modal h2 {
+  font-size: var(--text-section);
+  font-weight: 900;
+  line-height: 1.3;
 }
 
 .confirm-modal p {
-  margin-top: 10px;
-  color: var(--color-text-muted);
+  margin-top: var(--s2);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
   line-height: 1.6;
 }
 
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.modal-actions button {
-  min-height: 38px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-accent);
-  color: #fff;
-  padding: 8px 14px;
-  cursor: pointer;
-}
-
-.modal-actions .ghost-action {
-  background: var(--color-surface);
-  color: var(--color-text);
+  gap: var(--s3);
+  margin-top: var(--s5);
 }
 
 .list {
   display: grid;
-  gap: 10px;
-  margin-top: 16px;
+  gap: var(--s3);
+  margin-top: var(--s4);
 }
 
+/* 内层轻量子面板：发丝线 + 纸底，与 2px 墨边分节拉开层级。 */
 .dashboard-panel {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  margin-top: 14px;
-  padding: 14px;
+  border: 1px solid var(--line-hair);
+  border-radius: 0;
+  background: var(--paper);
+  margin-top: var(--s4);
+  padding: var(--s3) var(--s4);
 }
 
 .dashboard-panel h3 {
-  margin: 0 0 10px;
-  font-size: 15px;
+  margin: 0 0 var(--s3);
+  font-size: var(--text-strong);
+  font-weight: 900;
+  letter-spacing: 0.02em;
 }
 
 .ai-debug-layout {
   display: grid;
   grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
-  gap: 16px;
-  margin-top: 16px;
+  gap: var(--s4);
+  margin-top: var(--s4);
 }
 
 .observability-layout {
   display: grid;
   grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
-  gap: 16px;
-  margin-top: 14px;
+  gap: var(--s4);
+  margin-top: var(--s4);
 }
 
 .trace-list,
@@ -1824,131 +1940,216 @@ th {
   min-width: 0;
 }
 
-.trace-list h3,
-.debug-panel h3 {
-  margin: 0 0 10px;
-  font-size: 15px;
+.trace-list h3 {
+  margin: 0 0 var(--s3);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .trace-card {
   display: grid;
   width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-muted);
-  color: var(--color-text);
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
   cursor: pointer;
-  gap: 6px;
-  margin-bottom: 10px;
-  padding: 12px;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+  padding: var(--s3);
   text-align: left;
-}
-
-.trace-card.active,
-.trace-card:hover {
-  border-color: rgba(23, 92, 211, 0.45);
-  background: #f5f8ff;
+  font-size: var(--text-body);
 }
 
 .trace-card span {
-  font-weight: 700;
+  font-weight: 800;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .trace-card:hover:not(.active) {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-3);
+  }
+}
+
+/* 选中项：蓝底白字（蓝=指令/交互），允许投影（激活项例外）。 */
+.trace-card.active {
+  background: var(--action);
+  color: var(--action-ink);
+  box-shadow: var(--shadow-3);
 }
 
 .trace-card small,
 .mini-row span {
-  color: var(--color-text-muted);
+  color: var(--ink-soft);
+  font-weight: 700;
   line-height: 1.5;
+}
+
+.trace-card.active small {
+  color: var(--action-ink);
 }
 
 .hierarchy-trail {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
 }
 
-.hierarchy-trail span,
-.inline-action {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-muted);
-  color: var(--color-text);
-  font-size: 12px;
+.hierarchy-trail span {
+  border: 1px solid var(--line-hair);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--text-label);
+  font-weight: 700;
   line-height: 1.4;
-  padding: 5px 8px;
+  padding: var(--s1) var(--s2);
 }
 
 .inline-action {
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  font-weight: 800;
+  line-height: 1.4;
+  padding: var(--s1) var(--s2);
   cursor: pointer;
   justify-self: start;
+  box-shadow: var(--shadow-2);
 }
 
-.inline-action:hover {
-  border-color: rgba(23, 92, 211, 0.45);
-  color: var(--color-accent);
+.inline-action.active {
+  background: var(--action);
+  color: var(--action-ink);
+  box-shadow: var(--shadow-3);
+}
+
+.inline-action:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .inline-action:hover:not(.active) {
+    transform: translateY(-1px);
+  }
+}
+
+.inline-action:active {
+  transform: scale(0.97);
 }
 
 .debug-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 12px 0;
+  gap: var(--s2);
+  margin: var(--s3) 0;
 }
 
 .debug-tabs button {
   min-height: 34px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text-muted);
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink-soft);
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  font-weight: 800;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  padding: 7px 11px;
+  padding: var(--s2) var(--s3);
+  box-shadow: var(--shadow-2);
 }
 
 .debug-tabs button[aria-selected="true"] {
-  border-color: rgba(23, 92, 211, 0.46);
-  background: #eef4ff;
-  color: var(--color-accent);
-  font-weight: 700;
+  background: var(--action);
+  color: var(--action-ink);
+  box-shadow: var(--shadow-3);
+}
+
+.debug-tabs button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .debug-tabs button:hover:not([aria-selected="true"]) {
+    transform: translateY(-1px);
+  }
+}
+
+.debug-tabs button:active {
+  transform: scale(0.97);
 }
 
 .debug-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--s3);
 }
 
 .workflow-observation {
-  border: 1px solid rgba(23, 92, 211, 0.25);
-  border-radius: var(--radius-sm);
-  background: #f5f8ff;
-  margin-bottom: 12px;
-  padding: 14px;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--paper);
+  margin-bottom: var(--s3);
+  padding: var(--s4);
 }
 
 .workflow-observation h3 {
   margin: 0;
 }
 
+/* 工作流观测卡内嵌 section-title：同样走黑头样式（无负 margin，父级自带内边距）。 */
+.workflow-observation .section-title {
+  background: var(--ink);
+  color: var(--paper);
+  margin: 0 0 var(--s3);
+  padding: var(--s2) var(--s3);
+}
+
+.workflow-observation .section-title h3 {
+  color: var(--paper);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.workflow-observation .section-title span {
+  color: var(--paper);
+  font-size: var(--text-label);
+  font-weight: 800;
+}
+
 .workflow-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 12px;
+  gap: var(--s3);
+  margin-top: var(--s3);
 }
 
 .workflow-metrics article {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  padding: 10px;
+  border: 1px solid var(--line-hair);
+  border-radius: 0;
+  background: var(--panel);
+  padding: var(--s3);
 }
 
 .workflow-metrics span {
   display: block;
-  color: var(--color-text-muted);
-  font-size: 12px;
-  margin-bottom: 5px;
+  color: var(--ink-soft);
+  font-size: var(--text-label);
+  font-weight: 900;
+  margin-bottom: var(--s1);
 }
 
 .workflow-node-list,
@@ -1956,146 +2157,172 @@ th {
 .failure-stage-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+  gap: var(--s2);
+  margin-top: var(--s3);
 }
 
 .workflow-node-list span,
 .workflow-rag-list span,
 .failure-stage-list span {
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: 12px;
-  padding: 6px 9px;
+  border: 1px solid var(--line-hair);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 700;
+  padding: var(--s1) var(--s2);
 }
 
+/* 诊断内容面板：2px 墨边 + 黑头 h3（负 margin 铺满面板宽度）。 */
 .debug-panel {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-muted);
-  padding: 14px;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  padding: var(--s4);
+}
+
+.debug-panel h3 {
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  margin: calc(var(--s4) * -1) calc(var(--s4) * -1) var(--s3);
+  padding: var(--s2) var(--s3);
 }
 
 .debug-panel p {
-  color: var(--color-text-muted);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
   line-height: 1.6;
-  margin-bottom: 8px;
+  margin-bottom: var(--s2);
 }
 
 .debug-subsection {
-  border-top: 1px solid var(--color-border);
-  margin-top: 12px;
-  padding-top: 12px;
+  border-top: 1px solid var(--line-hair);
+  margin-top: var(--s3);
+  padding-top: var(--s3);
 }
 
 .debug-subsection.compact {
-  margin-top: 10px;
-  padding-top: 10px;
+  margin-top: var(--s2);
+  padding-top: var(--s2);
 }
 
 .debug-subsection h4 {
-  margin: 0 0 8px;
-  font-size: 14px;
+  margin: 0 0 var(--s2);
+  font-size: var(--text-strong);
+  font-weight: 900;
 }
 
 .debug-list {
   display: grid;
-  gap: 6px;
-  margin: 8px 0 0;
+  gap: var(--s2);
+  margin: var(--s2) 0 0;
   padding-left: 18px;
 }
 
 .debug-list li {
-  color: var(--color-text-muted);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
   line-height: 1.5;
 }
 
 .mini-row {
   display: grid;
-  gap: 4px;
-  border-top: 1px solid var(--color-border);
-  margin-top: 10px;
-  padding-top: 10px;
+  gap: var(--s1);
+  border-top: 1px solid var(--line-hair);
+  margin-top: var(--s3);
+  padding-top: var(--s3);
   overflow-wrap: anywhere;
 }
 
+.mini-row strong {
+  font-size: var(--text-strong);
+  font-weight: 900;
+}
+
 .raw-debug {
-  margin-top: 12px;
+  margin-top: var(--s3);
 }
 
 .raw-debug summary {
   cursor: pointer;
-  color: var(--color-text-muted);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 800;
 }
 
+/* 原始 JSON：墨底纸字的终端块，等宽字体。 */
 .raw-debug pre {
   max-height: 320px;
   overflow: auto;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: #101828;
-  color: #f2f4f7;
-  padding: 12px;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: var(--text-data);
+  line-height: 1.6;
+  margin-top: var(--s2);
+  padding: var(--s3);
   white-space: pre-wrap;
 }
 
 .log-item {
   display: grid;
-  gap: 8px;
+  gap: var(--s2);
+}
+
+.log-heading strong {
+  font-size: var(--text-strong);
+  font-weight: 900;
 }
 
 .log-item p {
-  color: var(--color-text-muted);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
   line-height: 1.6;
 }
 
 .advice-line {
-  color: var(--color-text) !important;
+  color: var(--ink) !important;
 }
 
 .risk-line {
-  border-left: 3px solid #f79009;
-  padding-left: 10px;
-}
-
-.pill,
-.warning-pill {
-  display: inline-flex;
-  border-radius: 999px;
-  font-size: 12px;
-  padding: 4px 8px;
-  white-space: nowrap;
-}
-
-.pill {
-  background: #eef4ff;
-  color: #175cd3;
-}
-
-.warning-pill {
-  background: #fff3cd;
-  color: #7a4d00;
+  border-left: 3px solid var(--warn);
+  padding-left: var(--s3);
 }
 
 .config-grid strong {
+  font-family: var(--font-mono);
+  font-size: var(--text-body);
   word-break: break-all;
 }
 
 .infra-panel {
-  margin-top: 18px;
+  margin-top: var(--s5);
 }
 
 .infra-panel h3 {
-  margin: 0;
-  font-size: 16px;
+  margin: 0 0 var(--s3);
+  font-size: var(--text-strong);
+  font-weight: 900;
+  letter-spacing: 0.02em;
 }
 
 .infra-panel small {
   display: block;
-  margin-top: 6px;
-  color: var(--color-text-muted);
+  margin-top: var(--s2);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
   line-height: 1.5;
 }
 
@@ -2108,10 +2335,13 @@ th {
     flex-direction: column;
   }
 
-  .page-header,
   .section,
   .permission-panel {
-    padding: 18px;
+    padding: var(--s4);
+  }
+
+  .section > .section-title {
+    margin: calc(var(--s4) * -1) calc(var(--s4) * -1) var(--s3);
   }
 
   .filters input,
