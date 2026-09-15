@@ -71,7 +71,7 @@ const overviewItems = computed(() => [
 
 .stat-tile__value {
   font-family: var(--font-mono);
-  font-size: 26px;
+  font-size: var(--text-page);
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   line-height: 1;

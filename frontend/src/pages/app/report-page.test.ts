@@ -118,6 +118,35 @@ describe("report page", () => {
     });
   });
 
+  it("renders the hero score block only when the report carries a real score", () => {
+    const originalScore = reportStore.record.report.score;
+
+    try {
+      const withScore = mount(ReportPage, {
+        global: {
+          stubs: {
+            AppLayout: { template: "<main><slot /></main>" }
+          }
+        }
+      });
+      expect(withScore.find(".score-block").exists()).toBe(true);
+      expect(withScore.text()).toContain("88");
+
+      (reportStore.record.report as { score?: number }).score = undefined;
+      const withoutScore = mount(ReportPage, {
+        global: {
+          stubs: {
+            AppLayout: { template: "<main><slot /></main>" }
+          }
+        }
+      });
+      expect(withoutScore.find(".score-block").exists()).toBe(false);
+      expect(withoutScore.text()).toContain("AI 应用开发投递");
+    } finally {
+      reportStore.record.report.score = originalScore;
+    }
+  });
+
   it("generates training tasks from the current report before entering training center", async () => {
     reportStore.generateTrainingTasks.mockResolvedValue([
       {

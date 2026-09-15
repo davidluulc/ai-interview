@@ -12,4 +12,8 @@ describe("brut tokens", () => {
   it.each(["--paper", "--ink", "--action", "--ok", "--warn", "--danger", "--score-5", "--heat-3", "--shadow-3", "--hazard", "--font-mono", "--text-page", "--s4", "--ease-out"])("defines %s", (token) => {
     expect(css).toContain(`${token}:`);
   });
+
+  it("keeps --ok dark enough for white chip/stamp text (WCAG AA, >= 4.5:1)", () => {
+    expect(css).toContain("--ok: #008633;");
+  });
 });

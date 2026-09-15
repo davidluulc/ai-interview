@@ -1441,10 +1441,12 @@ function ingestionStatusLabel(value = ""): string {
   return map[value] || value || "未知状态";
 }
 
-function ingestionStatusTone(value = ""): "ok" | "warn" | "danger" {
+/* 与 KnowledgePage.ingestionStatusTone 同域同义：pending/queued=中性，仅 running=warn。 */
+function ingestionStatusTone(value = ""): "ok" | "warn" | "danger" | "neutral" {
   if (value === "succeeded" || value === "success") return "ok";
+  if (value === "running") return "warn";
   if (value === "failed") return "danger";
-  return "warn";
+  return "neutral";
 }
 
 function documentRiskHint(document: AdminRagDocument): string {

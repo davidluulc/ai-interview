@@ -3,7 +3,7 @@
   --paper: #fdfcf7; --panel: #ffffff; --panel-warm: #fff3bf;
   --ink: #141414; --ink-soft: #6b6558; --line-hair: #e5e1d5;
   --action: #005eb8; --action-ink: #ffffff;
-  --ok: #009639; --warn: #ffd100; --danger: #c8102e; --info: #005eb8;
+  --ok: #008633; --warn: #ffd100; --danger: #c8102e; --info: #005eb8;
   --score-5: #005eb8; --score-4: #4d84c8; --score-3: #9dbfe2; --score-2: #cfe0f0; --score-1: #e8f0f8;
   --heat-3: #c8102e; --heat-2: #ff8a80; --heat-1: #ffd9d6;
   --line: 2px solid var(--ink);

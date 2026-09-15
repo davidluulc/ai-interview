@@ -433,7 +433,7 @@ function formatDate(value: string): string {
   min-width: 76px;
   border: var(--line);
   font-family: var(--font-mono);
-  font-size: 28px;
+  font-size: var(--text-page);
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   line-height: 1;

@@ -27,7 +27,7 @@
   --paper: #fdfcf7; --panel: #ffffff; --panel-warm: #fff3bf;
   --ink: #141414; --ink-soft: #6b6558; --line-hair: #e5e1d5;
   --action: #005eb8; --action-ink: #ffffff;
-  --ok: #009639; --warn: #ffd100; --danger: #c8102e; --info: #005eb8;
+  --ok: #008633; --warn: #ffd100; --danger: #c8102e; --info: #005eb8;
   --score-5: #005eb8; --score-4: #4d84c8; --score-3: #9dbfe2; --score-2: #cfe0f0; --score-1: #e8f0f8;
   --heat-3: #c8102e; --heat-2: #ff8a80; --heat-1: #ffd9d6;
   --line: 2px solid var(--ink);
@@ -246,7 +246,7 @@ describe("brut tokens", () => {
 
 - [ ] **Step 1:** `grep -rn "color-accent\|color-surface\|color-text-muted\|shadow-soft\|radius-sm\|radius-md\|radius-lg" frontend/src/` 结果为 0（残留逐个改为新令牌）
 - [ ] **Step 2:** 删除 tokens.css 旧块；`npx vitest run` + `npm run build` 全绿
-- [ ] **Step 3:** 语义色审计：`grep -rn "#009639\|#ffd100\|#c8102e" frontend/src --include="*.vue"` 只允许出现在 tokens.css
+- [ ] **Step 3:** 语义色审计：`grep -rn "#008633\|#ffd100\|#c8102e" frontend/src --include="*.vue"` 只允许出现在 tokens.css
 - [ ] **Step 4:** 提交 `refactor: remove legacy design tokens`
 
 ### Task 16: 视觉验证（控制者执行，不派子代理）

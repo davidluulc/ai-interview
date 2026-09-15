@@ -30,7 +30,7 @@
             <p class="report-hero__summary">{{ summaryText }}</p>
           </div>
           <div class="report-hero__score">
-            <ScoreBlock :score="scoreValue" :caption="scoreCaption" />
+            <ScoreBlock v-if="scoreValue !== null" :score="scoreValue" :caption="scoreCaption" />
             <BrutChip v-if="fallbackActive" tone="warn" label="模型复盘降级" />
           </div>
         </section>
@@ -228,13 +228,17 @@ const levelText = computed(() => {
   return typeof report.value.level === "string" && report.value.level ? report.value.level : "待复盘";
 });
 
+/* 报告 score 实际值域为 0-100（见 backend_python/prompts/interview.py）；缺分或非数值时不渲染分块，绝不伪造 0 分。 */
 const scoreValue = computed(() => {
   const value = report.value.score;
   if (typeof value === "number") {
-    return value;
+    return Number.isFinite(value) ? value : null;
   }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 });
 
 const scoreCaption = computed(() => `总评 · ${levelText.value}`);
