@@ -1,143 +1,173 @@
 <template>
   <AppLayout>
-    <section class="page-header">
-      <div>
-        <p class="eyebrow">Report</p>
-        <h1>面试报告</h1>
-        <p class="subtitle">把一次模拟面试沉淀成可复盘、可训练、可继续迭代的成长记录。</p>
+    <div class="report-page">
+      <section class="page-head">
+        <div>
+          <p class="eyebrow">Report</p>
+          <h1>面试报告</h1>
+          <p class="subtitle">把一次模拟面试沉淀成可复盘、可训练、可继续迭代的成长记录。</p>
+        </div>
+        <BrutButton type="button" variant="ghost" @click="router.push('/vue/app/history')">返回历史</BrutButton>
+      </section>
+
+      <section v-if="reportStore.error" class="notice notice--error">
+        {{ reportStore.error }}
+      </section>
+
+      <section v-else-if="reportStore.loading" class="notice">
+        正在加载面试报告...
+      </section>
+
+      <section v-else-if="!reportStore.record" class="notice">
+        暂无报告内容
+      </section>
+
+      <div v-else class="report-body">
+        <section class="report-hero">
+          <div class="report-hero__profile">
+            <p class="eyebrow">当前档案</p>
+            <h2>{{ profileTitle }}</h2>
+            <p class="report-hero__role">{{ roleTitle }}</p>
+            <p class="report-hero__summary">{{ summaryText }}</p>
+          </div>
+          <div class="report-hero__score">
+            <ScoreBlock :score="scoreValue" :caption="scoreCaption" />
+            <BrutChip v-if="fallbackActive" tone="warn" label="模型复盘降级" />
+          </div>
+        </section>
+
+        <div class="panel-duo">
+          <BrutPanel title="优势">
+            <ul class="mark-rows">
+              <li v-for="item in listOf('strengths', 'advantages')" :key="item" class="mark-row">
+                <span class="mark-row__mark mark-row__mark--ok" aria-hidden="true"></span>
+                <span class="mark-row__text">{{ item }}</span>
+              </li>
+            </ul>
+          </BrutPanel>
+          <BrutPanel title="风险">
+            <ul class="mark-rows">
+              <li v-for="item in listOf('risks')" :key="item" class="mark-row">
+                <span class="mark-row__mark mark-row__mark--warn" aria-hidden="true"></span>
+                <span class="mark-row__text">{{ item }}</span>
+              </li>
+            </ul>
+          </BrutPanel>
+        </div>
+
+        <section class="review-section">
+          <h2 class="section-title">逐题复盘</h2>
+          <BrutPanel v-for="(review, index) in questionReviews" :key="index" :title="reviewTitle(review, index)">
+            <div class="review-meta">
+              <BrutStamp
+                v-if="reviewStamp(review)"
+                :verdict="reviewStamp(review)!.verdict"
+                :text="reviewStamp(review)!.text"
+              />
+              <BrutChip v-else-if="answerStatusText(review)" tone="neutral" :label="answerStatusText(review)" />
+              <span v-for="tag in tagsOf(review)" :key="tag" class="review-tag">{{ tag }}</span>
+            </div>
+            <h4 class="review-question">{{ textField(review, "question") }}</h4>
+            <p class="review-line"><strong>回答：</strong>{{ textField(review, "answer") }}</p>
+            <p class="review-line"><strong>建议：</strong>{{ textField(review, "feedback", "evaluation", "suggestion", "referenceDirection", "trainingAction") }}</p>
+            <p class="review-line"><strong>为什么问：</strong>{{ textField(review, "whyAsked") }}</p>
+            <div class="point-group">
+              <p class="group-label">缺失要点</p>
+              <ul class="point-rows">
+                <li v-for="point in listField(review, 'missingPoints')" :key="point" class="point-row">
+                  <span class="point-row__mark" aria-hidden="true"></span>
+                  <span class="point-row__text">{{ point }}</span>
+                </li>
+              </ul>
+            </div>
+            <p class="review-line"><strong>回答方向：</strong>{{ textField(review, "referenceDirection") }}</p>
+            <p class="review-line"><strong>训练动作：</strong>{{ textField(review, "trainingAction") }}</p>
+          </BrutPanel>
+        </section>
+
+        <BrutPanel v-if="shouldShowEvidence" title="出题依据">
+          <p class="panel-copy">{{ humanizedEvidenceText }}</p>
+          <div v-if="evidenceSources.length" class="group">
+            <p class="group-label">参考来源</p>
+            <ul class="plain-rows">
+              <li v-for="source in evidenceSources" :key="`${source.label}-${source.title}`" class="plain-row">
+                {{ source.label }}：{{ source.title }}
+              </li>
+            </ul>
+          </div>
+        </BrutPanel>
+
+        <BrutPanel title="建议优先训练">
+          <p class="panel-copy">本次报告识别出的薄弱方向，建议先从高频短板开始补齐。</p>
+          <div class="tag-actions">
+            <button
+              v-for="tag in weakTags"
+              :key="tag"
+              type="button"
+              class="tag-button"
+              :data-testid="`go-training-${tag}`"
+              @click="goTraining(tag)"
+            >
+              {{ tag }}
+            </button>
+          </div>
+        </BrutPanel>
+
+        <BrutPanel
+          v-if="weakTopics.length || practiceQuestions.length || oneMinuteTemplates.length"
+          title="训练处方"
+        >
+          <div v-if="weakTopics.length" class="topic-rows">
+            <article v-for="topic in weakTopics" :key="textField(topic, 'focus')" class="topic-row">
+              <h4>{{ textField(topic, "focus") }}</h4>
+              <p>{{ textField(topic, "reason") }}</p>
+              <p><strong>训练动作：</strong>{{ textField(topic, "trainingAction") }}</p>
+            </article>
+          </div>
+          <div v-if="practiceQuestions.length" class="group">
+            <p class="group-label">练习题</p>
+            <ul class="plain-rows">
+              <li v-for="question in practiceQuestions" :key="question" class="plain-row">{{ question }}</li>
+            </ul>
+          </div>
+          <div v-if="oneMinuteTemplates.length" class="group">
+            <p class="group-label">一分钟模板</p>
+            <ul class="plain-rows">
+              <li v-for="template in oneMinuteTemplates" :key="template" class="plain-row">{{ template }}</li>
+            </ul>
+          </div>
+        </BrutPanel>
+
+        <BrutPanel title="下一步训练">
+          <p class="panel-copy">优先围绕下面的方向生成专项任务，练完后可以回到面试台再来一场。</p>
+          <div class="priority-row">
+            <BrutChip v-for="tag in priorityWeakTags" :key="tag" tone="info" :label="tag" />
+          </div>
+          <p v-if="reportStore.trainingGeneratedMessage" class="success-text">
+            {{ reportStore.trainingGeneratedMessage }}
+          </p>
+          <div class="action-row">
+            <BrutButton
+              data-testid="generate-training-tasks"
+              type="button"
+              variant="primary"
+              :disabled="reportStore.generatingTraining"
+              @click="generateAndGoTraining"
+            >
+              {{ reportStore.generatingTraining ? "正在生成..." : "生成专项训练任务" }}
+            </BrutButton>
+            <BrutButton type="button" variant="ghost" @click="router.push('/vue/app/training')">进入训练中心</BrutButton>
+            <BrutButton
+              data-testid="start-another-interview"
+              type="button"
+              variant="ghost"
+              @click="router.push('/vue/app/interview')"
+            >
+              再来一场
+            </BrutButton>
+          </div>
+        </BrutPanel>
       </div>
-      <button type="button" @click="router.push('/vue/app/history')">返回历史</button>
-    </section>
-
-    <section v-if="reportStore.error" class="notice error">
-      {{ reportStore.error }}
-    </section>
-
-    <section v-else-if="reportStore.loading" class="notice">
-      正在加载面试报告...
-    </section>
-
-    <section v-else-if="!reportStore.record" class="notice">
-      暂无报告内容
-    </section>
-
-    <div v-else class="report-grid">
-      <section class="summary-card">
-        <div class="score-block">
-          <strong>{{ reportStore.score }}</strong>
-          <span>{{ levelText }}</span>
-        </div>
-        <div class="summary-main">
-          <p class="eyebrow">当前档案</p>
-          <h2>{{ profileTitle }}</h2>
-          <p>{{ roleTitle }}</p>
-          <p class="summary-text">{{ summaryText }}</p>
-        </div>
-      </section>
-
-      <section class="insight-card">
-        <h2>建议优先训练</h2>
-        <p>本次报告识别出的薄弱方向，建议先从高频短板开始补齐。</p>
-        <div class="weak-tags">
-          <button
-            v-for="tag in weakTags"
-            :key="tag"
-            type="button"
-            :data-testid="`go-training-${tag}`"
-            @click="goTraining(tag)"
-          >
-            {{ tag }}
-          </button>
-        </div>
-        <div v-if="weakTopics.length" class="topic-list">
-          <article v-for="topic in weakTopics" :key="textField(topic, 'focus')" class="topic-item">
-            <h3>{{ textField(topic, 'focus') }}</h3>
-            <p>{{ textField(topic, 'reason') }}</p>
-            <p>训练动作：{{ textField(topic, 'trainingAction') }}</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="insight-card">
-        <h2>优势与风险</h2>
-        <div class="two-column">
-          <div>
-            <h3>优势</h3>
-            <ul>
-              <li v-for="item in listOf('strengths', 'advantages')" :key="item">{{ item }}</li>
-            </ul>
-          </div>
-          <div>
-            <h3>风险</h3>
-            <ul>
-              <li v-for="item in listOf('risks')" :key="item">{{ item }}</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section class="insight-card">
-        <h2>逐题复盘</h2>
-        <article v-for="(review, index) in questionReviews" :key="index" class="review-item">
-          <span>第 {{ index + 1 }} 题</span>
-          <h3>{{ textField(review, 'question') }}</h3>
-          <p>回答：{{ textField(review, 'answer') }}</p>
-          <p>建议：{{ textField(review, 'feedback', 'evaluation', 'suggestion', 'referenceDirection', 'trainingAction') }}</p>
-          <p>为什么问：{{ textField(review, 'whyAsked') }}</p>
-          <p>缺失要点：{{ listField(review, 'missingPoints').join("、") }}</p>
-          <p>回答方向：{{ textField(review, 'referenceDirection') }}</p>
-          <p>训练动作：{{ textField(review, 'trainingAction') }}</p>
-          <div class="weak-tags small">
-            <span v-for="tag in tagsOf(review)" :key="tag">{{ tag }}</span>
-          </div>
-        </article>
-      </section>
-
-      <section v-if="shouldShowEvidence" class="insight-card">
-        <h2>出题依据</h2>
-        <p>{{ humanizedEvidenceText }}</p>
-        <div v-if="evidenceSources.length" class="source-list">
-          <h3>参考来源</h3>
-          <ul>
-            <li v-for="source in evidenceSources" :key="`${source.label}-${source.title}`">
-              {{ source.label }}：{{ source.title }}
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section class="insight-card">
-        <h2>下一步训练</h2>
-        <p>优先围绕下面的方向生成专项任务，练完后可以回到面试台再来一场。</p>
-        <div class="priority-list">
-          <span v-for="tag in priorityWeakTags" :key="tag">{{ tag }}</span>
-        </div>
-        <div class="practice-list">
-          <article v-for="question in practiceQuestions" :key="question" class="practice-item">
-            {{ question }}
-          </article>
-        </div>
-        <div v-if="oneMinuteTemplates.length" class="template-list">
-          <p v-for="template in oneMinuteTemplates" :key="template">{{ template }}</p>
-        </div>
-        <p v-if="reportStore.trainingGeneratedMessage" class="success-text">
-          {{ reportStore.trainingGeneratedMessage }}
-        </p>
-        <div class="action-row">
-          <button
-            data-testid="generate-training-tasks"
-            type="button"
-            :disabled="reportStore.generatingTraining"
-            @click="generateAndGoTraining"
-          >
-            {{ reportStore.generatingTraining ? "正在生成..." : "生成专项训练任务" }}
-          </button>
-          <button type="button" @click="router.push('/vue/app/training')">进入训练中心</button>
-          <button data-testid="start-another-interview" type="button" @click="router.push('/vue/app/interview')">
-            再来一场
-          </button>
-        </div>
-      </section>
     </div>
   </AppLayout>
 </template>
@@ -146,13 +176,32 @@
 import { computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AppLayout from "@/layouts/AppLayout.vue";
+import BrutButton from "@/components/brut/BrutButton.vue";
+import BrutChip from "@/components/brut/BrutChip.vue";
+import BrutPanel from "@/components/brut/BrutPanel.vue";
+import BrutStamp from "@/components/brut/BrutStamp.vue";
+import ScoreBlock from "@/components/brut/ScoreBlock.vue";
 import { useReportStore } from "@/stores/report";
 
 type ReviewLike = Record<string, unknown>;
+type StampVerdict = "pass" | "warn" | "fail";
 interface EvidenceSource {
   label: string;
   title: string;
 }
+interface ReviewStamp {
+  text: string;
+  verdict: StampVerdict;
+}
+
+/* 报告 answerStatus 实际值域见 prompts/interview.py：完整 | 模糊 | 不会 | 跑题（另兼容 良好）。未知值走 neutral。 */
+const ANSWER_STATUS_VERDICTS: Record<string, StampVerdict> = {
+  完整: "pass",
+  良好: "pass",
+  模糊: "warn",
+  跑题: "warn",
+  不会: "fail"
+};
 
 const route = useRoute();
 const router = useRouter();
@@ -179,6 +228,19 @@ const roleTitle = computed(() => {
 const levelText = computed(() => {
   return typeof report.value.level === "string" && report.value.level ? report.value.level : "待复盘";
 });
+
+const scoreValue = computed(() => {
+  const value = report.value.score;
+  if (typeof value === "number") {
+    return value;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+});
+
+const scoreCaption = computed(() => `总评 · ${levelText.value}`);
+
+const fallbackActive = computed(() => report.value.fallbackUsed === true);
 
 const summaryText = computed(() => {
   return typeof report.value.summary === "string" && report.value.summary
@@ -347,6 +409,26 @@ function tagsOf(source: ReviewLike): string[] {
   return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
 }
 
+function reviewTitle(review: ReviewLike, index: number): string {
+  const focus = review.focus;
+  const suffix = typeof focus === "string" && focus.trim() ? ` · ${focus.trim()}` : "";
+  return `第 ${index + 1} 题${suffix}`;
+}
+
+function answerStatusText(review: ReviewLike): string {
+  const status = review.answerStatus;
+  return typeof status === "string" ? status.trim() : "";
+}
+
+function reviewStamp(review: ReviewLike): ReviewStamp | null {
+  const status = answerStatusText(review);
+  if (!status) {
+    return null;
+  }
+  const verdict = ANSWER_STATUS_VERDICTS[status];
+  return verdict ? { text: status, verdict } : null;
+}
+
 function goTraining(tag: string): void {
   void router.push({
     path: "/vue/app/training",
@@ -364,200 +446,363 @@ async function generateAndGoTraining(): Promise<void> {
 </script>
 
 <style scoped>
-.page-header {
+.report-page {
+  display: grid;
+  gap: var(--s6);
+}
+
+.page-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 24px;
+  gap: var(--s5);
 }
 
 .eyebrow {
-  color: var(--color-accent);
-  font-size: 13px;
-  font-weight: 700;
-  margin: 0 0 8px;
+  margin: 0 0 var(--s2);
+  color: var(--action);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-h1,
-h2,
-h3,
-p,
-ul {
+.page-head h1 {
+  margin: 0 0 var(--s2);
+  font-size: var(--text-page);
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.subtitle {
   margin: 0;
+  max-width: 56ch;
+  color: var(--ink-soft);
+  font-size: var(--text-strong);
+  font-weight: 700;
+  line-height: 1.6;
 }
 
-h1 {
-  font-size: 40px;
+.notice {
+  border: var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: var(--text-strong);
+  font-weight: 800;
+  padding: var(--s4);
 }
 
-.subtitle,
-.summary-main p,
-.insight-card p,
-.review-item p,
-li {
-  color: var(--color-text-muted);
+.notice--error {
+  background: var(--danger);
+  color: var(--action-ink);
+}
+
+.report-body {
+  display: grid;
+  gap: var(--s5);
+}
+
+.report-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 400px);
+  gap: var(--s5);
+  align-items: start;
+}
+
+.report-hero__profile {
+  display: grid;
+  gap: var(--s2);
+}
+
+.report-hero__profile h2 {
+  margin: 0;
+  font-size: var(--text-section);
+  font-weight: 900;
+}
+
+.report-hero__role {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-strong);
+  font-weight: 700;
+}
+
+.report-hero__summary {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
   line-height: 1.7;
 }
 
-.page-header button,
-.insight-card button,
-.weak-tags button {
-  border: 0;
-  border-radius: 999px;
-  background: var(--color-accent);
-  color: #fff;
-  cursor: pointer;
-  font-weight: 700;
-  padding: 10px 16px;
-  white-space: nowrap;
-}
-
-.report-grid {
+.report-hero__score {
   display: grid;
-  gap: 18px;
+  gap: var(--s3);
+  justify-items: start;
 }
 
-.summary-card,
-.insight-card,
-.notice {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
-  padding: 22px;
-}
-
-.summary-card {
+.panel-duo {
   display: grid;
-  grid-template-columns: 140px minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s5);
 }
 
-.score-block {
+.mark-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: grid;
-  place-items: center;
-  border-radius: var(--radius-lg);
-  background: #111827;
-  color: #fff;
-  padding: 24px;
+  gap: var(--s2);
 }
 
-.score-block strong {
-  font-size: 44px;
-}
-
-.summary-main,
-.insight-card,
-.review-item,
-.topic-list,
-.topic-item,
-.practice-list,
-.template-list {
+.mark-row {
   display: grid;
-  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: start;
+  border: 1px solid var(--line-hair);
+  background: var(--panel);
+  padding: var(--s2) var(--s3);
 }
 
-.summary-text {
-  margin-top: 6px;
-}
-
-.source-list {
-  border-top: 1px solid var(--color-border);
-  display: grid;
-  gap: 8px;
+.mark-row__mark {
+  width: 10px;
+  height: 10px;
   margin-top: 4px;
-  padding-top: 12px;
 }
 
-.source-list h3 {
-  color: var(--color-text);
-  font-size: 15px;
+.mark-row__mark--ok {
+  background: var(--ok);
 }
 
-.weak-tags {
+.mark-row__mark--warn {
+  background: var(--warn);
+}
+
+.mark-row__text {
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.panel-copy {
+  margin: 0 0 var(--s3);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.review-section {
+  display: grid;
+  gap: var(--s4);
+}
+
+.section-title {
+  margin: 0;
+  font-size: var(--text-section);
+  font-weight: 900;
+}
+
+.review-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
 }
 
-.priority-list {
+.review-tag {
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 800;
+  padding: var(--s1) var(--s2);
+}
+
+.review-question {
+  margin: 0 0 var(--s3);
+  color: var(--ink);
+  font-size: var(--text-strong);
+  font-weight: 900;
+  line-height: 1.5;
+}
+
+.review-line {
+  margin: 0 0 var(--s2);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.review-line strong {
+  color: var(--ink);
+}
+
+.point-group {
+  display: grid;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
+
+.group-label {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.point-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+
+.point-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: start;
+  border: var(--line);
+  background: var(--panel);
+  padding: var(--s2) var(--s3);
+}
+
+.point-row__mark {
+  width: 10px;
+  height: 10px;
+  margin-top: 4px;
+  background: var(--danger);
+}
+
+.point-row__text {
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.group {
+  display: grid;
+  gap: var(--s2);
+  margin-top: var(--s4);
+}
+
+.plain-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s2);
+}
+
+.plain-row {
+  border: 1px solid var(--line-hair);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.6;
+  padding: var(--s2) var(--s3);
+  overflow-wrap: anywhere;
+}
+
+.tag-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--s2);
+}
+
+.tag-button {
+  border: var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 800;
+  padding: var(--s2) var(--s3);
+  box-shadow: var(--shadow-2);
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tag-button:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.tag-button:active {
+  transform: scale(0.97);
+}
+
+.topic-rows {
+  display: grid;
+  gap: var(--s3);
+}
+
+.topic-row {
+  display: grid;
+  gap: var(--s2);
+  border: 1px solid var(--line-hair);
+  background: var(--panel);
+  padding: var(--s3);
+}
+
+.topic-row h4 {
+  margin: 0;
+  font-size: var(--text-strong);
+  font-weight: 900;
+}
+
+.topic-row p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.topic-row p strong {
+  color: var(--ink);
+}
+
+.priority-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
+
+.success-text {
+  margin: 0 0 var(--s3);
+  color: var(--ok);
+  font-size: var(--text-strong);
+  font-weight: 800;
 }
 
 .action-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-}
-
-.success-text {
-  color: #067647;
-  font-weight: 700;
-}
-
-.weak-tags span,
-.weak-tags button,
-.priority-list span {
-  background: #eef4ff;
-  border-radius: 999px;
-  color: #175cd3;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 6px 10px;
-}
-
-.two-column {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-}
-
-ul {
-  display: grid;
-  gap: 6px;
-  padding-left: 18px;
-}
-
-.review-item {
-  border-top: 1px solid var(--color-border);
-  padding-top: 16px;
-}
-
-.topic-item,
-.practice-item,
-.template-list {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: #f8fafc;
-  padding: 12px;
-}
-
-.review-item span {
-  color: var(--color-accent);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.small span {
-  border-radius: 999px;
-  padding: 5px 9px;
-}
-
-.error {
-  color: #b42318;
+  gap: var(--s3);
 }
 
 @media (max-width: 760px) {
-  .page-header,
-  .summary-card {
-    grid-template-columns: 1fr;
+  .page-head {
     flex-direction: column;
   }
 
-  .two-column {
+  .report-hero,
+  .panel-duo {
     grid-template-columns: 1fr;
   }
 }
