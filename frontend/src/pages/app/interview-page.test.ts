@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as historyApi from "@/api/history";
 import * as interviewApi from "@/api/interview";
 import * as trainingApi from "@/api/training";
-import InterviewChatPanel from "@/components/interview/InterviewChatPanel.vue";
 import InterviewPage from "./InterviewPage.vue";
 
 const push = vi.fn();
@@ -58,7 +57,11 @@ const profilesStore = {
 };
 
 vi.mock("vue-router", () => ({
-  useRouter: () => ({ push })
+  useRouter: () => ({ push }),
+  RouterLink: {
+    props: ["to"],
+    template: '<a><slot /></a>'
+  }
 }));
 
 vi.mock("@/api/interview", () => ({
@@ -85,6 +88,22 @@ vi.mock("@/stores/auth", () => ({
   useAuthStore: () => authStore
 }));
 
+function mountPage() {
+  return mount(InterviewPage, {
+    global: {
+      stubs: {
+        AppLayout: { template: "<main><slot /></main>" }
+      }
+    }
+  });
+}
+
+function startReadySession() {
+  interviewStore.sessionStatus = "ready";
+  interviewStore.hasStarted = true;
+  interviewStore.canSubmitAnswer = true;
+}
+
 describe("interview page", () => {
   beforeEach(() => {
     push.mockReset();
@@ -103,6 +122,12 @@ describe("interview page", () => {
     interviewStore.lastWorkflowTrace = [];
     interviewStore.lastCheckpointSummary = null;
     interviewStore.lastFallbackSummary = null;
+    interviewStore.error = "";
+    interviewStore.draft = "";
+    interviewStore.loading = false;
+    interviewStore.messages = [{ role: "interviewer", content: "请先做一个一分钟自我介绍。" }];
+    interviewStore.decisionSummary = "当前处于学习辅导模式，会先确认基础概念。";
+    interviewStore.ragReasons = ["命中岗位知识库：FastAPI"];
     authStore.isAdmin = false;
     interviewStore.sessionConfig = { totalRounds: 8, difficulty: "standard", focusArea: "mixed" };
     interviewStore.currentRound = 1;
@@ -140,13 +165,7 @@ describe("interview page", () => {
   });
 
   it("shows the current profile and mode switch", () => {
-    const wrapper = mount(InterviewPage, {
-      global: {
-        stubs: {
-          AppLayout: { template: "<main><slot /></main>" }
-        }
-      }
-    });
+    const wrapper = mountPage();
 
     expect(wrapper.text()).toContain("当前面试档案");
     expect(wrapper.text()).toContain("后端实习投递");
@@ -155,13 +174,7 @@ describe("interview page", () => {
   });
 
   it("shows setup progress and finish guidance in the interview workbench", () => {
-    const wrapper = mount(InterviewPage, {
-      global: {
-        stubs: {
-          AppLayout: { template: "<main><slot /></main>" }
-        }
-      }
-    });
+    const wrapper = mountPage();
 
     expect(wrapper.text()).toContain("本次面试配置");
     expect(wrapper.text()).toContain("第 1 / 8 题");
@@ -169,13 +182,7 @@ describe("interview page", () => {
   });
 
   it("updates interview session config from setup controls", async () => {
-    const wrapper = mount(InterviewPage, {
-      global: {
-        stubs: {
-          AppLayout: { template: "<main><slot /></main>" }
-        }
-      }
-    });
+    const wrapper = mountPage();
 
     await wrapper.get('[data-testid="session-total-rounds"]').setValue("10");
 
@@ -183,13 +190,7 @@ describe("interview page", () => {
   });
 
   it("starts the interview with empty backend history from the selected profile", async () => {
-    const wrapper = mount(InterviewPage, {
-      global: {
-        stubs: {
-          AppLayout: { template: "<main><slot /></main>" }
-        }
-      }
-    });
+    const wrapper = mountPage();
 
     await wrapper.get('[data-testid="start-interview"]').trigger("click");
 
@@ -207,6 +208,95 @@ describe("interview page", () => {
     );
   });
 
+  it("shows only the latest interviewer question on the stage once started", () => {
+    startReadySession();
+    interviewStore.currentRound = 3;
+    interviewStore.messages = [
+      { role: "interviewer", content: "第一题：请做一个自我介绍。" },
+      { role: "candidate", content: "我是做 Python 后端的候选人。" },
+      { role: "interviewer", content: "第三题：请介绍你的 RAG 项目。" }
+    ];
+
+    const wrapper = mountPage();
+
+    expect(wrapper.find(".question-stage__text").text()).toBe("第三题：请介绍你的 RAG 项目。");
+    expect(wrapper.find(".question-stage__tag").text()).toBe("第 3 / 8 轮 · 综合");
+    expect(wrapper.text()).not.toContain("第一题：请做一个自我介绍。");
+    expect(wrapper.text()).not.toContain("我是做 Python 后端的候选人。");
+  });
+
+  it("derives the round ledger from answered history and session state", () => {
+    startReadySession();
+    interviewStore.sessionConfig = { totalRounds: 5, difficulty: "standard", focusArea: "mixed" };
+    interviewStore.currentRound = 3;
+    interviewStore.answeredHistory = [
+      { question: "请解释 RAG 命中日志怎么设计。", answer: "我会记录 query 和命中结果。" },
+      { question: "请介绍 FastAPI 的依赖注入。", answer: "通过 Depends 注入。" }
+    ];
+    interviewStore.messages = [
+      { role: "interviewer", content: "请解释 RAG 命中日志怎么设计。" },
+      { role: "candidate", content: "我会记录 query 和命中结果。" },
+      { role: "interviewer", content: "请介绍 FastAPI 的依赖注入。" },
+      { role: "candidate", content: "通过 Depends 注入。" },
+      { role: "interviewer", content: "第三题：如何设计一个短链服务？" }
+    ];
+
+    const wrapper = mountPage();
+
+    const rows = wrapper.findAll(".round-ledger__row");
+    expect(rows).toHaveLength(5);
+    expect(rows[0].classes()).toContain("round-ledger__row--pass");
+    expect(rows[0].text()).toContain("请解释 RAG 命中");
+    expect(rows[1].classes()).toContain("round-ledger__row--pass");
+    expect(rows[2].classes()).toContain("round-ledger__row--current");
+    expect(rows[2].text()).toContain("短链服务");
+    expect(rows[3].classes()).toContain("round-ledger__row--todo");
+    expect(rows[3].text()).toContain("待生成");
+    expect(rows[4].classes()).toContain("round-ledger__row--todo");
+  });
+
+  it("marks all configured rounds as todo before the session starts", () => {
+    interviewStore.sessionConfig = { totalRounds: 5, difficulty: "standard", focusArea: "mixed" };
+
+    const wrapper = mountPage();
+
+    const rows = wrapper.findAll(".round-ledger__row");
+    expect(rows).toHaveLength(5);
+    rows.forEach((row) => {
+      expect(row.classes()).toContain("round-ledger__row--todo");
+    });
+  });
+
+  it("submits typed drafts with the selected mode through the answer box", async () => {
+    startReadySession();
+    const wrapper = mountPage();
+
+    await wrapper.get('[data-testid="mode-interview"]').trigger("click");
+    await wrapper.get('[data-testid="draft-input"]').setValue("我的回答围绕项目经历展开。");
+    await wrapper.get('[data-testid="submit-answer"]').trigger("click");
+
+    expect(interviewStore.setAgentMode).toHaveBeenCalledWith("interview");
+    expect(interviewStore.draft).toBe("我的回答围绕项目经历展开。");
+    expect(interviewStore.submitAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        applicationProfileId: 3,
+        agentMode: "interview",
+        profile: expect.objectContaining({
+          sessionConfig: interviewStore.sessionConfig
+        })
+      })
+    );
+  });
+
+  it("shows interview errors from the store next to the answer box", () => {
+    startReadySession();
+    interviewStore.error = "生成下一题失败";
+
+    const wrapper = mountPage();
+
+    expect(wrapper.text()).toContain("生成下一题失败");
+  });
+
   it("generates report saves history creates training tasks and opens the report page", async () => {
     interviewStore.canFinish = true;
     interviewStore.answeredHistory = [
@@ -216,13 +306,7 @@ describe("interview page", () => {
       }
     ];
 
-    const wrapper = mount(InterviewPage, {
-      global: {
-        stubs: {
-          AppLayout: { template: "<main><slot /></main>" }
-        }
-      }
-    });
+    const wrapper = mountPage();
 
     await wrapper.get('[data-testid="finish-interview"]').trigger("click");
     await flushPromises();
@@ -264,13 +348,7 @@ describe("interview page", () => {
     ];
     vi.mocked(interviewApi.generateReport).mockRejectedValue(new Error("模型响应超时，请稍后重试。本轮回答已保留。"));
 
-    const wrapper = mount(InterviewPage, {
-      global: {
-        stubs: {
-          AppLayout: { template: "<main><slot /></main>" }
-        }
-      }
-    });
+    const wrapper = mountPage();
 
     await wrapper.get('[data-testid="finish-interview"]').trigger("click");
     await flushPromises();
@@ -300,71 +378,29 @@ describe("interview page", () => {
     profilesStore.currentProfileId = null;
     profilesStore.currentProfile = null;
 
-    const wrapper = mount(InterviewPage, {
-      global: {
-        stubs: {
-          AppLayout: { template: "<main><slot /></main>" }
-        }
-      }
-    });
+    const wrapper = mountPage();
 
     expect(wrapper.text()).toContain("请先选择或创建投递档案");
     await wrapper.get('[data-testid="go-profiles"]').trigger("click");
     expect(push).toHaveBeenCalledWith("/vue/app/profiles");
   });
 
-  it("submits answers with the selected mode", async () => {
-    const wrapper = mount(InterviewPage, {
-      global: {
-        stubs: {
-          AppLayout: { template: "<main><slot /></main>" }
-        }
-      }
-    });
-
-    await wrapper.get('[data-testid="mode-interview"]').trigger("click");
-    wrapper.getComponent(InterviewChatPanel).vm.$emit("submit");
-
-    expect(interviewStore.setAgentMode).toHaveBeenCalledWith("interview");
-    expect(interviewStore.submitAnswer).toHaveBeenCalledWith(
-      expect.objectContaining({
-        applicationProfileId: 3,
-        agentMode: "interview",
-        profile: expect.objectContaining({
-          sessionConfig: interviewStore.sessionConfig
-        })
-      })
-    );
-  });
-
   it("hides runtime experiment controls from normal users", () => {
-    const wrapper = mount(InterviewPage, {
-      global: {
-        stubs: {
-          AppLayout: { template: "<main><slot /></main>" }
-        }
-      }
-    });
+    const wrapper = mountPage();
 
     expect(wrapper.text()).not.toContain("实验链路");
     expect(wrapper.find('[data-testid="runtime-langgraph-canary"]').exists()).toBe(false);
   });
 
-  it("does not show a duplicate workflow explanation panel on the interview page", () => {
+  it("does not dump runtime workflow internals on the interview page", () => {
     interviewStore.decisionSummary = "候选人回答偏弱，先降低难度。";
     interviewStore.lastRuntimeAudit = { visibleRuntime: "classic", fallbackUsed: true };
     interviewStore.lastFallbackSummary = { used: true, reason: "quality gate failed" };
     interviewStore.lastWorkflowTrace = [{ nodeName: "observe_state" }];
 
-    const wrapper = mount(InterviewPage, {
-      global: {
-        stubs: {
-          AppLayout: { template: "<main><slot /></main>" }
-        }
-      }
-    });
+    const wrapper = mountPage();
 
-    expect(wrapper.text()).toContain("为什么这样问");
+    expect(wrapper.text()).toContain("决策摘要");
     expect(wrapper.text()).not.toContain("为什么这么问");
     expect(wrapper.text()).not.toContain("Workflow Insight");
     expect(wrapper.text()).not.toContain("系统已使用稳定兜底策略保证面试继续");
@@ -372,21 +408,28 @@ describe("interview page", () => {
     expect(wrapper.text()).not.toContain("observe_state");
   });
 
+  it("shows a hazard banner only when the runtime guardrail fell back", () => {
+    const quiet = mountPage();
+    expect(quiet.find(".hazard-banner").exists()).toBe(false);
+
+    interviewStore.lastFallbackSummary = { used: true, reason: "quality gate failed" };
+
+    const guarded = mountPage();
+    expect(guarded.find(".hazard-banner").exists()).toBe(true);
+    expect(guarded.text()).toContain("链路兜底已触发");
+  });
+
   it("shows runtime experiment controls for admins and submits selected runtime", async () => {
     authStore.isAdmin = true;
+    startReadySession();
 
-    const wrapper = mount(InterviewPage, {
-      global: {
-        stubs: {
-          AppLayout: { template: "<main><slot /></main>" }
-        }
-      }
-    });
+    const wrapper = mountPage();
 
     expect(wrapper.text()).toContain("实验链路");
 
     await wrapper.get('[data-testid="runtime-langgraph-canary"]').trigger("click");
-    wrapper.getComponent(InterviewChatPanel).vm.$emit("submit");
+    await wrapper.get('[data-testid="draft-input"]').setValue("我的回答。");
+    await wrapper.get('[data-testid="submit-answer"]').trigger("click");
 
     expect(interviewStore.setAgentRuntime).toHaveBeenCalledWith("langgraph_canary");
     expect(interviewStore.submitAnswer).toHaveBeenCalledWith(

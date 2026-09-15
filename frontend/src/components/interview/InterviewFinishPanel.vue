@@ -1,18 +1,25 @@
 <template>
   <section class="finish-panel" :class="{ complete }">
-    <div>
+    <div class="finish-panel__copy">
       <p class="eyebrow">Review</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
     </div>
-    <button data-testid="finish-interview" type="button" :disabled="!canFinish || submitting" @click="emit('finish')">
+    <BrutButton
+      type="button"
+      variant="primary"
+      data-testid="finish-interview"
+      :disabled="!canFinish || submitting"
+      @click="emit('finish')"
+    >
       {{ submitting ? "生成中" : "结束并复盘" }}
-    </button>
+    </BrutButton>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
+import BrutButton from "@/components/brut/BrutButton.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -60,25 +67,35 @@ const description = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
-  margin-top: 14px;
-  padding: 18px;
+  gap: var(--s4);
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  box-shadow: var(--shadow-4);
+  font-family: var(--font-ui);
+  padding: var(--s4);
 }
 
 .finish-panel.complete {
-  border-color: #9ae6b4;
-  background: #f0fdf4;
+  border: 2px solid var(--ok);
+  box-shadow: var(--shadow-4);
+}
+
+.finish-panel.complete .eyebrow {
+  color: var(--ok);
+}
+
+.finish-panel__copy {
+  min-width: 0;
 }
 
 .eyebrow {
-  color: var(--color-accent);
-  font-size: 12px;
-  font-weight: 700;
-  margin: 0 0 6px;
+  color: var(--action);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  margin: 0 0 var(--s1);
+  text-transform: uppercase;
 }
 
 h2,
@@ -87,29 +104,22 @@ p {
 }
 
 h2 {
-  font-size: 20px;
+  color: var(--ink);
+  font-size: var(--text-section);
+  font-weight: 900;
+  line-height: 1.3;
 }
 
-p {
-  color: var(--color-text-muted);
-  line-height: 1.6;
-  margin-top: 6px;
-}
-
-button {
-  border: 0;
-  border-radius: 999px;
-  background: var(--color-accent);
-  color: white;
-  cursor: pointer;
-  flex: 0 0 auto;
+.finish-panel__copy p:not(.eyebrow) {
+  color: var(--ink-soft);
+  font-size: var(--text-body);
   font-weight: 700;
-  padding: 11px 17px;
+  line-height: 1.6;
+  margin-top: var(--s1);
 }
 
-button:disabled {
-  background: #cbd5e1;
-  cursor: not-allowed;
+.finish-panel .brut-button {
+  flex: 0 0 auto;
 }
 
 @media (max-width: 760px) {
@@ -118,7 +128,7 @@ button:disabled {
     flex-direction: column;
   }
 
-  button {
+  .finish-panel .brut-button {
     width: 100%;
   }
 }

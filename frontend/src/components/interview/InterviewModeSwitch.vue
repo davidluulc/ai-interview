@@ -28,27 +28,41 @@ defineEmits<{ "update:modelValue": [mode: AgentMode] }>();
 
 <style scoped>
 .mode-switch {
-  display: inline-grid;
-  grid-template-columns: repeat(2, minmax(96px, 1fr));
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-surface-muted);
-  padding: 4px;
+  display: inline-flex;
+  align-items: stretch;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  box-shadow: var(--shadow-2);
+  font-family: var(--font-ui);
 }
 
-button {
+.mode-switch button {
   border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--color-text-muted);
+  border-right: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
   cursor: pointer;
-  font-weight: 700;
-  padding: 9px 14px;
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  padding: var(--s2) var(--s3);
+  white-space: nowrap;
 }
 
-button.active {
-  background: var(--color-surface);
-  color: var(--color-text);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+.mode-switch button:last-child {
+  border-right: 0;
+}
+
+.mode-switch button.active {
+  background: var(--warn);
+  color: var(--ink);
+}
+
+.mode-switch button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 </style>

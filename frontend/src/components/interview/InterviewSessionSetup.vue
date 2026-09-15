@@ -114,27 +114,29 @@ function emitValue(key: "difficulty" | "focusArea", event: Event): void {
 <style scoped>
 .session-setup {
   display: grid;
-  gap: 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
-  margin: 18px 0;
-  padding: 20px;
+  gap: var(--s3);
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  box-shadow: var(--shadow-3);
+  font-family: var(--font-ui);
+  padding: var(--s4);
 }
 
 .setup-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
+  gap: var(--s3);
 }
 
 .eyebrow {
-  color: var(--color-accent);
-  font-size: 12px;
-  font-weight: 700;
-  margin: 0 0 6px;
+  color: var(--action);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  margin: 0 0 var(--s1);
+  text-transform: uppercase;
 }
 
 h2,
@@ -143,54 +145,78 @@ p {
 }
 
 h2 {
-  font-size: 22px;
+  color: var(--ink);
+  font-size: var(--text-section);
+  font-weight: 900;
+  line-height: 1.3;
 }
 
 .focus-pill {
-  border-radius: 999px;
-  background: #eef4ff;
-  color: #175cd3;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 6px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--panel-warm);
+  color: var(--ink);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  padding: var(--s1) var(--s2);
   white-space: nowrap;
 }
 
 .profile-summary {
   display: grid;
-  gap: 6px;
-  border-radius: var(--radius-md);
-  background: #f8fafc;
-  padding: 14px;
+  gap: var(--s1);
+  border: 2px dashed var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  padding: var(--s3);
+}
+
+.profile-summary strong {
+  color: var(--ink);
+  font-size: var(--text-strong);
+  font-weight: 900;
+  line-height: 1.3;
 }
 
 .profile-summary p {
-  color: var(--color-text-muted);
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
   line-height: 1.6;
 }
 
 .setup-controls {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--s3);
 }
 
 label {
   display: grid;
-  gap: 7px;
-  color: var(--color-text-muted);
-  font-size: 13px;
-  font-weight: 700;
+  gap: var(--s1);
+  color: var(--ink-soft);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.06em;
 }
 
 select {
   width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: white;
-  color: var(--color-text);
-  font: inherit;
-  padding: 10px 11px;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  font-weight: 800;
+  padding: var(--s2) var(--s2);
+}
+
+select:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 @media (max-width: 760px) {

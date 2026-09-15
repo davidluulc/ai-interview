@@ -121,6 +121,24 @@ describe("AnswerBox", () => {
     expect(shifted.defaultPrevented).toBe(false);
     expect(wrapper.emitted("submit")).toBeUndefined();
   });
+
+  it("does not emit submit while an IME composition is confirming a candidate", async () => {
+    const wrapper = mount(AnswerBox, {
+      props: { modelValue: "pin", placeholder: "", hint: "" }
+    });
+
+    const composing = new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true
+    });
+    Object.defineProperty(composing, "isComposing", { value: true });
+    wrapper.find("textarea").element.dispatchEvent(composing);
+    await nextTick();
+
+    expect(composing.defaultPrevented).toBe(false);
+    expect(wrapper.emitted("submit")).toBeUndefined();
+  });
 });
 
 describe("RoundLedger", () => {

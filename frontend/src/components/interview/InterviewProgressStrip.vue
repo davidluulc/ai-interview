@@ -1,32 +1,30 @@
 <template>
-  <section class="progress-strip" :class="{ complete }">
-    <div class="round-block">
-      <span>{{ complete ? "已完成" : "进行中" }}</span>
-      <strong>第 {{ currentRound }} / {{ totalRounds }} 题</strong>
-    </div>
-    <div class="meta-list">
-      <span>模式：{{ modeLabel }}</span>
-      <span>难度：{{ difficultyLabel }}</span>
-      <span>重点：{{ focusLabel }}</span>
-    </div>
-  </section>
+  <div class="progress-strip" role="status">
+    <span class="progress-strip__chip" :class="complete ? 'progress-strip__chip--done' : 'progress-strip__chip--live'">
+      {{ complete ? "已完成" : "进行中" }}
+    </span>
+    <span class="progress-strip__chip">第 {{ currentRound }} / {{ totalRounds }} 题</span>
+    <span class="progress-strip__chip">难度 {{ difficultyLabel }}</span>
+    <span class="progress-strip__chip">重点 {{ focusLabel }}</span>
+    <span v-if="runtimeLabel" class="progress-strip__chip progress-strip__chip--runtime">链路 {{ runtimeLabel }}</span>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
 import type { InterviewDifficulty, InterviewFocusArea } from "@/stores/interview";
-import type { AgentMode } from "@/api/interview";
 
-const props = defineProps<{
-  currentRound: number;
-  totalRounds: number;
-  mode: AgentMode;
-  difficulty: InterviewDifficulty;
-  focusArea: InterviewFocusArea;
-  complete: boolean;
-}>();
-
-const modeLabel = computed(() => (props.mode === "interview" ? "真实面试" : "学习辅导"));
+const props = withDefaults(
+  defineProps<{
+    currentRound: number;
+    totalRounds: number;
+    difficulty: InterviewDifficulty;
+    focusArea: InterviewFocusArea;
+    complete: boolean;
+    runtimeLabel?: string;
+  }>(),
+  { runtimeLabel: "" }
+);
 
 const difficultyLabel = computed(() => {
   const labels: Record<InterviewDifficulty, string> = {
@@ -53,58 +51,40 @@ const focusLabel = computed(() => {
 .progress-strip {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: #ffffff;
-  margin-bottom: 14px;
-  padding: 14px 16px;
-}
-
-.progress-strip.complete {
-  border-color: #9ae6b4;
-  background: #f0fdf4;
-}
-
-.round-block {
-  display: grid;
-  gap: 2px;
-}
-
-.round-block span {
-  color: var(--color-accent);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.round-block strong {
-  font-size: 18px;
-}
-
-.meta-list {
-  display: flex;
   flex-wrap: wrap;
-  gap: 8px;
   justify-content: flex-end;
+  gap: var(--s2);
+  font-family: var(--font-ui);
 }
 
-.meta-list span {
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: var(--color-text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  padding: 6px 9px;
+.progress-strip__chip {
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: var(--text-label);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  padding: var(--s1) var(--s2);
+  white-space: nowrap;
+}
+
+.progress-strip__chip--live {
+  background: var(--warn);
+}
+
+.progress-strip__chip--done {
+  background: var(--ok);
+  color: var(--action-ink);
+}
+
+.progress-strip__chip--runtime {
+  background: var(--panel-warm);
 }
 
 @media (max-width: 760px) {
   .progress-strip {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .meta-list {
     justify-content: flex-start;
   }
 }

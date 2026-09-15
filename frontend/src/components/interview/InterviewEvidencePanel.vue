@@ -1,23 +1,23 @@
 <template>
-  <aside class="evidence-panel">
-    <section>
-      <p class="eyebrow">Why this question</p>
-      <h2>为什么这样问</h2>
-      <p>{{ decisionSummary || "开始面试后，这里会展示面试官的追问依据。" }}</p>
-    </section>
+  <div class="evidence-panel">
+    <BrutPanel title="决策摘要">
+      <p class="evidence-panel__text">{{ decisionSummary || "开始面试后，这里会展示面试官的追问依据。" }}</p>
+    </BrutPanel>
 
-    <section>
-      <p class="eyebrow">References</p>
-      <h2>本题参考资料</h2>
-      <ul v-if="ragReasons.length > 0">
-        <li v-for="reason in ragReasons" :key="reason">{{ reason }}</li>
+    <BrutPanel title="RAG 命中">
+      <ul v-if="ragReasons.length > 0" class="evidence-panel__chunks">
+        <li v-for="(reason, index) in ragReasons" :key="`${index}-${reason}`" class="evidence-panel__chunk">
+          {{ reason }}
+        </li>
       </ul>
-      <p v-else>当前问题暂未命中可展示的参考资料。</p>
-    </section>
-  </aside>
+      <p v-else class="evidence-panel__text">当前问题暂未命中可展示的参考资料。</p>
+    </BrutPanel>
+  </div>
 </template>
 
 <script setup lang="ts">
+import BrutPanel from "@/components/brut/BrutPanel.vue";
+
 defineProps<{
   decisionSummary: string;
   ragReasons: string[];
@@ -27,36 +27,36 @@ defineProps<{
 <style scoped>
 .evidence-panel {
   display: grid;
-  gap: 16px;
+  gap: var(--s4);
+  font-family: var(--font-ui);
 }
 
-section {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  padding: 18px;
-}
-
-.eyebrow {
-  color: var(--color-accent);
-  font-size: 13px;
+.evidence-panel__text {
+  color: var(--ink);
+  font-size: var(--text-body);
   font-weight: 700;
-  margin: 0 0 8px;
-}
-
-h2,
-p {
-  margin: 0;
-}
-
-p,
-li {
-  color: var(--color-text-muted);
   line-height: 1.7;
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
-ul {
+.evidence-panel__chunks {
+  display: grid;
+  gap: var(--s2);
+  list-style: none;
   margin: 0;
-  padding-left: 18px;
+  padding: 0;
+}
+
+.evidence-panel__chunk {
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel-warm);
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.6;
+  padding: var(--s2) var(--s3);
+  overflow-wrap: anywhere;
 }
 </style>
