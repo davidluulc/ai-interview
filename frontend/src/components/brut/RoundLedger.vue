@@ -25,13 +25,14 @@ defineProps<{
   rounds: Array<{
     index: number;
     label: string;
-    status: "pass" | "fail" | "current" | "todo";
+    status: "pass" | "fail" | "done" | "current" | "todo";
   }>;
 }>();
 
 const STATUS_TEXT = {
   pass: "✓",
   fail: "✕",
+  done: "已答",
   current: "回答中",
   todo: "—"
 } as const;
@@ -58,6 +59,10 @@ const STATUS_TEXT = {
 
 .round-ledger__row--current {
   background: var(--warn);
+}
+
+.round-ledger__row--done {
+  background: var(--panel);
 }
 
 .round-ledger__index {
@@ -94,6 +99,11 @@ const STATUS_TEXT = {
 .round-ledger__badge--fail {
   background: var(--danger);
   color: var(--action-ink);
+}
+
+.round-ledger__badge--done {
+  background: var(--line-hair);
+  color: var(--ink-soft);
 }
 
 .round-ledger__badge--current {

@@ -10,14 +10,14 @@ describe("QuestionStage", () => {
   it("renders the tag cap, question text, and one chip per meta entry", () => {
     const wrapper = mount(QuestionStage, {
       props: {
-        tag: "第 3 轮 · 系统设计",
+        tag: "第 3 题 · 系统设计",
         text: "设计一个短链服务，如何保证跳转低延迟？",
         meta: ["难度 P6", "链路 缓存", "时长 45min"]
       }
     });
 
     expect(wrapper.classes()).toContain("question-stage");
-    expect(wrapper.find(".question-stage__tag").text()).toBe("第 3 轮 · 系统设计");
+    expect(wrapper.find(".question-stage__tag").text()).toBe("第 3 题 · 系统设计");
     expect(wrapper.find(".question-stage__text").text()).toBe(
       "设计一个短链服务，如何保证跳转低延迟？"
     );
@@ -28,7 +28,7 @@ describe("QuestionStage", () => {
 
   it("renders no meta chips when meta is empty", () => {
     const wrapper = mount(QuestionStage, {
-      props: { tag: "第 1 轮 · 开场", text: "请先做一个自我介绍。", meta: [] }
+      props: { tag: "第 1 题 · 开场", text: "请先做一个自我介绍。", meta: [] }
     });
 
     expect(wrapper.findAll(".question-stage__chip")).toHaveLength(0);
@@ -145,12 +145,13 @@ describe("RoundLedger", () => {
   const rounds: Array<{
     index: number;
     label: string;
-    status: "pass" | "fail" | "current" | "todo";
+    status: "pass" | "fail" | "done" | "current" | "todo";
   }> = [
     { index: 1, label: "项目深挖", status: "pass" },
     { index: 2, label: "基础八股", status: "fail" },
-    { index: 3, label: "系统设计", status: "current" },
-    { index: 4, label: "反问环节", status: "todo" }
+    { index: 3, label: "项目复盘", status: "done" },
+    { index: 4, label: "系统设计", status: "current" },
+    { index: 5, label: "反问环节", status: "todo" }
   ];
 
   it("renders inside a BrutPanel titled 轮次台账", () => {
@@ -164,16 +165,18 @@ describe("RoundLedger", () => {
   it("renders one row per round with its index and label", () => {
     const wrapper = mount(RoundLedger, { props: { rounds } });
 
-    expect(wrapper.findAll(".round-ledger__row")).toHaveLength(4);
+    expect(wrapper.findAll(".round-ledger__row")).toHaveLength(5);
     expect(wrapper.findAll(".round-ledger__index").map((node) => node.text())).toEqual([
       "1",
       "2",
       "3",
-      "4"
+      "4",
+      "5"
     ]);
     expect(wrapper.findAll(".round-ledger__label").map((node) => node.text())).toEqual([
       "项目深挖",
       "基础八股",
+      "项目复盘",
       "系统设计",
       "反问环节"
     ]);
@@ -182,6 +185,7 @@ describe("RoundLedger", () => {
   it.each([
     ["pass", "✓"],
     ["fail", "✕"],
+    ["done", "已答"],
     ["current", "回答中"],
     ["todo", "—"]
   ] as const)("maps status %s to row/badge classes and badge text %s", (status, badgeText) => {
@@ -196,5 +200,20 @@ describe("RoundLedger", () => {
     const badge = wrapper.find(".round-ledger__badge");
     expect(badge.classes()).toContain(`round-ledger__badge--${status}`);
     expect(badge.text()).toBe(badgeText);
+  });
+
+  it("renders the done badge as a neutral status distinct from pass and todo", () => {
+    const wrapper = mount(RoundLedger, {
+      props: { rounds: [{ index: 1, label: "项目深挖", status: "done" }] }
+    });
+
+    const row = wrapper.find(".round-ledger__row");
+    expect(row.classes()).toContain("round-ledger__row--done");
+    expect(row.classes()).not.toContain("round-ledger__row--pass");
+
+    const badgeClasses = wrapper.find(".round-ledger__badge").classes();
+    expect(badgeClasses).toContain("round-ledger__badge--done");
+    expect(badgeClasses).not.toContain("round-ledger__badge--pass");
+    expect(badgeClasses).not.toContain("round-ledger__badge--todo");
   });
 });

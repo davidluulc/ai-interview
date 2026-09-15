@@ -27,7 +27,7 @@ describe("InterviewChatPanel", () => {
     });
 
     expect(wrapper.find(".question-stage__text").text()).toBe("请介绍你的 RAG 项目。");
-    expect(wrapper.find(".question-stage__tag").text()).toBe("第 2 / 8 轮 · RAG & Agent");
+    expect(wrapper.find(".question-stage__tag").text()).toBe("第 2 / 8 题 · RAG & Agent");
     expect(wrapper.text()).toContain("难度 标准");
     expect(wrapper.text()).not.toContain("第一题：请做一个自我介绍。");
   });

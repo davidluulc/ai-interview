@@ -220,7 +220,7 @@ describe("interview page", () => {
     const wrapper = mountPage();
 
     expect(wrapper.find(".question-stage__text").text()).toBe("第三题：请介绍你的 RAG 项目。");
-    expect(wrapper.find(".question-stage__tag").text()).toBe("第 3 / 8 轮 · 综合");
+    expect(wrapper.find(".question-stage__tag").text()).toBe("第 3 / 8 题 · 综合");
     expect(wrapper.text()).not.toContain("第一题：请做一个自我介绍。");
     expect(wrapper.text()).not.toContain("我是做 Python 后端的候选人。");
   });
@@ -245,9 +245,11 @@ describe("interview page", () => {
 
     const rows = wrapper.findAll(".round-ledger__row");
     expect(rows).toHaveLength(5);
-    expect(rows[0].classes()).toContain("round-ledger__row--pass");
+    expect(rows[0].classes()).toContain("round-ledger__row--done");
+    expect(rows[0].classes()).not.toContain("round-ledger__row--pass");
     expect(rows[0].text()).toContain("请解释 RAG 命中");
-    expect(rows[1].classes()).toContain("round-ledger__row--pass");
+    expect(rows[1].classes()).toContain("round-ledger__row--done");
+    expect(rows[1].classes()).not.toContain("round-ledger__row--pass");
     expect(rows[2].classes()).toContain("round-ledger__row--current");
     expect(rows[2].text()).toContain("短链服务");
     expect(rows[3].classes()).toContain("round-ledger__row--todo");

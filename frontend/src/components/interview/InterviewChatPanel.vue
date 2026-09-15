@@ -92,7 +92,7 @@ const difficultyLabel = computed(() => {
 
 const modeLabel = computed(() => (props.mode === "interview" ? "真实面试" : "学习辅导"));
 
-const stageTag = computed(() => `第 ${props.currentRound} / ${props.totalRounds} 轮 · ${focusLabel.value}`);
+const stageTag = computed(() => `第 ${props.currentRound} / ${props.totalRounds} 题 · ${focusLabel.value}`);
 
 const stageMeta = computed(() => [`难度 ${difficultyLabel.value}`, `模式 ${modeLabel.value}`]);
 </script>

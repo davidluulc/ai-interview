@@ -199,7 +199,7 @@ const rounds = computed(() => {
   return Array.from({ length: total }, (_, position) => {
     const index = position + 1;
     if (position < answered.length) {
-      return { index, label: ledgerLabel(answered[position].question), status: "pass" as const };
+      return { index, label: ledgerLabel(answered[position].question), status: "done" as const };
     }
     if (sessionActive && position === answered.length) {
       return { index, label: ledgerLabel(currentQuestion), status: "current" as const };
