@@ -14,3 +14,23 @@
   --radius-lg: 18px;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
 }
+
+/* frontend/src/styles/tokens.css 追加块（保留旧块直至 Task 16） */
+:root {
+  --paper: #fdfcf7; --panel: #ffffff; --panel-warm: #fff3bf;
+  --ink: #141414; --ink-soft: #6b6558; --line-hair: #e5e1d5;
+  --action: #005eb8; --action-ink: #ffffff;
+  --ok: #009639; --warn: #ffd100; --danger: #c8102e; --info: #005eb8;
+  --score-5: #005eb8; --score-4: #4d84c8; --score-3: #9dbfe2; --score-2: #cfe0f0; --score-1: #e8f0f8;
+  --heat-3: #c8102e; --heat-2: #ff8a80; --heat-1: #ffd9d6;
+  --line: 2px solid var(--ink);
+  --shadow-2: 2px 2px 0 var(--ink); --shadow-3: 3px 3px 0 var(--ink);
+  --shadow-4: 4px 4px 0 var(--ink); --shadow-5: 5px 5px 0 var(--ink); --shadow-6: 6px 6px 0 var(--ink);
+  --hazard: repeating-linear-gradient(45deg, var(--ink) 0 6px, var(--warn) 6px 12px);
+  --font-ui: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, "SF Mono", monospace;
+  --text-page: 28px; --text-section: 20px; --text-strong: 15px;
+  --text-body: 12.5px; --text-label: 10.5px; --text-data: 9px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
