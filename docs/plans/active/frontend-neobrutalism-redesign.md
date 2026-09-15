@@ -32,7 +32,7 @@
   --heat-3: #c8102e; --heat-2: #ff8a80; --heat-1: #ffd9d6;
   --line: 2px solid var(--ink);
   --shadow-2: 2px 2px 0 var(--ink); --shadow-3: 3px 3px 0 var(--ink);
-  --shadow-4: 4px 4px 0 var(--ink); --shadow-5: 5px 5px 0 var(--ink);
+  --shadow-4: 4px 4px 0 var(--ink); --shadow-5: 5px 5px 0 var(--ink); --shadow-6: 6px 6px 0 var(--ink);
   --hazard: repeating-linear-gradient(45deg, var(--ink) 0 6px, var(--warn) 6px 12px);
   --font-ui: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --font-mono: ui-monospace, "Cascadia Code", Consolas, "SF Mono", monospace;
