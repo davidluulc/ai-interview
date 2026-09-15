@@ -131,7 +131,7 @@
               <span>选择文件</span>
               <div class="file-picker">
                 <label class="file-picker__button">
-                  选择文件
+                  浏览文件
                   <input
                     data-testid="knowledge-upload-file"
                     type="file"
@@ -909,8 +909,8 @@ p {
   justify-content: center;
   border: var(--line);
   border-radius: 0;
-  background: var(--action);
-  color: var(--action-ink);
+  background: var(--ink);
+  color: var(--warn);
   font-family: var(--font-ui);
   font-size: var(--text-strong);
   font-weight: 800;
