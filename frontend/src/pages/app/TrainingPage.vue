@@ -3,7 +3,6 @@
     <div class="training-page">
       <section class="page-head">
         <div>
-          <p class="eyebrow">Training Center</p>
           <h1>训练中心</h1>
           <p class="subtitle">把面试报告里的薄弱点沉淀成专项任务，练完后再回到面试台验证提升效果。</p>
         </div>
@@ -187,15 +186,6 @@ function stringQuery(value: unknown): string {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--s5);
-}
-
-.eyebrow {
-  margin: 0 0 var(--s2);
-  color: var(--action);
-  font-size: var(--text-label);
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .page-head h1 {

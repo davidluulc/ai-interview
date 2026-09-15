@@ -2,7 +2,6 @@
   <BrutPanel title="专项练习" aria-label="专项练习">
     <div class="practice-stack">
       <div class="panel-top">
-        <span class="panel-top__eyebrow">Practice Session</span>
         <BrutButton variant="ghost" type="button" @click="$emit('reset')">重置</BrutButton>
       </div>
 
@@ -150,17 +149,8 @@ function difficultyText(difficulty: trainingApi.TrainingPractice["difficulty"]):
 .panel-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--s3);
-}
-
-.panel-top__eyebrow {
-  color: var(--action);
-  font-size: var(--text-label);
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  line-height: 1.2;
-  text-transform: uppercase;
 }
 
 h3,

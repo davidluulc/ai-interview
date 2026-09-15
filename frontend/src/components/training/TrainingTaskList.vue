@@ -192,7 +192,6 @@ p,
   border-radius: 0;
   background: var(--panel);
   padding: var(--s4);
-  box-shadow: var(--shadow-3);
 }
 
 .task-main {
