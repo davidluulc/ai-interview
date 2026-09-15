@@ -11,43 +11,46 @@
       <p>先创建一个档案，AI 面试官会结合简历、岗位 JD 和公司信息生成问题。</p>
     </div>
 
-    <article
-      v-for="profile in profiles"
-      :key="profile.id"
-      :class="['profile-card', { active: currentProfileId === profile.id }]"
-    >
-      <div>
-        <h3>{{ profile.title }}</h3>
-        <p>{{ profile.targetRole || profile.target_role || "未填写目标岗位" }}</p>
-        <small>{{ profile.company || "未填写公司" }}</small>
-      </div>
-      <div class="actions">
-        <button type="button" @click="$emit('select', profile.id)">
-          {{ currentProfileId === profile.id ? "当前档案" : "设为当前" }}
-        </button>
-        <button
-          class="primary"
-          type="button"
-          :data-testid="`start-profile-${profile.id}`"
-          @click="$emit('start', profile.id)"
-        >
-          开始面试
-        </button>
-        <button
-          class="ghost"
-          type="button"
-          :data-testid="`archive-profile-${profile.id}`"
-          @click="$emit('archive', profile.id)"
-        >
-          归档
-        </button>
-      </div>
-    </article>
+    <template v-else>
+      <article
+        v-for="profile in profiles"
+        :key="profile.id"
+        :class="['profile-card', { active: currentProfileId === profile.id }]"
+      >
+        <div class="profile-card__main">
+          <h3>{{ profile.title }}</h3>
+          <p>{{ profile.targetRole || profile.target_role || "未填写目标岗位" }}</p>
+          <small>{{ profile.company || "未填写公司" }}</small>
+        </div>
+        <div class="actions">
+          <BrutButton variant="ghost" type="button" @click="$emit('select', profile.id)">
+            {{ currentProfileId === profile.id ? "当前档案" : "设为当前" }}
+          </BrutButton>
+          <BrutButton
+            variant="primary"
+            type="button"
+            :data-testid="`start-profile-${profile.id}`"
+            @click="$emit('start', profile.id)"
+          >
+            开始面试
+          </BrutButton>
+          <BrutButton
+            variant="ghost"
+            type="button"
+            :data-testid="`archive-profile-${profile.id}`"
+            @click="$emit('archive', profile.id)"
+          >
+            归档
+          </BrutButton>
+        </div>
+      </article>
+    </template>
   </section>
 </template>
 
 <script setup lang="ts">
 import type { ApplicationProfile } from "@/api/profiles";
+import BrutButton from "@/components/brut/BrutButton.vue";
 
 defineProps<{
   profiles: ApplicationProfile[];
@@ -64,92 +67,130 @@ defineEmits<{
 
 <style scoped>
 .profile-list {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: var(--shadow-soft);
-  padding: 22px;
-}
-
-.list-head,
-.profile-card,
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.list-head,
-.profile-card {
-  justify-content: space-between;
+  display: grid;
+  gap: var(--s3);
+  font-family: var(--font-ui);
+  color: var(--ink);
 }
 
 .list-head {
-  margin-bottom: 16px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
 }
 
-h2,
-h3,
-p {
+.list-head h2 {
   margin: 0;
+  font-size: var(--text-section);
+  font-weight: 900;
+  line-height: 1.2;
 }
 
-.list-head span,
-.profile-card p,
-.empty,
-small {
-  color: var(--color-text-muted);
+.list-head span {
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  margin: 0;
+  width: fit-content;
+  border: 2px dashed var(--ink);
+  background: var(--panel);
+  color: var(--ink-soft);
+  font-size: var(--text-strong);
+  font-weight: 800;
+  padding: var(--s4);
 }
 
 .empty-state {
   display: grid;
-  gap: 8px;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-muted);
-  padding: 22px;
+  gap: var(--s2);
+  border: 2px dashed var(--ink);
+  background: var(--panel);
+  padding: var(--s5);
 }
 
+.empty-state h3 {
+  margin: 0;
+  font-size: var(--text-section);
+  font-weight: 900;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+/* T2 行卡：2px 墨边白底装框，不加投影（投影仅交互元素，如按钮）。 */
 .profile-card {
-  border-top: 1px solid var(--color-border);
-  padding: 16px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+  border: var(--line);
+  background: var(--panel);
+  padding: var(--s4);
 }
 
-.profile-card.active h3 {
-  color: var(--color-accent);
+/* 激活项沿用侧边栏 router-link-active 同款 --warn 黄底约定。 */
+.profile-card.active {
+  background: var(--warn);
 }
 
-button {
-  white-space: nowrap;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  cursor: pointer;
-  padding: 8px 12px;
+.profile-card__main {
+  display: grid;
+  gap: var(--s1);
+  min-width: 0;
 }
 
-button.primary {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-  color: white;
+.profile-card h3 {
+  margin: 0;
+  font-size: var(--text-strong);
+  font-weight: 900;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
-button.ghost {
-  background: var(--color-surface-muted);
-  color: var(--color-text-muted);
+.profile-card p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.profile-card small {
+  color: var(--ink-soft);
+  font-size: var(--text-data);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
 }
 
 @media (max-width: 720px) {
-  .profile-card,
-  .actions {
-    align-items: stretch;
+  .profile-card {
     flex-direction: column;
+    align-items: stretch;
   }
 
-  .actions,
-  .actions button {
-    width: 100%;
+  .actions {
+    justify-content: stretch;
+  }
+
+  .actions :deep(.brut-button) {
+    flex: 1;
   }
 }
 </style>

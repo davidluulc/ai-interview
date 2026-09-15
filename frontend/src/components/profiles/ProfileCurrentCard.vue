@@ -1,29 +1,38 @@
 <template>
-  <section class="current-card">
-    <div>
-      <p class="eyebrow">当前档案</p>
+  <BrutPanel class="identity-card" title="当前档案">
+    <div class="identity-head">
       <h2>{{ profile.title }}</h2>
-      <p class="meta">{{ roleText }} · {{ companyText }}</p>
+      <BrutButton variant="primary" type="button" @click="$emit('start', profile.id)">
+        开始面试
+      </BrutButton>
     </div>
 
-    <dl class="readiness">
-      <div>
+    <dl class="identity-facts">
+      <div class="identity-facts__item">
+        <dt>目标岗位</dt>
+        <dd>{{ roleText }}</dd>
+      </div>
+      <div class="identity-facts__item">
+        <dt>目标公司</dt>
+        <dd>{{ companyText }}</dd>
+      </div>
+      <div class="identity-facts__item">
         <dt>岗位 JD</dt>
         <dd>{{ profile.jd ? "已填写" : "未填写" }}</dd>
       </div>
-      <div>
+      <div class="identity-facts__item">
         <dt>简历概况</dt>
         <dd>{{ profile.resume ? "已填写" : "未填写" }}</dd>
       </div>
     </dl>
-
-    <button type="button" @click="$emit('start', profile.id)">开始面试</button>
-  </section>
+  </BrutPanel>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
 import type { ApplicationProfile } from "@/api/profiles";
+import BrutButton from "@/components/brut/BrutButton.vue";
+import BrutPanel from "@/components/brut/BrutPanel.vue";
 
 const props = defineProps<{ profile: ApplicationProfile }>();
 defineEmits<{ start: [id: number] }>();
@@ -33,70 +42,74 @@ const companyText = computed(() => props.profile.company || "未填写公司");
 </script>
 
 <style scoped>
-.current-card {
-  display: grid;
-  gap: 18px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
-  padding: 24px;
+/* “当前”是身份标记而非语义状态，按 T2 规格用 --action 蓝头标识激活档案。 */
+.identity-card :deep(.brut-panel__head) {
+  background: var(--action);
 }
 
-.eyebrow {
-  color: var(--color-accent);
-  font-size: 13px;
-  font-weight: 700;
-  margin: 0 0 8px;
+.identity-card :deep(.brut-panel__title) {
+  color: var(--action-ink);
 }
 
-h2,
-p,
-dl,
-dd {
+.identity-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s4);
+}
+
+.identity-head h2 {
   margin: 0;
+  font-size: var(--text-section);
+  font-weight: 900;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
-.meta,
-dt {
-  color: var(--color-text-muted);
-}
-
-.readiness {
+/* 身份字段格：真实数据装框，静态信息不加投影（投影仅交互元素）。 */
+.identity-facts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s3);
+  margin: var(--s4) 0 0;
 }
 
-.readiness div {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-muted);
-  padding: 12px;
+.identity-facts__item {
+  border: var(--line);
+  background: var(--panel);
+  padding: var(--s3);
 }
 
-dt {
-  font-size: 13px;
+.identity-facts dt {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
 }
 
-dd {
-  font-weight: 700;
-  margin-top: 4px;
+.identity-facts dd {
+  margin: var(--s1) 0 0;
+  color: var(--ink);
+  font-size: var(--text-strong);
+  font-weight: 900;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
-button {
-  width: fit-content;
-  border: 0;
-  border-radius: 999px;
-  background: var(--color-accent);
-  color: white;
-  cursor: pointer;
-  font-weight: 700;
-  padding: 11px 18px;
+@media (max-width: 860px) {
+  .identity-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-@media (max-width: 640px) {
-  .readiness {
+@media (max-width: 560px) {
+  .identity-head {
+    flex-direction: column;
+  }
+
+  .identity-facts {
     grid-template-columns: 1fr;
   }
 }
