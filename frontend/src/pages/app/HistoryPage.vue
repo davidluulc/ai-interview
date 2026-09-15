@@ -1,106 +1,111 @@
 <template>
   <AppLayout>
-    <section class="page-header">
-      <div>
-        <p class="eyebrow">Review</p>
-        <h1>历史复盘</h1>
-        <p class="subtitle">回看每一次模拟面试，把问题、回答、评分和薄弱点沉淀成下一轮训练依据。</p>
-      </div>
-      <button type="button" @click="router.push('/vue/app/interview')">开始新面试</button>
-    </section>
-
-    <section v-if="history.error" class="notice error">
-      {{ history.error }}
-    </section>
-
-    <section v-else-if="history.loading" class="notice">
-      正在加载历史记录...
-    </section>
-
-    <template v-else>
-      <section v-if="history.items.length > 0" class="filter-bar" aria-label="历史记录筛选">
-        <label>
-          <span>投递档案</span>
-          <select data-testid="history-profile-filter" @change="updateProfileFilter">
-            <option value="">全部档案</option>
-            <option v-for="profile in history.profileOptions" :key="profile.id" :value="profile.id">
-              {{ profile.title }}
-            </option>
-          </select>
-        </label>
-
-        <label>
-          <span>岗位关键词</span>
-          <input
-            data-testid="history-role-filter"
-            placeholder="例如 Python 后端 / AI 应用"
-            type="search"
-            @input="updateRoleFilter"
-          />
-        </label>
-
-        <label>
-          <span>时间排序</span>
-          <select data-testid="history-sort-order" @change="updateSortOrder">
-            <option value="newest">最新优先</option>
-            <option value="oldest">最早优先</option>
-          </select>
-        </label>
+    <div class="history-page">
+      <section class="page-head">
+        <div>
+          <h1>历史复盘</h1>
+          <p class="subtitle">回看每一次模拟面试，把问题、回答、评分和薄弱点沉淀成下一轮训练依据。</p>
+        </div>
+        <BrutButton variant="primary" type="button" @click="router.push('/vue/app/interview')">
+          开始新面试
+        </BrutButton>
       </section>
 
-      <section v-if="history.items.length === 0" class="empty-state">
-        <h2>还没有面试记录</h2>
-        <p>先完成一次模拟面试，系统会把你的问答、报告和薄弱点保存到这里。</p>
-        <button type="button" @click="router.push('/vue/app/interview')">去开始面试</button>
+      <section v-if="history.error" class="notice notice--error">
+        {{ history.error }}
       </section>
 
-      <section v-else-if="history.filteredItems.length === 0" class="empty-state">
-        <h2>没有匹配的复盘记录</h2>
-        <p>换一个档案或岗位关键词试试。</p>
+      <section v-else-if="history.loading" class="notice notice--loading">
+        正在加载历史记录...
       </section>
 
-      <section v-else class="history-list" aria-label="历史面试记录">
-        <article v-for="item in history.filteredItems" :key="item.id" class="history-card">
-          <div class="card-main">
-            <div class="card-title-row">
-              <span class="score">{{ scoreOf(item.report) }}</span>
-              <div>
-                <h2>{{ profileTitle(item) }}</h2>
-                <p>{{ roleTitle(item) }}</p>
+      <template v-else>
+        <section v-if="history.items.length > 0" class="filter-bar" aria-label="历史记录筛选">
+          <label>
+            <span>投递档案</span>
+            <select data-testid="history-profile-filter" @change="updateProfileFilter">
+              <option value="">全部档案</option>
+              <option v-for="profile in history.profileOptions" :key="profile.id" :value="profile.id">
+                {{ profile.title }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <span>岗位关键词</span>
+            <input
+              data-testid="history-role-filter"
+              placeholder="例如 Python 后端 / AI 应用"
+              type="search"
+              @input="updateRoleFilter"
+            />
+          </label>
+
+          <label>
+            <span>时间排序</span>
+            <select data-testid="history-sort-order" @change="updateSortOrder">
+              <option value="newest">最新优先</option>
+              <option value="oldest">最早优先</option>
+            </select>
+          </label>
+        </section>
+
+        <section v-if="history.items.length === 0" class="empty-state">
+          <h2>还没有面试记录</h2>
+          <p>先完成一次模拟面试，系统会把你的问答、报告和薄弱点保存到这里。</p>
+          <BrutButton variant="primary" type="button" @click="router.push('/vue/app/interview')">
+            去开始面试
+          </BrutButton>
+        </section>
+
+        <section v-else-if="history.filteredItems.length === 0" class="empty-state">
+          <h2>没有匹配的复盘记录</h2>
+          <p>换一个档案或岗位关键词试试。</p>
+        </section>
+
+        <section v-else class="history-list" aria-label="历史面试记录">
+          <article v-for="item in history.filteredItems" :key="item.id" class="ledger-row">
+            <span class="ledger-row__date">{{ formatDate(item.createdAt) }}</span>
+
+            <div class="ledger-row__main">
+              <h2>{{ profileTitle(item) }}</h2>
+              <p>{{ roleTitle(item) }}</p>
+              <div class="row-meta">
+                <span class="row-meta__item">
+                  <span class="row-meta__label">问答轮次</span>
+                  <span class="row-meta__value">{{ item.answers.length }} 轮</span>
+                </span>
+                <span class="row-meta__item">
+                  <span class="row-meta__label">表现等级</span>
+                  <span class="row-meta__value">{{ levelOf(item.report) }}</span>
+                </span>
               </div>
             </div>
 
-            <dl class="meta-grid">
-              <div>
-                <dt>面试时间</dt>
-                <dd>{{ formatDate(item.createdAt) }}</dd>
-              </div>
-              <div>
-                <dt>问答轮次</dt>
-                <dd>{{ item.answers.length }} 轮</dd>
-              </div>
-              <div>
-                <dt>表现等级</dt>
-                <dd>{{ levelOf(item.report) }}</dd>
-              </div>
-            </dl>
-
-            <div class="weak-tags" aria-label="薄弱点">
-              <span v-for="tag in weakTagsOf(item.report)" :key="tag">{{ tag }}</span>
+            <div class="ledger-row__weak" aria-label="薄弱点">
+              <span v-for="tag in weakTagsOf(item.report)" :key="tag" class="weak-tag">{{ tag }}</span>
             </div>
-          </div>
 
-          <button
-            class="report-button"
-            type="button"
-            :data-testid="`open-report-${item.id}`"
-            @click="openReport(item.id)"
-          >
-            查看报告
-          </button>
-        </article>
-      </section>
-    </template>
+            <span
+              v-if="scoreValueOf(item.report) !== null"
+              class="ledger-row__score"
+              :class="scoreTierClassOf(item.report)"
+            >
+              {{ scoreValueOf(item.report) }}
+            </span>
+
+            <BrutButton
+              variant="ghost"
+              type="button"
+              :data-testid="`open-report-${item.id}`"
+              @click="openReport(item.id)"
+            >
+              查看报告
+            </BrutButton>
+          </article>
+        </section>
+      </template>
+    </div>
   </AppLayout>
 </template>
 
@@ -108,6 +113,7 @@
 import { onMounted } from "vue";
 import { useRouter } from "vue-router";
 import AppLayout from "@/layouts/AppLayout.vue";
+import BrutButton from "@/components/brut/BrutButton.vue";
 import type { HistoryRecord } from "@/api/history";
 import { useHistoryStore, type HistorySortOrder } from "@/stores/history";
 
@@ -147,9 +153,28 @@ function updateSortOrder(event: Event): void {
   });
 }
 
-function scoreOf(report: Record<string, unknown>): string {
+/* 报告 score 实际值域为 0-100（见 backend_python/prompts/interview.py）；缺分或非数值时不渲染分块。 */
+function scoreValueOf(report: Record<string, unknown>): number | null {
   const score = report.score;
-  return typeof score === "number" || typeof score === "string" ? String(score) : "--";
+  if (typeof score === "number") {
+    return Number.isFinite(score) ? score : null;
+  }
+  if (typeof score === "string" && score.trim()) {
+    const parsed = Number(score);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/* 档位阈值与 ChunkChip 一致（0-1 归一化：0.8/0.7/0.6/0.5），底色取 score-5..1 蓝梯度。 */
+function scoreTierClassOf(report: Record<string, unknown>): string {
+  const score = scoreValueOf(report);
+  if (score === null) {
+    return "";
+  }
+  const normalized = score / 100;
+  const tier = normalized >= 0.8 ? 5 : normalized >= 0.7 ? 4 : normalized >= 0.6 ? 3 : normalized >= 0.5 ? 2 : 1;
+  return `ledger-row__score--tier-${tier}`;
 }
 
 function levelOf(report: Record<string, unknown>): string {
@@ -190,207 +215,272 @@ function formatDate(value: string): string {
 </script>
 
 <style scoped>
-.page-header {
+.history-page {
+  display: grid;
+  gap: var(--s6);
+  font-family: var(--font-ui);
+  color: var(--ink);
+}
+
+.page-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 24px;
+  gap: var(--s5);
 }
 
-.eyebrow {
-  color: var(--color-accent);
-  font-size: 13px;
-  font-weight: 700;
-  margin: 0 0 8px;
-}
-
-h1,
-h2,
-p,
-dl,
-dd {
-  margin: 0;
-}
-
-h1 {
-  font-size: 40px;
+.page-head h1 {
+  margin: 0 0 var(--s2);
+  font-size: var(--text-page);
+  font-weight: 900;
+  line-height: 1.1;
 }
 
 .subtitle {
-  max-width: 760px;
-  color: var(--color-text-muted);
-  line-height: 1.7;
-  margin-top: 10px;
-}
-
-.page-header button,
-.empty-state button,
-.report-button {
-  border: 0;
-  border-radius: 999px;
-  background: var(--color-accent);
-  color: #fff;
-  cursor: pointer;
+  margin: 0;
+  max-width: 56ch;
+  color: var(--ink-soft);
+  font-size: var(--text-strong);
   font-weight: 700;
-  padding: 11px 18px;
-  white-space: nowrap;
+  line-height: 1.6;
 }
 
-.notice,
-.empty-state,
-.filter-bar,
-.history-card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
+.notice {
+  border: var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: var(--text-strong);
+  font-weight: 800;
+  padding: var(--s4);
 }
 
-.notice,
-.empty-state {
-  padding: 24px;
+.notice--error {
+  background: var(--danger);
+  color: var(--action-ink);
 }
 
-.error {
-  color: #b42318;
-}
-
-.empty-state {
-  display: grid;
-  gap: 12px;
-  max-width: 720px;
-}
-
-.empty-state p {
-  color: var(--color-text-muted);
+.notice--loading {
+  width: fit-content;
+  border-style: dashed;
+  color: var(--ink-soft);
 }
 
 .filter-bar {
   display: grid;
   grid-template-columns: minmax(160px, 1fr) minmax(220px, 1.4fr) minmax(140px, 0.8fr);
-  gap: 14px;
-  margin-bottom: 18px;
-  padding: 18px;
+  gap: var(--s3);
+  border: var(--line);
+  background: var(--panel);
+  padding: var(--s4);
 }
 
 .filter-bar label {
   display: grid;
-  gap: 6px;
+  gap: var(--s2);
 }
 
 .filter-bar span {
-  color: var(--color-text-muted);
-  font-size: 12px;
-  font-weight: 700;
+  color: var(--ink);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
 }
 
 .filter-bar select,
 .filter-bar input {
   width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: #fff;
-  color: var(--color-text);
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
   font: inherit;
-  padding: 10px 12px;
+  font-size: var(--text-body);
+  padding: var(--s2) var(--s3);
+}
+
+.filter-bar select:focus,
+.filter-bar input:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.empty-state {
+  display: grid;
+  gap: var(--s2);
+  max-width: 720px;
+  border: 2px dashed var(--ink);
+  background: var(--panel);
+  padding: var(--s5);
+}
+
+.empty-state h2 {
+  margin: 0;
+  font-size: var(--text-section);
+  font-weight: 900;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.empty-state .brut-button {
+  justify-self: start;
+  margin-top: var(--s2);
 }
 
 .history-list {
   display: grid;
-  gap: 16px;
+  gap: var(--s3);
 }
 
-.history-card {
-  display: flex;
+/* T2 台账行：2px 墨边装框，不加投影（投影仅交互元素）。 */
+.ledger-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 22px;
+  gap: var(--s4);
+  border: var(--line);
+  background: var(--panel);
+  padding: var(--s4);
 }
 
-.card-main {
+.ledger-row__date {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.ledger-row__main {
   display: grid;
   min-width: 0;
-  gap: 16px;
+  gap: var(--s1);
 }
 
-.card-title-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+.ledger-row__main h2 {
+  margin: 0;
+  font-size: var(--text-strong);
+  font-weight: 900;
+  line-height: 1.3;
 }
 
-.score {
-  display: grid;
-  width: 58px;
-  height: 58px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 50%;
-  background: #111827;
-  color: #fff;
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.card-title-row p,
-dt {
-  color: var(--color-text-muted);
-}
-
-.meta-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(120px, 1fr));
-  gap: 12px;
-}
-
-dt {
-  font-size: 12px;
-  margin-bottom: 4px;
-}
-
-dd {
+.ledger-row__main p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
   font-weight: 700;
+  line-height: 1.5;
 }
 
-.weak-tags {
+.row-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--s1) var(--s3);
+  margin-top: var(--s1);
 }
 
-.weak-tags span {
-  border-radius: 999px;
-  background: #eef4ff;
-  color: #175cd3;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 5px 9px;
+.row-meta__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s1);
 }
 
-.report-button {
-  flex: 0 0 auto;
+.row-meta__label {
+  color: var(--ink-soft);
+  font-size: var(--text-data);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.row-meta__value {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 历史记录的 weakTags 只有叙事标签、没有出现次数，按反编造规则用中性描边标签而非热度档位。 */
+.ledger-row__weak {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  max-width: 240px;
+}
+
+.weak-tag {
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 800;
+  line-height: 1.3;
+  padding: var(--s1) var(--s2);
+}
+
+/* 总分大数字：真实报告分数 + ChunkChip 同源蓝梯度档底。 */
+.ledger-row__score {
+  display: inline-grid;
+  place-items: center;
+  min-width: 76px;
+  border: var(--line);
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  padding: var(--s2) var(--s3);
+}
+
+.ledger-row__score--tier-5 {
+  background: var(--score-5);
+  color: var(--action-ink);
+}
+
+.ledger-row__score--tier-4 {
+  background: var(--score-4);
+  color: var(--ink);
+}
+
+.ledger-row__score--tier-3 {
+  background: var(--score-3);
+  color: var(--ink);
+}
+
+.ledger-row__score--tier-2 {
+  background: var(--score-2);
+  color: var(--ink);
+}
+
+.ledger-row__score--tier-1 {
+  background: var(--score-1);
+  color: var(--ink);
 }
 
 @media (max-width: 760px) {
-  .page-header,
-  .history-card,
-  .card-title-row {
-    align-items: stretch;
+  .page-head {
     flex-direction: column;
-  }
-
-  .meta-grid {
-    grid-template-columns: 1fr;
   }
 
   .filter-bar {
     grid-template-columns: 1fr;
   }
 
-  .score {
-    border-radius: var(--radius-md);
+  .ledger-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .ledger-row__weak {
+    max-width: none;
   }
 }
 </style>
