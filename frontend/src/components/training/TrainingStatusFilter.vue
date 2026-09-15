@@ -4,7 +4,8 @@
       v-for="option in options"
       :key="option.value"
       type="button"
-      :class="{ active: modelValue === option.value }"
+      class="status-filter__btn"
+      :class="{ 'status-filter__btn--active': modelValue === option.value }"
       :data-testid="`status-filter-${option.value || 'all'}`"
       @click="$emit('update:modelValue', option.value)"
     >
@@ -14,17 +15,17 @@
 </template>
 
 <script setup lang="ts">
-import type { TrainingStatusFilter } from "@/stores/training";
+import type { TrainingStatusFilter as TrainingStatusFilterValue } from "@/stores/training";
 
 defineProps<{
-  modelValue: TrainingStatusFilter;
+  modelValue: TrainingStatusFilterValue;
 }>();
 
 defineEmits<{
-  "update:modelValue": [status: TrainingStatusFilter];
+  "update:modelValue": [status: TrainingStatusFilterValue];
 }>();
 
-const options: Array<{ label: string; value: TrainingStatusFilter }> = [
+const options: Array<{ label: string; value: TrainingStatusFilterValue }> = [
   { label: "全部", value: "" },
   { label: "待训练", value: "todo" },
   { label: "训练中", value: "in_progress" },
@@ -37,25 +38,42 @@ const options: Array<{ label: string; value: TrainingStatusFilter }> = [
 .status-filter {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--s2);
 }
 
-button {
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-surface);
-  color: var(--color-text-muted);
+.status-filter__btn {
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
   cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
   font-weight: 800;
-  min-height: 38px;
-  padding: 8px 14px;
-  white-space: nowrap;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  padding: var(--s2) var(--s3);
+  box-shadow: var(--shadow-2);
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 }
 
-button:hover,
-button.active {
-  border-color: var(--color-accent);
-  background: #eef4ff;
-  color: var(--color-accent);
+.status-filter__btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .status-filter__btn:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.status-filter__btn:active {
+  transform: scale(0.97);
+}
+
+.status-filter__btn--active {
+  background: var(--action);
+  color: var(--action-ink);
 }
 </style>

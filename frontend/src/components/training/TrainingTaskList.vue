@@ -14,7 +14,7 @@
       <div class="task-main">
         <div class="task-title">
           <span class="tag">{{ task.weakLabel || task.weakTag }}</span>
-          <strong>{{ statusText(task.status) }}</strong>
+          <BrutChip :label="statusText(task.status)" :tone="statusTone(task.status)" />
         </div>
         <h3>{{ task.title }}</h3>
         <p>{{ task.description || "围绕该薄弱点完成一次专项表达训练。" }}</p>
@@ -40,37 +40,41 @@
       </div>
 
       <div class="task-actions">
-        <button
+        <BrutButton
+          variant="primary"
           type="button"
           :data-testid="`start-task-${task.id}`"
           :disabled="task.status === 'done' || task.status === 'archived'"
           @click="$emit('start', task.id)"
         >
           {{ task.status === "in_progress" ? "继续训练" : "开始训练" }}
-        </button>
-        <button
+        </BrutButton>
+        <BrutButton
+          variant="ghost"
           type="button"
           :data-testid="`complete-task-${task.id}`"
           :disabled="task.status === 'done' || task.status === 'archived'"
           @click="$emit('complete', task.id)"
         >
           标记完成
-        </button>
-        <button
-          class="ghost"
+        </BrutButton>
+        <BrutButton
+          variant="ghost"
           type="button"
           :data-testid="`archive-task-${task.id}`"
           :disabled="task.status === 'archived'"
           @click="$emit('archive', task.id)"
         >
           归档
-        </button>
+        </BrutButton>
       </div>
     </article>
   </section>
 </template>
 
 <script setup lang="ts">
+import BrutButton from "@/components/brut/BrutButton.vue";
+import BrutChip from "@/components/brut/BrutChip.vue";
 import type { TrainingTaskView } from "./types";
 
 defineProps<{ tasks: TrainingTaskView[] }>();
@@ -81,6 +85,17 @@ defineEmits<{
   archive: [id: number];
   "open-report": [id: number];
 }>();
+
+/* 状态实际值域见 TrainingTaskView：todo | in_progress | done | archived；未知值走 neutral。 */
+function statusTone(status: TrainingTaskView["status"]): "ok" | "warn" | "neutral" {
+  const map = {
+    todo: "neutral",
+    in_progress: "warn",
+    done: "ok",
+    archived: "neutral"
+  } as const;
+  return map[status] ?? "neutral";
+}
 
 function statusText(status: TrainingTaskView["status"]): string {
   const map = {
@@ -109,22 +124,16 @@ function formatDate(value: string): string {
 <style scoped>
 .task-list {
   display: grid;
-  gap: 14px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
-  padding: 22px;
+  gap: var(--s3);
 }
 
 .list-head,
 .task-title,
 .task-meta,
-.task-actions,
 .planning-meta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--s2);
 }
 
 .list-head {
@@ -137,97 +146,126 @@ p {
   margin: 0;
 }
 
+.list-head h2 {
+  font-size: var(--text-section);
+  font-weight: 900;
+}
+
 .list-head span,
 p,
 .task-meta,
 .planning-meta {
-  color: var(--color-text-muted);
+  color: var(--ink-soft);
+}
+
+.list-head span {
+  font-family: var(--font-mono);
+  font-size: var(--text-body);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
 }
 
 .empty-state {
   display: grid;
-  gap: 8px;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-muted);
-  padding: 22px;
+  gap: var(--s2);
+  border: 2px dashed var(--ink);
+  background: var(--panel);
+  padding: var(--s4);
+}
+
+.empty-state h3 {
+  font-size: var(--text-strong);
+  font-weight: 900;
+}
+
+.empty-state p {
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.7;
 }
 
 .task-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
-  border-top: 1px solid var(--color-border);
-  padding-top: 16px;
+  gap: var(--s4);
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  padding: var(--s4);
+  box-shadow: var(--shadow-3);
 }
 
 .task-main {
   display: grid;
   min-width: 0;
-  gap: 8px;
+  gap: var(--s2);
 }
 
 .task-title {
   justify-content: space-between;
 }
 
-.tag,
-.planning-meta span {
+.tag {
   display: inline-flex;
   width: fit-content;
-  border-radius: 999px;
-  font-size: 12px;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
   font-weight: 800;
-  padding: 4px 8px;
+  padding: var(--s1) var(--s2);
 }
 
-.tag {
-  background: #eef4ff;
-  color: #175cd3;
+.task-main h3 {
+  font-size: var(--text-strong);
+  font-weight: 900;
+  line-height: 1.5;
+}
+
+.task-main p {
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.7;
 }
 
 .planning-meta {
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--s2);
 }
 
 .planning-meta span {
-  background: var(--color-surface-muted);
-  color: var(--color-text-muted);
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid var(--line-hair);
+  border-radius: 0;
+  background: var(--panel);
+  font-size: var(--text-data);
+  font-weight: 800;
+  padding: var(--s1) var(--s2);
 }
 
 .task-actions {
-  align-items: flex-end;
+  display: flex;
+  align-items: center;
   flex-direction: column;
   justify-content: center;
-}
-
-button {
-  border: 0;
-  border-radius: 999px;
-  background: var(--color-accent);
-  color: #fff;
-  cursor: pointer;
-  font-weight: 800;
-  padding: 9px 14px;
-  white-space: nowrap;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.ghost {
-  background: var(--color-surface-muted);
-  color: var(--color-text);
+  gap: var(--s2);
 }
 
 .source-link {
+  border: 0;
+  border-bottom: 2px solid var(--action);
   border-radius: 0;
   background: transparent;
-  color: var(--color-accent);
-  padding: 0;
+  color: var(--action);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  font-weight: 800;
+  padding: var(--s1) 0;
+  white-space: nowrap;
 }
 
 @media (max-width: 720px) {

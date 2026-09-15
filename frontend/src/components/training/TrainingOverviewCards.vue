@@ -1,21 +1,17 @@
 <template>
-  <section class="overview-panel" aria-labelledby="training-overview-title">
-    <div class="panel-head">
-      <p class="eyebrow">Overview</p>
-      <h2 id="training-overview-title">训练概览</h2>
-    </div>
-
+  <BrutPanel title="训练概览" aria-label="训练概览">
     <div class="overview-grid">
-      <article v-for="item in overviewItems" :key="item.label" class="overview-card">
-        <span>{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-      </article>
+      <div v-for="item in overviewItems" :key="item.label" class="stat-tile" :class="{ 'stat-tile--hero': item.hero }">
+        <span class="stat-tile__caption">{{ item.label }}</span>
+        <strong class="stat-tile__value">{{ item.value }}</strong>
+      </div>
     </div>
-  </section>
+  </BrutPanel>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
+import BrutPanel from "@/components/brut/BrutPanel.vue";
 
 const props = defineProps<{
   todoCount: number;
@@ -26,67 +22,58 @@ const props = defineProps<{
 }>();
 
 const overviewItems = computed(() => [
-  { label: "待训练", value: props.todoCount },
-  { label: "训练中", value: props.inProgressCount },
-  { label: "已完成", value: props.doneCount },
-  { label: "已归档", value: props.archivedCount },
-  { label: "平均掌握度", value: props.averageMastery ?? "--" }
+  { label: "待训练", value: props.todoCount, hero: false },
+  { label: "训练中", value: props.inProgressCount, hero: false },
+  { label: "已完成", value: props.doneCount, hero: false },
+  { label: "已归档", value: props.archivedCount, hero: false },
+  { label: "平均掌握度", value: props.averageMastery ?? "--", hero: true }
 ]);
 </script>
 
 <style scoped>
-.overview-panel {
-  display: grid;
-  gap: 14px;
-}
-
-.panel-head {
-  display: grid;
-  gap: 4px;
-}
-
-.eyebrow,
-h2 {
-  margin: 0;
-}
-
-.eyebrow {
-  color: var(--color-accent);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-
-h2 {
-  font-size: 22px;
-}
-
 .overview-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--s3);
 }
 
-.overview-card {
+.stat-tile {
   display: grid;
-  gap: 8px;
-  min-height: 92px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-soft);
-  padding: 16px;
+  gap: var(--s2);
+  align-content: start;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  padding: var(--s3);
 }
 
-.overview-card span {
-  color: var(--color-text-muted);
-  font-size: 13px;
-  font-weight: 700;
+.stat-tile--hero {
+  background: var(--action);
+  color: var(--action-ink);
 }
 
-.overview-card strong {
-  color: var(--color-text);
-  font-size: 30px;
+.stat-tile__caption {
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.stat-tile--hero .stat-tile__caption {
+  color: var(--action-ink);
+}
+
+.stat-tile:not(.stat-tile--hero) .stat-tile__caption {
+  color: var(--ink-soft);
+}
+
+.stat-tile__value {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
@@ -99,11 +86,6 @@ h2 {
 @media (max-width: 640px) {
   .overview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .overview-card {
-    min-height: 84px;
-    padding: 14px;
   }
 }
 </style>
