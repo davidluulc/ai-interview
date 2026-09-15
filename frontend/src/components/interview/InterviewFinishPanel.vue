@@ -1,7 +1,6 @@
 <template>
   <section class="finish-panel" :class="{ complete }">
     <div class="finish-panel__copy">
-      <p class="eyebrow">Review</p>
       <h2>{{ title }}</h2>
       <p>{{ description }}</p>
     </div>
@@ -81,21 +80,8 @@ const description = computed(() => {
   box-shadow: var(--shadow-4);
 }
 
-.finish-panel.complete .eyebrow {
-  color: var(--ok);
-}
-
 .finish-panel__copy {
   min-width: 0;
-}
-
-.eyebrow {
-  color: var(--action);
-  font-size: var(--text-label);
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  margin: 0 0 var(--s1);
-  text-transform: uppercase;
 }
 
 h2,
@@ -110,7 +96,7 @@ h2 {
   line-height: 1.3;
 }
 
-.finish-panel__copy p:not(.eyebrow) {
+.finish-panel__copy p {
   color: var(--ink-soft);
   font-size: var(--text-body);
   font-weight: 700;

@@ -38,22 +38,22 @@ function onInput(event: Event): void {
 }
 
 .field span {
-  color: var(--color-text-muted);
+  color: var(--ink-soft);
   font-size: 13px;
 }
 
 .field input {
   width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-text);
+  border: var(--line);
+  border-radius: 0;
+  background: var(--panel);
+  color: var(--ink);
   outline: none;
   padding: 13px 14px;
 }
 
 .field input:focus {
-  border-color: rgba(0, 113, 227, 0.55);
-  box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 </style>

@@ -2,7 +2,6 @@
   <section class="session-setup">
     <div class="setup-header">
       <div>
-        <p class="eyebrow">Session Setup</p>
         <h2>本次面试配置</h2>
       </div>
       <span class="focus-pill">{{ focusLabel(config.focusArea) }}</span>
@@ -128,15 +127,6 @@ function emitValue(key: "difficulty" | "focusArea", event: Event): void {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--s3);
-}
-
-.eyebrow {
-  color: var(--action);
-  font-size: var(--text-label);
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  margin: 0 0 var(--s1);
-  text-transform: uppercase;
 }
 
 h2,

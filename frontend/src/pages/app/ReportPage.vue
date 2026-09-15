@@ -3,7 +3,6 @@
     <div class="report-page">
       <section class="page-head">
         <div>
-          <p class="eyebrow">Report</p>
           <h1>面试报告</h1>
           <p class="subtitle">把一次模拟面试沉淀成可复盘、可训练、可继续迭代的成长记录。</p>
         </div>

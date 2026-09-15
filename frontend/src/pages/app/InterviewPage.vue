@@ -2,7 +2,7 @@
   <AppLayout>
     <section v-if="!profiles.currentProfile" class="empty-profile">
       <header class="empty-profile__head">
-        <span>Interview Workspace</span>
+        <span>面试训练台</span>
       </header>
       <div class="empty-profile__body">
         <h1>请先选择或创建投递档案</h1>
@@ -42,7 +42,6 @@
 
         <div class="stage-head">
           <div>
-            <p class="eyebrow">Interview Workspace</p>
             <h1>面试训练台</h1>
           </div>
           <InterviewModeSwitch :model-value="interview.agentMode" @update:model-value="interview.setAgentMode" />
@@ -58,7 +57,6 @@
 
         <section v-if="!interview.hasStarted" class="start-panel">
           <div>
-            <p class="eyebrow">Start</p>
             <h2>生成第一道面试题</h2>
             <p>系统会结合当前档案、岗位 JD 和知识库生成开场问题。</p>
           </div>
@@ -105,7 +103,6 @@
         <InterviewEvidencePanel :decision-summary="interview.decisionSummary" :rag-reasons="interview.ragReasons" />
         <section v-if="auth.isAdmin" class="runtime-panel" aria-label="实验链路">
           <div class="runtime-panel__copy">
-            <p class="eyebrow">Runtime Canary</p>
             <h2>实验链路</h2>
             <p>仅管理员可见。实验链路会经过质量门禁，异常时自动回退稳定链路。</p>
           </div>
@@ -450,15 +447,6 @@ async function finishInterview(): Promise<void> {
   gap: var(--s3);
 }
 
-.eyebrow {
-  color: var(--action);
-  font-size: var(--text-label);
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  margin: 0 0 var(--s1);
-  text-transform: uppercase;
-}
-
 h1 {
   color: var(--ink);
   font-size: var(--text-page);
@@ -499,7 +487,7 @@ h1 {
   line-height: 1.3;
 }
 
-.start-panel p:not(.eyebrow) {
+.start-panel p {
   color: var(--ink-soft);
   font-size: var(--text-body);
   font-weight: 700;
@@ -530,11 +518,7 @@ h1 {
   font-size: var(--text-body);
   font-weight: 700;
   line-height: 1.6;
-  margin: 0;
-}
-
-.runtime-panel__copy p:not(.eyebrow) {
-  margin-top: var(--s1);
+  margin: var(--s1) 0 0;
 }
 
 .runtime-actions {

@@ -1,7 +1,6 @@
 <template>
   <AuthLayout>
     <div class="auth-copy">
-      <p class="eyebrow">AI Interview</p>
       <h1>欢迎回来</h1>
       <p>进入你的面试训练工作台。</p>
     </div>
@@ -63,15 +62,6 @@ async function submit(): Promise<void> {
   gap: var(--s2);
   margin-bottom: var(--s6);
   text-align: center;
-}
-
-.eyebrow {
-  color: var(--action);
-  font-size: var(--text-label);
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  margin: 0;
 }
 
 h1 {

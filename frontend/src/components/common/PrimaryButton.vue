@@ -12,18 +12,21 @@ defineProps<{ disabled?: boolean; type?: "button" | "submit" | "reset" }>();
 .primary-button {
   width: 100%;
   min-height: 46px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--color-accent);
-  color: #fff;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--action);
+  color: var(--action-ink);
   cursor: pointer;
-  font-weight: 600;
+  font-family: var(--font-ui);
+  font-weight: 800;
   padding: 13px 18px;
-  transition: background 160ms ease, transform 160ms ease;
+  box-shadow: var(--shadow-3);
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
 }
 
 .primary-button:hover:not(:disabled) {
-  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-4);
 }
 
 .primary-button:active:not(:disabled) {
