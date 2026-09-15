@@ -35,54 +35,74 @@ async function logout(): Promise<void> {
   min-height: 100vh;
   grid-template-columns: 232px minmax(0, 1fr);
   overflow-x: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  border-right: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.78);
-  padding: 24px 18px;
+  gap: var(--s2);
+  border-right: var(--line);
+  background: var(--panel);
+  padding: var(--s6) var(--s4);
 }
 
 .brand {
-  margin-bottom: 20px;
-  font-size: 18px;
-  font-weight: 700;
+  margin-bottom: var(--s5);
+  border: var(--line);
+  background: var(--action);
+  color: var(--action-ink);
+  box-shadow: var(--shadow-4);
+  font-size: var(--text-strong);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  padding: var(--s2) var(--s3);
   white-space: nowrap;
 }
 
 .sidebar a,
 .logout-button {
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
-  padding: 10px 12px;
+  border-radius: 0;
+  font-size: var(--text-strong);
+  font-weight: 800;
+  padding: var(--s3);
   white-space: nowrap;
+}
+
+.sidebar a {
+  border: var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow-3);
+  text-decoration: none;
 }
 
 .logout-button {
   margin-top: auto;
-  border: 0;
+  border: 2px dashed var(--ink);
   background: transparent;
+  color: var(--ink);
   cursor: pointer;
   font: inherit;
   text-align: left;
 }
 
-.sidebar a.router-link-active {
-  background: var(--color-surface);
-  color: var(--color-text);
+@media (hover: hover) and (pointer: fine) {
+  .sidebar a:hover,
+  .logout-button:hover {
+    background: var(--panel-warm);
+  }
 }
 
-.logout-button:hover {
-  background: var(--color-surface);
-  color: var(--color-text);
+.sidebar a.router-link-active {
+  background: var(--warn);
 }
 
 .workspace {
   min-width: 0;
-  padding: 28px;
+  padding: var(--s6);
 }
 
 @media (max-width: 760px) {
@@ -98,7 +118,13 @@ async function logout(): Promise<void> {
     align-items: center;
     max-width: 100vw;
     overflow-x: auto;
-    padding: 16px 18px;
+    padding: var(--s4);
+  }
+
+  .brand,
+  .sidebar a,
+  .logout-button {
+    flex: 0 0 auto;
   }
 
   .brand {

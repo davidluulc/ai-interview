@@ -7,7 +7,7 @@
     </div>
 
     <form class="auth-form" @submit.prevent="submit">
-      <TextField
+      <BrutField
         v-model="email"
         autocomplete="email"
         label="邮箱"
@@ -16,7 +16,7 @@
         required
         type="email"
       />
-      <TextField
+      <BrutField
         v-model="password"
         autocomplete="current-password"
         label="密码"
@@ -25,8 +25,10 @@
         required
         type="password"
       />
-      <p v-if="auth.error" class="error">{{ auth.error }}</p>
-      <PrimaryButton :disabled="auth.loading">{{ auth.loading ? "登录中" : "登录" }}</PrimaryButton>
+      <BrutChip v-if="auth.error" class="error-chip" :label="auth.error" tone="danger" />
+      <BrutButton :disabled="auth.loading" type="submit" variant="primary">
+        {{ auth.loading ? "登录中" : "登录" }}
+      </BrutButton>
     </form>
 
     <p class="switch-text">
@@ -38,8 +40,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import PrimaryButton from "@/components/common/PrimaryButton.vue";
-import TextField from "@/components/common/TextField.vue";
+import BrutButton from "@/components/brut/BrutButton.vue";
+import BrutChip from "@/components/brut/BrutChip.vue";
+import BrutField from "@/components/brut/BrutField.vue";
 import AuthLayout from "@/layouts/AuthLayout.vue";
 import { useAuthStore } from "@/stores/auth";
 
@@ -57,46 +60,52 @@ async function submit(): Promise<void> {
 <style scoped>
 .auth-copy {
   display: grid;
-  gap: 8px;
-  margin-bottom: 28px;
+  gap: var(--s2);
+  margin-bottom: var(--s6);
   text-align: center;
 }
 
 .eyebrow {
-  color: var(--color-accent);
-  font-size: 13px;
-  font-weight: 700;
+  color: var(--action);
+  font-size: var(--text-label);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   margin: 0;
 }
 
 h1 {
-  font-size: 34px;
+  color: var(--ink);
+  font-size: var(--text-page);
   margin: 0;
 }
 
 p {
-  color: var(--color-text-muted);
+  color: var(--ink-soft);
   margin: 0;
 }
 
 .auth-form {
   display: grid;
-  gap: 16px;
+  gap: var(--s4);
 }
 
-.error {
-  color: #b42318;
-  font-size: 14px;
+.error-chip {
+  justify-self: start;
+}
+
+.auth-form .brut-button {
+  width: 100%;
 }
 
 .switch-text {
-  margin-top: 18px;
+  margin-top: var(--s4);
   text-align: center;
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 
 .switch-link {
-  color: var(--color-accent);
-  font-weight: 700;
+  color: var(--action);
+  font-weight: 800;
 }
 </style>

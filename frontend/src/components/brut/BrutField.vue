@@ -1,7 +1,8 @@
 <template>
-  <label class="brut-field">
+  <label class="brut-field" :class="$attrs.class" :style="$attrs.style">
     <span class="brut-field__label">{{ label }}</span>
     <input
+      v-bind="fieldAttrs"
       class="brut-field__input"
       :type="type || 'text'"
       :value="modelValue"
@@ -12,6 +13,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed, useAttrs } from "vue";
+
+defineOptions({ inheritAttrs: false });
+
 defineProps<{
   label: string;
   modelValue: string;
@@ -20,6 +25,15 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{ "update:modelValue": [value: string] }>();
+
+const attrs = useAttrs();
+
+const fieldAttrs = computed(() => {
+  const rest: Record<string, unknown> = { ...attrs };
+  delete rest.class;
+  delete rest.style;
+  return rest;
+});
 
 function onInput(event: Event): void {
   emit("update:modelValue", (event.target as HTMLInputElement).value);
