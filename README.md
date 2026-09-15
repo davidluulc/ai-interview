@@ -10,6 +10,38 @@
 
 当前演示环境使用 IP + 8080 端口，暂未接入域名和 HTTPS。生产演示由 Docker Compose 编排 Nginx、FastAPI、PostgreSQL(pgvector)、Redis 和 Celery worker，可选启用 MCP 服务。
 
+![面试训练台](docs/demo/ui-interview.png)
+
+## 前端设计系统（新粗野主义 + 语义安全色）
+
+前端做了一次完整的视觉重设计：**新粗野主义**（Neo-Brutalism）方向——米白纸底、2px 墨黑边框、硬投影、直角、黑头面板——并把**颜色语义绑定到系统本身**（ISO 3864 安全色思路）：
+
+| 语义 | 色彩 | 用途 |
+| --- | --- | --- |
+| 合格 / 通过 | 绿 `#009639` | 面试通过轮次、健康状态、启用中 |
+| 护栏 / 待改进 | 黄 `#ffd100` | 当前回答轮、警示条（hazard stripe）、待处理 |
+| 不合格 / 失败 | 红 `#c8102e` | 不通过轮次、错误、危险操作 |
+| 行动 / 指令 | 蓝 `#005eb8` | 主行动指引、链接态 |
+| 数据色阶 | 蓝 5 档 / 红 3 档 | 分数块、chunk 命中、热力标签（只接真实数值，无数据不渲染） |
+
+关键规则：**颜色只表达系统含义，不做装饰**；评分/热力等数据色阶严格由真实数值驱动（防编造红线）。
+
+**密度分层**按页面职能降档：T1 激进（面试台/训练：满投影+图章+警示条）→ T2 标准（档案/知识库/复盘/报告：黑头面板+发丝线行）→ T3 工具（设置/后台：令牌换肤为主，投影仅交互元素）。
+
+设计令牌与组件全部落在代码里，无 UI 框架、零新增运行时依赖：
+
+- 令牌：`frontend/src/styles/tokens.css`（色彩/6 级字号/间距/投影/边框/动效曲线）
+- 组件库：`frontend/src/components/brut/`（16 个 Brut* 组件：面板、按钮、图章、分数块、轮次台账、问题舞台、回答区等）
+- 重设计全程**零行为变更**：路由、store、API 与全部 `data-testid` 保持不变，前端 Vitest 从 167 增至 266 个用例全绿
+
+| 面试训练台（T1 聚焦模式） | 知识库（T2） |
+| --- | --- |
+| ![面试训练台](docs/demo/ui-interview.png) | ![知识库](docs/demo/ui-knowledge.png) |
+
+| 训练（T1） | 投递档案（T2） |
+| --- | --- |
+| ![训练](docs/demo/ui-training.png) | ![档案](docs/demo/ui-profiles.png) |
+
 ## 核心闭环
 
 ```text
@@ -171,6 +203,7 @@ Nginx -> FastAPI app -> PostgreSQL (pgvector)
 - [当前项目状态](docs/roadmap/current-state.md)
 - [生产架构总览图（交互版 HTML）](docs/demo/ai-interview-arch.html)
 - [Agent v3 升级总纲（S1-S5 设计与验收）](docs/specs/active/agent-v3-upgrade-design.md)
+- [前端新粗野主义重设计规格](docs/specs/active/frontend-neobrutalism-redesign-design.md)
 - [数据模型与核心关系](docs/project-explanation/data-model.md)
 - [部署总入口](docs/DEPLOYMENT.md)
 - [排障总入口](docs/TROUBLESHOOTING.md)
