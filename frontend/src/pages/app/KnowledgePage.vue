@@ -127,10 +127,24 @@
                 <option value="public">公共资料</option>
               </select>
             </label>
-            <label class="field-block">
+            <div class="field-block">
               <span>选择文件</span>
-              <input data-testid="knowledge-upload-file" type="file" accept=".txt,.md,.pdf" @change="onUploadFileChange" />
-            </label>
+              <div class="file-picker">
+                <label class="file-picker__button">
+                  选择文件
+                  <input
+                    data-testid="knowledge-upload-file"
+                    type="file"
+                    accept=".txt,.md,.pdf"
+                    class="file-picker__input"
+                    @change="onUploadFileChange"
+                  />
+                </label>
+                <span class="file-picker__name" :class="{ 'file-picker__name--set': uploadFileName }">
+                  {{ uploadFileName || "未选择文件" }}
+                </span>
+              </div>
+            </div>
             <BrutButton
               class="wide"
               variant="ghost"
@@ -446,6 +460,7 @@ const showCreateForm = ref(false);
 const showDocumentAdvanced = ref(false);
 const showUploadAdvanced = ref(false);
 const showDebugPanel = ref(false);
+const uploadFileName = ref("");
 
 const documentForm = reactive({
   title: "",
@@ -498,11 +513,13 @@ async function submitUpload(): Promise<void> {
   uploadForm.title = "";
   uploadForm.metadataJson = "";
   uploadForm.file = null;
+  uploadFileName.value = "";
 }
 
 function onUploadFileChange(event: Event): void {
   const files = (event.target as HTMLInputElement).files;
   uploadForm.file = files?.[0] || null;
+  uploadFileName.value = uploadForm.file?.name || "";
   if (!uploadForm.title && uploadForm.file) {
     uploadForm.title = uploadForm.file.name.replace(/\.[^.]+$/, "");
   }
@@ -874,6 +891,72 @@ p {
 
 .field-block ::placeholder {
   color: var(--ink-soft);
+}
+
+/* 文件选择：BrutButton primary 手写等效的 label 按钮 + 视觉隐藏原生 input（保留可聚焦与 change 触发）。 */
+.file-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  min-width: 0;
+}
+
+.file-picker__button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--line);
+  border-radius: 0;
+  background: var(--action);
+  color: var(--action-ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-strong);
+  font-weight: 800;
+  line-height: 1.2;
+  padding: var(--s3) var(--s4);
+  cursor: pointer;
+  box-shadow: var(--shadow-2);
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+
+.file-picker__button:focus-within {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.file-picker input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  border: 0;
+  padding: 0;
+  background: none;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.file-picker__name {
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.file-picker__name--set {
+  color: var(--ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .file-picker__button:hover {
+    transform: translateY(-1px);
+  }
 }
 
 .form-error {

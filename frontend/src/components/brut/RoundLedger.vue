@@ -8,7 +8,7 @@
         :class="`round-ledger__row--${round.status}`"
       >
         <span class="round-ledger__index">{{ round.index }}</span>
-        <span class="round-ledger__label">{{ round.label }}</span>
+        <span class="round-ledger__label" :title="round.label">{{ round.label }}</span>
         <span
           class="round-ledger__badge"
           :class="`round-ledger__badge--${round.status}`"
@@ -75,6 +75,10 @@ const STATUS_TEXT = {
 
 .round-ledger__label {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--text-label);
   font-weight: 800;
   line-height: 1.3;

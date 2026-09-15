@@ -20,15 +20,6 @@
 
       <section class="focus-mode__stage">
         <header class="stage-bar">
-          <span class="stage-bar__brand">AI Interview</span>
-          <nav class="stage-bar__nav" aria-label="页面导航">
-            <RouterLink to="/vue/app/interview">面试</RouterLink>
-            <RouterLink to="/vue/app/profiles">档案</RouterLink>
-            <RouterLink to="/vue/app/knowledge">知识库</RouterLink>
-            <RouterLink to="/vue/app/history">复盘</RouterLink>
-            <RouterLink to="/vue/app/training">训练</RouterLink>
-            <RouterLink v-if="auth.isAdmin" to="/vue/app/admin">后台</RouterLink>
-          </nav>
           <InterviewProgressStrip
             class="stage-bar__meta"
             :complete="interview.isSessionComplete"
@@ -179,11 +170,11 @@ const guardrailActive = computed(
 );
 
 function ledgerLabel(text: string): string {
-  const clean = text.trim();
+  const clean = text.replace(/\s+/g, " ").trim();
   if (!clean) {
     return "待生成";
   }
-  return clean.length > 14 ? `${clean.slice(0, 14)}…` : clean;
+  return clean;
 }
 
 const rounds = computed(() => {
@@ -388,6 +379,7 @@ async function finishInterview(): Promise<void> {
 .stage-bar {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
   gap: var(--s3);
   border: var(--line);
@@ -395,45 +387,6 @@ async function finishInterview(): Promise<void> {
   background: var(--ink);
   box-shadow: var(--shadow-4);
   padding: var(--s2) var(--s3);
-}
-
-.stage-bar__brand {
-  border: 2px solid var(--ink);
-  border-radius: 0;
-  background: var(--warn);
-  color: var(--ink);
-  font-size: var(--text-label);
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  line-height: 1.2;
-  padding: var(--s1) var(--s2);
-  white-space: nowrap;
-}
-
-.stage-bar__nav {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--s1);
-}
-
-.stage-bar__nav a {
-  border: 2px solid transparent;
-  border-radius: 0;
-  color: var(--paper);
-  font-size: var(--text-label);
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  line-height: 1.2;
-  padding: var(--s1) var(--s2);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.stage-bar__nav a.router-link-active {
-  border: 2px solid var(--ink);
-  background: var(--warn);
-  color: var(--ink);
 }
 
 .stage-bar__meta {
