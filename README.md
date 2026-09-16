@@ -103,8 +103,8 @@ flowchart LR
 - **AI 模拟面试**：基于档案、历史回答和 RAG 召回生成面试题，支持追问和复盘。
 - **三类 RAG**：岗位知识库、题库、候选人画像分开维护；BM25 + pgvector 向量检索（HNSW halfvec 索引召回 + SQL 内精确余弦重打分）+ Hybrid 融合（RRF / 加权可配置，默认 RRF，基于真实向量评测集对比实验选定）+ rerank + query rewrite + 命中日志。
 - **结构化输出可靠性**：LLM 输出经三段降级链（json_schema 严格模式 → function calling 强制模式 → 自由 JSON + 校验失败定向重试），异常按传输/格式分层处理，失败自动降级并记录链路 trace，`LLM_STRUCTURED_OUTPUT=legacy` 一键回滚旧通道。
-- **Agent/LangGraph 编排**：生产主线为固定流水线图（决策由规则策略 + LLM 双层给出）；`langgraph_agent_v3` 实验运行时已注册灰度——plan⇄tools 条件路由循环，模型自主选择检索工具与查询词，规则 guardrail 可覆盖模型建议，双保险步数上限。
-- **MCP 服务（可选）**：官方 mcp SDK v2 实现，暴露 Tools（三检索/出题/复盘）、Resources（知识库目录）、Prompts（面试官/教练 persona），默认关闭，启用需 `--profile mcp`；客户端带内容清洗、超时与进程内回落。
+- **Agent/LangGraph 编排**：生产默认 `langgraph_agent_v3` 真图运行时——plan⇄tools 条件路由循环，模型自主选择检索工具与查询词，规则 guardrail 可覆盖模型建议，双保险步数上限；决策与工具轨迹进 nodeTrace（后台诊断台可见），质量门 + classic 自动回退，结束场次空问题豁免防误回退。v1 固定流水线（`langgraph_mainline`）与 `classic` 保留为管理员一键回退链路。
+- **MCP 服务（已启用）**：官方 mcp SDK v2 实现，暴露 Tools（三检索/出题/复盘）、Resources（知识库目录）、Prompts（面试官/教练 persona）；工具按 `x-user-id` 请求头做租户隔离检索，transport 经 `MCP_AUTH_TOKEN` 共享密钥校验（compose 内网 + 密钥双重边界）；客户端带内容清洗、超时与进程内回落（回落链路同样按用户隔离）。
 - **复盘报告**：保存面试记录，生成逐题复盘、出题依据、薄弱点和训练计划。
 - **薄弱点训练**：根据报告 weakTags 生成训练任务，提供专项练习、参考答案、纠正建议和下一步练习。
 - **管理员诊断工作台**：按面试记录查看 RAG 命中、Agent 决策、AI 请求 trace、知识库健康和基础设施状态。
@@ -230,6 +230,6 @@ data/             本地开发数据目录，真实数据库文件不提交
 
 ## 当前边界
 
-已完成公网 IP 演示、核心面试闭环、RAG seed、PostgreSQL(pgvector)/Redis/Celery/Nginx 容器编排、后台诊断工作台、结构化输出降级链与 RRF 融合（生产已启用）。尚未接入域名和 HTTPS；`langgraph_agent_v3` 实验运行时已注册但未接入路由层（待 shadow 观察后切换）；MCP 服务默认关闭（待租户隔离方案后启用）；统一 trace id 全链路字段、完整监控告警、数据库定时备份自动化留待后续阶段。
+已完成公网 IP 演示、核心面试闭环、RAG seed、PostgreSQL(pgvector)/Redis/Celery/Nginx 容器编排、后台诊断工作台、结构化输出降级链与 RRF 融合（生产已启用）。`langgraph_agent_v3` 已切为生产默认运行时（2026-09-16，无真实流量故以质量门 + classic 回退 + 管理员一键回退替代 shadow 观察）；MCP 服务已在生产启用（租户隔离 + 共享密钥）。尚未接入域名和 HTTPS；统一 trace id 全链路字段、完整监控告警、数据库定时备份自动化按当前阶段决策延后。
 
 下一阶段更适合做展示材料、部署安全收口和少量演示数据优化，而不是继续无限加功能。项目真实状态以 [docs/roadmap/current-state.md](docs/roadmap/current-state.md) 为准。

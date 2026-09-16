@@ -11,6 +11,12 @@ import pytest
 
 from backend_python.security import reset_security_state
 
+# 临时库自举 schema：此前部分测试隐式依赖本地 dev 库已建好的表
+# （隔离修复后暴露），统一在会话启动时 create_all，全部测试自包含。
+from backend_python.database import init_db
+
+init_db()
+
 
 @pytest.fixture(autouse=True)
 def reset_security_state_between_tests() -> None:

@@ -40,7 +40,7 @@ export const useInterviewStore = defineStore("interview", () => {
   const decisionSummary = ref("");
   const ragReasons = ref<string[]>([]);
   const agentMode = ref<interviewApi.AgentMode>("coach");
-  const agentRuntime = ref<interviewApi.AgentRuntime>("langgraph_mainline");
+  const agentRuntime = ref<interviewApi.AgentRuntime>("langgraph_agent_v3");
   const lastRuntimeAudit = ref<interviewApi.RuntimeAuditSummary | null>(null);
   const lastWorkflowTrace = ref<interviewApi.WorkflowTraceItem[]>([]);
   const lastCheckpointSummary = ref<Record<string, unknown> | null>(null);

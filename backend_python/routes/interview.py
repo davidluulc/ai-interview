@@ -914,7 +914,7 @@ async def next_question(
             decision=agent_decision,
         )
 
-    if runtime_policy["allowedRuntime"] in {"shadow", "langgraph", "langgraph_mainline"}:
+    if runtime_policy["allowedRuntime"] in {"shadow", "langgraph", "langgraph_mainline", "langgraph_agent_v3"}:
         async def classic_runner(**kwargs: Any) -> dict[str, Any]:
             return {
                 "question": {
@@ -975,6 +975,8 @@ async def next_question(
                 else "langgraph_canary"
                 if runtime_policy["requestedRuntime"] == "langgraph_canary"
                 else "langgraph_mainline"
+                if runtime_policy["allowedRuntime"] == "langgraph_mainline"
+                else "langgraph_agent_v3"
             ),
             thread_id=runtime_thread_id,
             classic_runner=classic_runner,
@@ -982,6 +984,14 @@ async def next_question(
             payload={
                 "answer": str((payload.history[-1] if payload.history else {}).get("answer") or ""),
                 "recentQuestions": [str(item.get("question") or "") for item in payload.history if item.get("question")],
+                # v3 分派键（agent_runtime.run_agent_runtime 的 v3 分支读取）：
+                # 档案/历史/阶段/模式 + 作用域（档案 id、当前用户 id 供检索隔离）。
+                "profile": payload.profile,
+                "history": payload.history,
+                "next_stage": payload.nextStage,
+                "agent_mode": payload.agentMode,
+                "application_profile_id": payload.applicationProfileId,
+                "user_id": current_user.id,
             },
         )
         runtime_audit = runtime_result.get("runtimeAudit") if isinstance(runtime_result.get("runtimeAudit"), dict) else runtime_audit
@@ -1002,10 +1012,17 @@ async def next_question(
             )
             checkpoint_summary_store.save_summary(checkpoint_summary)
             save_checkpoint_summary(db, checkpoint_summary)
-        if runtime_result.get("visibleRuntime") in {"langgraph", "langgraph_mainline"}:
+        if runtime_result.get("visibleRuntime") in {"langgraph", "langgraph_mainline", "langgraph_agent_v3"}:
             question = runtime_result.get("question") if isinstance(runtime_result.get("question"), dict) else {}
             prompt = str(question.get("prompt") or question.get("content") or classic_response["prompt"])
             decision = runtime_result.get("decision") if isinstance(runtime_result.get("decision"), dict) else {}
+            # v3 的 decision 来自图自身的 plan/decide 节点，不带经典链路按历史
+            # 薄弱点算出的策略数据；这些是 runtime 无关的真实计算结果，并入响应
+            # （v3 自身的决策键优先，只补缺失的增强键）。
+            if runtime_result.get("visibleRuntime") == "langgraph_agent_v3":
+                for enrich_key in ("weaknessStrategy", "triggerRules", "trainingTemplateHint"):
+                    if enrich_key not in decision and enrich_key in agent_decision:
+                        decision = {**decision, enrich_key: agent_decision[enrich_key]}
             write_agent_log(audit=runtime_audit, quality_gate=runtime_result.get("qualityGate") if isinstance(runtime_result.get("qualityGate"), dict) else {})
             return {
                 "stage": str(question.get("stage") or classic_response["stage"]),
@@ -1017,7 +1034,15 @@ async def next_question(
                     "runtimeAudit": runtime_audit,
                     "qualityGate": runtime_result.get("qualityGate") or {},
                 },
-                "decisionSummary": str(decision.get("decisionSummary") or decision.get("reason") or classic_response["decisionSummary"]),
+                # v3 的 decisionSummary 常是规划层的诊断说明（降级时尤甚）；
+                # 面向用户的摘要（含薄弱点策略语境）由经典路径生成、与 runtime
+                # 无关，v3 分支优先采用，缺失时回落 v3 自己的说明。
+                "decisionSummary": (
+                    str(classic_response.get("decisionSummary"))
+                    if runtime_result.get("visibleRuntime") == "langgraph_agent_v3"
+                    and str(classic_response.get("decisionSummary") or "").strip()
+                    else str(decision.get("decisionSummary") or decision.get("reason") or classic_response["decisionSummary"])
+                ),
                 "ragReasons": rag_reasons,
                 "runtimeAudit": runtime_audit,
                 "workflowTrace": runtime_result.get("runtimeTrace") if isinstance(runtime_result.get("runtimeTrace"), list) else [],

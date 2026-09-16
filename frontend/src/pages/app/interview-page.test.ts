@@ -16,7 +16,7 @@ const interviewStore = {
   decisionSummary: "当前处于学习辅导模式，会先确认基础概念。",
   ragReasons: ["命中岗位知识库：FastAPI"],
   agentMode: "coach" as "coach" | "interview",
-  agentRuntime: "langgraph_mainline" as "langgraph_mainline" | "classic" | "shadow" | "langgraph_canary",
+  agentRuntime: "langgraph_mainline" as "langgraph_agent_v3" | "langgraph_agent_v3" | "langgraph_mainline" | "classic" | "shadow" | "langgraph_canary",
   lastRuntimeAudit: null as null | { visibleRuntime?: string; fallbackUsed?: boolean },
   lastWorkflowTrace: [] as Array<{ nodeName?: string; node?: string }>,
   lastCheckpointSummary: null as null | Record<string, unknown>,
@@ -31,7 +31,7 @@ const interviewStore = {
   setAgentMode: vi.fn((mode: "coach" | "interview") => {
     interviewStore.agentMode = mode;
   }),
-  setAgentRuntime: vi.fn((runtime: "langgraph_mainline" | "classic" | "shadow" | "langgraph_canary") => {
+  setAgentRuntime: vi.fn((runtime: "langgraph_agent_v3" | "langgraph_agent_v3" | "langgraph_mainline" | "classic" | "shadow" | "langgraph_canary") => {
     interviewStore.agentRuntime = runtime;
   }),
   updateSessionConfig: vi.fn((config: Record<string, unknown>) => {
@@ -114,7 +114,7 @@ describe("interview page", () => {
     interviewStore.resetSession.mockClear();
     interviewStore.startInterview.mockReset();
     interviewStore.agentMode = "coach";
-    interviewStore.agentRuntime = "langgraph_mainline";
+    interviewStore.agentRuntime = "langgraph_agent_v3";
     interviewStore.sessionStatus = "idle";
     interviewStore.hasStarted = false;
     interviewStore.canSubmitAnswer = false;
@@ -198,7 +198,7 @@ describe("interview page", () => {
       expect.objectContaining({
         applicationProfileId: 3,
         agentMode: "coach",
-        agentRuntime: "langgraph_mainline",
+        agentRuntime: "langgraph_agent_v3",
         profile: expect.objectContaining({
           title: "后端实习投递",
           targetRole: "Python 后端开发实习生",
@@ -428,6 +428,12 @@ describe("interview page", () => {
     const wrapper = mountPage();
 
     expect(wrapper.text()).toContain("实验链路");
+    // v3 为默认主线（active），v1 主线保留为回退按钮
+    expect(wrapper.get('[data-testid="runtime-langgraph-agent-v3"]').classes()).toContain("active");
+    expect(wrapper.find('[data-testid="runtime-langgraph-mainline"]').exists()).toBe(true);
+
+    await wrapper.get('[data-testid="runtime-langgraph-mainline"]').trigger("click");
+    expect(interviewStore.setAgentRuntime).toHaveBeenCalledWith("langgraph_mainline");
 
     await wrapper.get('[data-testid="runtime-langgraph-canary"]').trigger("click");
     await wrapper.get('[data-testid="draft-input"]').setValue("我的回答。");

@@ -596,8 +596,9 @@ def test_v3_runner_passes_recursion_limit():
 
 def test_normalize_agent_runtime_accepts_langgraph_agent_v3() -> None:
     assert normalize_agent_runtime("langgraph_agent_v3") == "langgraph_agent_v3"
-    # 未知 runtime 仍然回退默认 mainline
-    assert normalize_agent_runtime("totally_unknown_runtime") == "langgraph_mainline"
+    # 未知 runtime 回退默认 v3 主线（classic / langgraph_mainline 保留为显式回退）
+    assert normalize_agent_runtime("totally_unknown_runtime") == "langgraph_agent_v3"
+    assert normalize_agent_runtime(None) == "langgraph_agent_v3"
 
 
 def test_agent_runtime_dispatches_langgraph_agent_v3(monkeypatch) -> None:
@@ -744,3 +745,81 @@ def test_build_langgraph_v3_tool_fns_scopes_retrieval_with_user_and_db(monkeypat
     # application_profile_id 一并下发，保证用户隔离
     assert by_tool["memory"]["args"] == (sentinel_db, {})
     assert by_tool["memory"]["kwargs"] == {"limit": 3, "user_id": 7, "application_profile_id": 9}
+
+
+# ---------------------------------------------------------------------------
+# v3 结束面试：空问题 + 无 checkpoint 是正常收尾，质量门豁免不触发 classic 回退
+# ---------------------------------------------------------------------------
+
+
+def test_agent_runtime_v3_end_interview_passes_gate_without_fallback(monkeypatch) -> None:
+    async def fake_run_interview_graph_v3(**kwargs):
+        return {
+            "question": {},
+            "decision": {"nextAction": "end_interview", "difficulty": "medium"},
+            "checkpointSummary": {"enabled": False},
+            "nodeTrace": [{"node": "decide_next_action", "nextAction": "end_interview"}],
+        }
+
+    monkeypatch.setattr(graph_v3, "run_interview_graph_v3", fake_run_interview_graph_v3)
+
+    async def classic_runner(**kwargs):
+        raise AssertionError("结束面试的正常收尾不应回退 classic")
+
+    async def langgraph_runner(**kwargs):
+        raise AssertionError("v3 主线不应调用 v2 runner")
+
+    result = asyncio.run(
+        run_agent_runtime(
+            agent_runtime="langgraph_agent_v3",
+            thread_id="runtime-v3-end",
+            classic_runner=classic_runner,
+            langgraph_runner=langgraph_runner,
+            payload={"answer": "结束吧", "recentQuestions": ["什么是 RAG？"]},
+        )
+    )
+
+    assert result["runtime"] == "langgraph_agent_v3"
+    assert result["visibleRuntime"] == "langgraph_agent_v3"
+    assert result["fallbackRuntime"] == ""
+    assert result["qualityGate"]["passed"] is True
+    assert result["qualityGate"]["endOfInterviewExempt"] is True
+    assert result["qualityGate"]["checks"]["nonEmptyQuestion"] is True
+    assert result["runtimeTrace"] == [{"node": "decide_next_action", "nextAction": "end_interview"}]
+
+
+def test_agent_runtime_v3_bad_decision_still_falls_back_even_at_end(monkeypatch) -> None:
+    """豁免只覆盖空问题/无 checkpoint/重复检查：决策本身不合法时仍必须回退。"""
+
+    async def fake_run_interview_graph_v3(**kwargs):
+        return {
+            "question": {},
+            "decision": {"nextAction": "totally_bogus_action", "difficulty": "medium"},
+            "checkpointSummary": {"enabled": False},
+        }
+
+    monkeypatch.setattr(graph_v3, "run_interview_graph_v3", fake_run_interview_graph_v3)
+
+    async def classic_runner(**kwargs):
+        return {
+            "question": {"content": "classic fallback question"},
+            "decision": {"nextAction": "deep_follow_up", "difficulty": "medium"},
+        }
+
+    async def langgraph_runner(**kwargs):
+        return {}
+
+    result = asyncio.run(
+        run_agent_runtime(
+            agent_runtime="langgraph_agent_v3",
+            thread_id="runtime-v3-bogus",
+            classic_runner=classic_runner,
+            langgraph_runner=langgraph_runner,
+            payload={"answer": "嗯"},
+        )
+    )
+
+    assert result["runtime"] == "classic"
+    assert result["visibleRuntime"] == "classic"
+    assert result["fallbackRuntime"] == "classic"
+    assert result["qualityGate"]["passed"] is False

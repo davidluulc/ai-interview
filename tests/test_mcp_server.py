@@ -86,3 +86,52 @@ def test_call_tool_retrieve_role_knowledge_returns_list(monkeypatch, tmp_path) -
     # v2 SDK 将 list 返回值包裹为 {"result": [...]}（structured_content）。
     assert isinstance(result.structured_content, dict)
     assert isinstance(result.structured_content.get("result"), list)
+
+
+# ---------------------------------------------------------------------------
+# 租户隔离：_scoped_user_id 从请求头取调用者，工具检索按该用户执行
+# ---------------------------------------------------------------------------
+
+
+class _FakeCtx:
+    def __init__(self, headers):
+        self.headers = headers
+
+
+def test_scoped_user_id_reads_header_with_fallbacks() -> None:
+    from mcp_server.server import SERVICE_USER_ID, _scoped_user_id
+
+    assert _scoped_user_id(_FakeCtx({"x-user-id": "42"})) == 42
+    assert _scoped_user_id(_FakeCtx({"X-User-Id": "7"})) == 7
+    # 缺失/非法/零/负数 → 服务账号回落
+    assert _scoped_user_id(_FakeCtx({})) == SERVICE_USER_ID
+    assert _scoped_user_id(_FakeCtx({"x-user-id": "abc"})) == SERVICE_USER_ID
+    assert _scoped_user_id(_FakeCtx({"x-user-id": "0"})) == SERVICE_USER_ID
+    assert _scoped_user_id(_FakeCtx({"x-user-id": "-3"})) == SERVICE_USER_ID
+    # stdio / 无上下文 → 服务账号
+    assert _scoped_user_id(None) == SERVICE_USER_ID
+
+
+def test_retrieve_tools_pass_scoped_user_id_into_retrieval(monkeypatch) -> None:
+    """HTTP 带头的调用者 user id 必须传进检索层（隔离 A/B 的关键路径）。"""
+    recorded: list[dict] = []
+
+    def fake_retrieve_chunks(db, *, user_id, knowledge_base, query, limit, mode):
+        recorded.append({"user_id": user_id, "kb": knowledge_base})
+        return []
+
+    monkeypatch.setattr(mcp_server_module, "retrieve_chunks", fake_retrieve_chunks)
+    monkeypatch.setattr(mcp_server_module, "SessionLocal", lambda: _NullSession())
+
+    fn = mcp_server_module.retrieve_candidate_profile  # @mcp.tool() 原样返回函数本体
+    fn(query="q", limit=2, ctx=_FakeCtx({"x-user-id": "99"}))
+    assert recorded == [{"user_id": 99, "kb": "candidate_memory"}]
+
+    # 无头部（stdio/进程内形态）→ 服务账号回落
+    fn(query="q", limit=2, ctx=None)
+    assert recorded[-1] == {"user_id": mcp_server_module.SERVICE_USER_ID, "kb": "candidate_memory"}
+
+
+class _NullSession:
+    def close(self):
+        pass

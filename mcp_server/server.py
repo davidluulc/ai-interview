@@ -1,8 +1,14 @@
 """MCP server: 将 AI 面试后端的核心服务暴露为 MCP 工具。
 
-已知限制与待办：
-- 服务账号模式：所有检索固定 user_id=1（可见 user_id=1 的私有数据 + 全部公共数据）。
-  多租户经 MCP 上下文传递 user_id 为后续待办（current-state 待办）。
+租户隔离（已实现）：
+- HTTP transport 下每个工具经 ``ctx.headers["x-user-id"]`` 取调用者 user id，
+  检索按该用户隔离（自己的私有数据 + 全部公共数据）；头部缺失/非法时回落
+  服务账号 SERVICE_USER_ID=1（stdio 与进程内演示场景）。
+- 信任边界说明：SDK 文档明确 headers 为客户端自报，不构成身份证明；
+  生产上真正的边界是 compose 内网（mcp 服务只 expose 不发布端口）+
+  ``MCP_AUTH_TOKEN`` 共享密钥（run_http 的 transport 层校验 x-mcp-token）。
+
+其他要点：
 - 每个工具独立创建 SessionLocal 并在 finally 中关闭，工具间不共享数据库会话。
 - 出题/复盘工具包装 backend_python/routes/interview.py 的核心模型调用路径
   （RAG 上下文检索 + NEXT_QUESTION_SYSTEM_PROMPT/REPORT_SYSTEM_PROMPT + call_model）。
@@ -31,7 +37,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from mcp.server.mcpserver import MCPServer  # noqa: E402
+from mcp.server.mcpserver import Context, MCPServer  # noqa: E402
 
 from backend_python.candidate_memory import (  # noqa: E402
     build_candidate_profile,
@@ -61,18 +67,35 @@ from backend_python.retrieval_service import retrieve_chunks  # noqa: E402
 
 mcp = MCPServer("ai-interview-rag")
 
-# 服务账号：MCP 检索统一使用 user_id=1（多租户上下文传递为后续待办）。
+# 服务账号：HTTP 头部未携带调用者 user id 时的回落（stdio/演示场景）。
 SERVICE_USER_ID = 1
 
 
+def _scoped_user_id(ctx: Context | None) -> int:
+    """租户隔离：优先读请求头 x-user-id，非法/缺失回落服务账号。
+
+    进程内调用（无 HTTP 请求）时 SDK 会注入无请求上下文的 Context，
+    其 .headers 访问抛 ValueError——按无头部处理，回落服务账号。
+    """
+    try:
+        headers = ctx.headers
+    except (ValueError, AttributeError):
+        headers = None
+    if headers:
+        raw = str(headers.get("x-user-id") or headers.get("X-User-Id") or "").strip()
+        if raw.isdigit() and int(raw) > 0:
+            return int(raw)
+    return SERVICE_USER_ID
+
+
 @mcp.tool()
-def retrieve_role_knowledge(query: str, limit: int = 3) -> list[dict]:
-    """按查询词检索岗位知识库（BM25）。返回 title/content/score/metadata。"""
+def retrieve_role_knowledge(query: str, limit: int = 3, ctx: Context = None) -> list[dict]:
+    """按查询词检索岗位知识库（BM25），按 x-user-id 调用者隔离。返回 title/content/score/metadata。"""
     db = SessionLocal()
     try:
         return retrieve_chunks(
             db,
-            user_id=SERVICE_USER_ID,
+            user_id=_scoped_user_id(ctx),
             knowledge_base="role_knowledge",
             query=query,
             limit=limit,
@@ -83,13 +106,13 @@ def retrieve_role_knowledge(query: str, limit: int = 3) -> list[dict]:
 
 
 @mcp.tool()
-def retrieve_question_bank(query: str, limit: int = 3) -> list[dict]:
-    """按查询词检索题库（BM25）。返回 title/content/score/metadata。"""
+def retrieve_question_bank(query: str, limit: int = 3, ctx: Context = None) -> list[dict]:
+    """按查询词检索题库（BM25），按 x-user-id 调用者隔离。返回 title/content/score/metadata。"""
     db = SessionLocal()
     try:
         return retrieve_chunks(
             db,
-            user_id=SERVICE_USER_ID,
+            user_id=_scoped_user_id(ctx),
             knowledge_base="question_bank",
             query=query,
             limit=limit,
@@ -100,13 +123,13 @@ def retrieve_question_bank(query: str, limit: int = 3) -> list[dict]:
 
 
 @mcp.tool()
-def retrieve_candidate_profile(query: str, limit: int = 3) -> list[dict]:
-    """按查询词检索候选人画像知识库（BM25，KB 实名 candidate_memory）。返回 title/content/score/metadata。"""
+def retrieve_candidate_profile(query: str, limit: int = 3, ctx: Context = None) -> list[dict]:
+    """按查询词检索候选人画像知识库（BM25，KB 实名 candidate_memory），按 x-user-id 调用者隔离。"""
     db = SessionLocal()
     try:
         return retrieve_chunks(
             db,
-            user_id=SERVICE_USER_ID,
+            user_id=_scoped_user_id(ctx),
             knowledge_base="candidate_memory",
             query=query,
             limit=limit,
@@ -117,22 +140,23 @@ def retrieve_candidate_profile(query: str, limit: int = 3) -> list[dict]:
 
 
 @mcp.tool()
-def draft_interview_question(profile_json: str, stage: str) -> dict:
+def draft_interview_question(profile_json: str, stage: str, ctx: Context = None) -> dict:
     """基于候选人画像 JSON 与阶段生成下一道面试题。
 
     包装 routes/interview.py next_question 的核心路径：三路 RAG 上下文
     （岗位知识/题库/候选人画像，复用 retrieve_role_context / retrieve_questions /
-    retrieve_candidate_memory）+ NEXT_QUESTION_SYSTEM_PROMPT + call_model
-    （temperature=0.7，asyncio.run 驱动）。返回 {stage, stability, focus, prompt}。
-    无 history 参数（固定空历史），路由层 agent 编排/守门/审计不复刻；
-    模型未返回 prompt 时抛错（与路由行为一致）。
+    retrieve_candidate_memory，按 x-user-id 调用者隔离）+
+    NEXT_QUESTION_SYSTEM_PROMPT + call_model（temperature=0.7，asyncio.run 驱动）。
+    返回 {stage, stability, focus, prompt}。无 history 参数（固定空历史），
+    路由层 agent 编排/守门/审计不复刻；模型未返回 prompt 时抛错（与路由行为一致）。
     """
+    user_id = _scoped_user_id(ctx)
     profile: dict[str, Any] = json.loads(profile_json)
     db = SessionLocal()
     try:
-        role_hits = retrieve_role_context(profile, stage, limit=3, db=db, user_id=SERVICE_USER_ID)
-        question_hits = retrieve_questions(profile, stage, limit=3, db=db, user_id=SERVICE_USER_ID)
-        memories = retrieve_candidate_memory(db, profile, limit=5, user_id=SERVICE_USER_ID)
+        role_hits = retrieve_role_context(profile, stage, limit=3, db=db, user_id=user_id)
+        question_hits = retrieve_questions(profile, stage, limit=3, db=db, user_id=user_id)
+        memories = retrieve_candidate_memory(db, profile, limit=5, user_id=user_id)
         messages = [
             {"role": "system", "content": NEXT_QUESTION_SYSTEM_PROMPT},
             build_context_message("岗位知识库 RAG 命中资料", format_role_context(role_hits)),
@@ -162,23 +186,25 @@ def draft_interview_question(profile_json: str, stage: str) -> dict:
 
 
 @mcp.tool()
-def generate_interview_report(profile_json: str, answers_json: str) -> dict:
+def generate_interview_report(profile_json: str, answers_json: str, ctx: Context = None) -> dict:
     """基于候选人画像 JSON 与逐题回答 JSON 生成面试复盘报告。
 
     包装 routes/interview.py interview_report 的核心路径：三路 RAG 上下文
-    （与路由同参：role/question limit=4、memory limit=5、阶段“面试报告”）+
-    REPORT_SYSTEM_PROMPT + call_model（temperature=0.2，asyncio.run 驱动）。
-    返回模型输出的报告 JSON（score/strengths/risks/actions/questionReviews/
-    trainingPlan…）；路由层后处理（build_question_reviews 等，位于 FastAPI
-    路由模块）不在 MCP 工具内复刻。
+    （与路由同参：role/question limit=4、memory limit=5、阶段“面试报告”，
+    按 x-user-id 调用者隔离）+ REPORT_SYSTEM_PROMPT + call_model
+    （temperature=0.2，asyncio.run 驱动）。返回模型输出的报告 JSON
+    （score/strengths/risks/actions/questionReviews/trainingPlan…）；
+    路由层后处理（build_question_reviews 等，位于 FastAPI 路由模块）
+    不在 MCP 工具内复刻。
     """
+    user_id = _scoped_user_id(ctx)
     profile: dict[str, Any] = json.loads(profile_json)
     answers: list[Any] = json.loads(answers_json)
     db = SessionLocal()
     try:
-        role_hits = retrieve_role_context(profile, "面试报告", limit=4, db=db, user_id=SERVICE_USER_ID)
-        question_hits = retrieve_questions(profile, "面试报告", limit=4, db=db, user_id=SERVICE_USER_ID)
-        memories = retrieve_candidate_memory(db, profile, limit=5, user_id=SERVICE_USER_ID)
+        role_hits = retrieve_role_context(profile, "面试报告", limit=4, db=db, user_id=user_id)
+        question_hits = retrieve_questions(profile, "面试报告", limit=4, db=db, user_id=user_id)
+        memories = retrieve_candidate_memory(db, profile, limit=5, user_id=user_id)
         messages = [
             {"role": "system", "content": REPORT_SYSTEM_PROMPT},
             build_context_message("岗位知识库 RAG 命中资料", format_role_context(role_hits)),
@@ -228,7 +254,7 @@ def knowledge_bases_resource() -> dict:
     ]
     return {
         "knowledgeBases": knowledge_bases,
-        "note": "三个知识库均通过对应检索工具按 BM25 检索，服务账号 user_id=1。",
+        "note": "三个知识库均通过对应检索工具按 BM25 检索，按 x-user-id 请求头隔离调用者数据。",
     }
 
 

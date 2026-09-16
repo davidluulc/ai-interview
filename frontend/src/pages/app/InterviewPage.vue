@@ -99,6 +99,22 @@
           </div>
           <div class="runtime-actions">
             <button
+              :class="{ active: interview.agentRuntime === 'langgraph_agent_v3' }"
+              data-testid="runtime-langgraph-agent-v3"
+              type="button"
+              @click="interview.setAgentRuntime('langgraph_agent_v3')"
+            >
+              v3 主线
+            </button>
+            <button
+              :class="{ active: interview.agentRuntime === 'langgraph_mainline' }"
+              data-testid="runtime-langgraph-mainline"
+              type="button"
+              @click="interview.setAgentRuntime('langgraph_mainline')"
+            >
+              v1 主线回退
+            </button>
+            <button
               :class="{ active: interview.agentRuntime === 'classic' }"
               data-testid="runtime-classic"
               type="button"
@@ -157,13 +173,14 @@ const auth = useAuthStore();
 const finishingReport = ref(false);
 
 const RUNTIME_LABELS: Record<interviewApi.AgentRuntime, string> = {
-  langgraph_mainline: "主线",
+  langgraph_agent_v3: "v3 主线",
+  langgraph_mainline: "v1 主线",
   classic: "稳定链路",
   shadow: "旁路对比",
   langgraph_canary: "LangGraph 灰度"
 };
 
-const runtimeLabel = computed(() => RUNTIME_LABELS[interview.agentRuntime] || "主线");
+const runtimeLabel = computed(() => RUNTIME_LABELS[interview.agentRuntime] || "v3 主线");
 
 const guardrailActive = computed(
   () => interview.lastFallbackSummary?.used === true || interview.lastRuntimeAudit?.fallbackUsed === true

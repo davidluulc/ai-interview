@@ -367,9 +367,11 @@ def test_build_streamable_http_factory_connects_initializes_and_enforces_timeout
 
     events: list[str] = []
     seen_streams: dict = {}
+    seen_transport_kwargs: dict = {}
 
     @asynccontextmanager
-    async def fake_transport(url):
+    async def fake_transport(url, **kwargs):
+        seen_transport_kwargs.update(kwargs)
         events.append(f"transport-enter:{url}")
         try:
             yield ("read-stream", "write-stream", lambda: "session-id")
@@ -420,7 +422,7 @@ def test_build_streamable_http_factory_connects_initializes_and_enforces_timeout
 
     # connect+initialize 超预算 → 异常上抛，由 call_tool_with_fallback 回退 in-process
     @asynccontextmanager
-    async def stuck_transport(url):
+    async def stuck_transport(url, **kwargs):
         await asyncio.sleep(999)
         yield  # pragma: no cover
 
@@ -475,11 +477,18 @@ def test_v3_dispatch_switches_tool_fns_on_mcp_tools_enabled(monkeypatch) -> None
     async def langgraph_runner(**kwargs):
         return {"nextQuestion": {"content": "v2 question"}}
 
+    captured_stub: dict = {}
+
+    def fake_build_mcp_tool_fns(factory, **kwargs):
+        captured_stub.update(kwargs)
+        captured_stub["factory"] = factory
+        return sentinel
+
     monkeypatch.setattr(graph_v3_module, "run_interview_graph_v3", fake_run_interview_graph_v3)
-    monkeypatch.setattr(agent_runtime_module, "build_mcp_tool_fns", lambda factory: sentinel)
+    monkeypatch.setattr(agent_runtime_module, "build_mcp_tool_fns", fake_build_mcp_tool_fns)
     monkeypatch.setattr(agent_runtime_module, "mcp_tools_enabled", lambda: True)
 
-    payload = {"profile": {"targetRole": "后端"}, "answer": "还好"}
+    payload = {"profile": {"targetRole": "后端"}, "answer": "还好", "user_id": 77}
     result = asyncio.run(
         agent_runtime_module.run_agent_runtime(
             agent_runtime="langgraph_agent_v3",
@@ -491,6 +500,8 @@ def test_v3_dispatch_switches_tool_fns_on_mcp_tools_enabled(monkeypatch) -> None
     )
     assert result["visibleRuntime"] == "langgraph_agent_v3"
     assert captured["tool_fns"] is sentinel
+    # 调用者 user_id 必须传给 MCP 工具包装（服务端租户隔离 + in-process 回退隔离）
+    assert captured_stub["user_id"] == 77
 
     # 默认关闭 → 应用内闭包（不经 build_mcp_tool_fns，形状与 v3 tools 约定一致）
     monkeypatch.setattr(agent_runtime_module, "mcp_tools_enabled", lambda: False)
@@ -514,3 +525,121 @@ def test_v3_dispatch_switches_tool_fns_on_mcp_tools_enabled(monkeypatch) -> None
 
 def _ok(structured_content: dict) -> FakeCallToolResult:
     return FakeCallToolResult(structured_content=structured_content)
+
+
+# ---------------------------------------------------------------------------
+# 8. 租户隔离头部注入 + in-process 回退的用户作用域
+# ---------------------------------------------------------------------------
+
+
+def test_build_mcp_headers_assembles_user_and_token_headers() -> None:
+    import backend_python.mcp_tools_client as mtc
+
+    assert mtc.build_mcp_headers(None) == {}
+    assert mtc.build_mcp_headers(42) == {"x-user-id": "42"}
+    assert mtc.build_mcp_headers(42, auth_token="s3cret") == {
+        "x-user-id": "42",
+        "x-mcp-token": "s3cret",
+    }
+    assert mtc.build_mcp_headers(None, auth_token="s3cret") == {"x-mcp-token": "s3cret"}
+
+
+def test_streamable_http_factory_injects_headers_via_http_client(monkeypatch) -> None:
+    """SDK 2.2.0 约定：自定义头部经预配置 httpx.AsyncClient(http_client=) 注入。"""
+    import mcp as mcp_pkg
+
+    import backend_python.mcp_tools_client as mtc
+
+    seen: dict = {}
+
+    class FakeClientSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def initialize(self):
+            seen["initialized"] = True
+
+    @asynccontextmanager
+    async def fake_transport(url, **kwargs):
+        seen["url"] = url
+        seen["http_client_headers"] = dict(getattr(kwargs.get("http_client"), "headers", {}) or {})
+        yield ("read", "write", lambda: "sid")
+
+    monkeypatch.setattr("mcp.client.streamable_http.streamable_http_client", fake_transport)
+    monkeypatch.setattr(mcp_pkg, "ClientSession", lambda read, write: FakeClientSession())
+
+    factory = mtc.build_streamable_http_factory(
+        "http://mcp:8000/mcp",
+        headers={"x-user-id": "42", "x-mcp-token": "s3cret"},
+    )
+
+    async def run() -> None:
+        async with factory() as session:
+            assert isinstance(session, FakeClientSession)
+
+    asyncio.run(run())
+    assert seen["url"] == "http://mcp:8000/mcp"
+    # httpx 会合并默认头（accept/user-agent 等），断言注入头为子集
+    headers = seen["http_client_headers"]
+    assert headers.get("x-user-id") == "42"
+    assert headers.get("x-mcp-token") == "s3cret"
+    assert seen["initialized"] is True
+
+
+def test_in_process_fallbacks_scope_retrieval_by_user_id(monkeypatch) -> None:
+    """user_id 传入后，MCP 失败/关闭时的应用内检索必须按同一用户隔离。"""
+    import backend_python.candidate_memory as candidate_memory_module
+    import backend_python.mcp_tools_client as mtc
+    import backend_python.question_rag as question_rag_module
+    import backend_python.rag as rag_module
+
+    recorded: list[dict] = []
+
+    def fake_role(profile, query, *, limit, db, user_id):
+        recorded.append({"fn": "role", "user_id": user_id})
+        return []
+
+    def fake_question(profile, query, *, limit, db, user_id):
+        recorded.append({"fn": "question", "user_id": user_id})
+        return []
+
+    class _FakeSession:
+        def close(self):
+            pass
+
+    def fake_memory(db, profile, *, limit, user_id, application_profile_id=None):
+        recorded.append({"fn": "memory", "user_id": user_id})
+        return []
+
+    monkeypatch.setattr(rag_module, "retrieve_role_context", fake_role)
+    monkeypatch.setattr(question_rag_module, "retrieve_questions", fake_question)
+    monkeypatch.setattr(candidate_memory_module, "retrieve_candidate_memory", fake_memory)
+
+    import backend_python.mcp_tools_client as mtc_inner
+    from contextlib import contextmanager
+
+    @contextmanager
+    def fake_session_local():
+        yield _FakeSession()
+
+    monkeypatch.setattr("backend_python.database.SessionLocal", _FakeSession, raising=False)
+
+    tool_fns = mtc_inner.build_mcp_tool_fns(None, user_id=42)
+    tool_fns["retrieve_role_knowledge"]({"targetRole": "后端"}, "技术追问")
+    tool_fns["retrieve_question_bank"]({"targetRole": "后端"}, "技术追问")
+    tool_fns["retrieve_candidate_memory"]({"targetRole": "后端"}, "技术追问")
+
+    assert recorded == [
+        {"fn": "role", "user_id": 42},
+        {"fn": "question", "user_id": 42},
+        {"fn": "memory", "user_id": 42},
+    ]
+
+    # 未传 user_id：保持旧默认（None = 服务端默认作用域），行为兼容
+    recorded.clear()
+    tool_fns_default = mtc_inner.build_mcp_tool_fns(None)
+    tool_fns_default["retrieve_role_knowledge"]({"targetRole": "后端"}, "技术追问")
+    assert recorded == [{"fn": "role", "user_id": None}]

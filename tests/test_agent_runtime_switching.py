@@ -3,12 +3,24 @@ import asyncio
 from backend_python.agent_runtime import run_agent_runtime
 
 
-def test_agent_runtime_defaults_to_classic() -> None:
+def test_agent_runtime_defaults_to_langgraph_agent_v3(monkeypatch) -> None:
+    from backend_python.langgraph_agent import graph_v3
+
+    async def fake_run_interview_graph_v3(**kwargs):
+        return {
+            "question": {"content": "v3 default question"},
+            "decision": {"nextAction": "deep_follow_up", "difficulty": "medium"},
+            "checkpointSummary": {"exists": True, "threadId": kwargs["thread_id"]},
+            "nodeTrace": [{"node": "plan", "tool": "retrieve_role_knowledge"}],
+        }
+
+    monkeypatch.setattr(graph_v3, "run_interview_graph_v3", fake_run_interview_graph_v3)
+
     async def classic_runner(**kwargs):
-        return {"question": {"content": "classic question"}, "decision": {"nextAction": "deep_follow_up"}}
+        raise AssertionError("classic runner should not be called when v3 passes the quality gate")
 
     async def langgraph_runner(**kwargs):
-        raise AssertionError("langgraph runner should not be called")
+        raise AssertionError("langgraph v2 runner should not be called under v3 default")
 
     result = asyncio.run(
         run_agent_runtime(
@@ -20,10 +32,12 @@ def test_agent_runtime_defaults_to_classic() -> None:
         )
     )
 
-    assert result["runtime"] == "classic"
+    assert result["runtime"] == "langgraph_agent_v3"
     assert result["status"] == "completed"
-    assert result["question"]["content"] == "classic question"
+    assert result["question"]["content"] == "v3 default question"
     assert result["shadow"] is None
+    # v3 图输出的 nodeTrace 必须透传到 runtimeTrace（后台诊断台可观测）
+    assert result["runtimeTrace"] == [{"node": "plan", "tool": "retrieve_role_knowledge"}]
 
 
 def test_agent_runtime_runs_langgraph_mode() -> None:

@@ -3,7 +3,23 @@ from __future__ import annotations
 from typing import Any
 
 
-VALID_REQUESTED_RUNTIMES = {"classic", "shadow", "langgraph_canary", "langgraph_mainline"}
+VALID_REQUESTED_RUNTIMES = {"classic", "shadow", "langgraph_canary", "langgraph_mainline", "langgraph_agent_v3"}
+
+DEFAULT_RUNTIME = "langgraph_agent_v3"
+
+
+def _v3_policy(*, requested: str, mode: str) -> dict[str, Any]:
+    return {
+        "requestedRuntime": requested,
+        "allowedRuntime": "langgraph_agent_v3",
+        "fallbackRuntime": "classic",
+        "visibleRuntimeOnSuccess": "langgraph_agent_v3",
+        "visibleRuntimeOnFailure": "classic",
+        "canUseLangGraph": True,
+        "requiresAudit": True,
+        "agentMode": mode,
+        "reasons": ["默认使用 LangGraph agent v3 主线，classic Agent 仅作为 fallback"],
+    }
 
 
 def _mainline_policy(*, requested: str, mode: str) -> dict[str, Any]:
@@ -16,7 +32,7 @@ def _mainline_policy(*, requested: str, mode: str) -> dict[str, Any]:
         "canUseLangGraph": True,
         "requiresAudit": True,
         "agentMode": mode,
-        "reasons": ["默认使用 LangGraph mainline，classic Agent 仅作为 fallback"],
+        "reasons": ["显式回退 LangGraph mainline 稳定链路"],
     }
 
 
@@ -26,12 +42,15 @@ def decide_runtime_policy(
     user_role: str | None,
     agent_mode: str | None,
 ) -> dict[str, Any]:
-    requested = (requested_runtime or "langgraph_mainline").strip() or "langgraph_mainline"
+    requested = (requested_runtime or DEFAULT_RUNTIME).strip() or DEFAULT_RUNTIME
     role = (user_role or "user").strip().lower()
     mode = (agent_mode or "coach").strip().lower()
 
     if requested not in VALID_REQUESTED_RUNTIMES:
-        return _mainline_policy(requested="langgraph_mainline", mode=mode)
+        return _v3_policy(requested=DEFAULT_RUNTIME, mode=mode)
+
+    if requested == "langgraph_agent_v3":
+        return _v3_policy(requested="langgraph_agent_v3", mode=mode)
 
     if requested == "langgraph_mainline":
         return _mainline_policy(requested="langgraph_mainline", mode=mode)

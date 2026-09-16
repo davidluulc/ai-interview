@@ -1,7 +1,12 @@
 import { apiRequest } from "./client";
 
 export type AgentMode = "coach" | "interview";
-export type AgentRuntime = "langgraph_mainline" | "classic" | "shadow" | "langgraph_canary";
+export type AgentRuntime =
+  | "langgraph_agent_v3"
+  | "langgraph_mainline"
+  | "classic"
+  | "shadow"
+  | "langgraph_canary";
 
 export interface RuntimeAuditSummary {
   visibleRuntime?: string;
@@ -75,7 +80,7 @@ export async function nextQuestion(payload: NextQuestionPayload): Promise<NextQu
       history: payload.history || [],
       nextStage: payload.nextStage || "",
       agentMode: payload.agentMode || "coach",
-      agentRuntime: payload.agentRuntime || "langgraph_mainline",
+      agentRuntime: payload.agentRuntime || "langgraph_agent_v3",
       applicationProfileId: payload.applicationProfileId
     })
   });

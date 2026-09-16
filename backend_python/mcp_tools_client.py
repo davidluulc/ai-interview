@@ -120,28 +120,53 @@ async def call_tool_with_fallback(
         return {"result": await _await_or_call(in_process_fn), "transport": "mcp-fallback"}
 
 
+def build_mcp_headers(user_id: int | None, *, auth_token: str = "") -> dict[str, str]:
+    """组装 app→MCP 的请求头：x-user-id 供服务端租户隔离检索，
+    x-mcp-token 供 transport 层共享密钥校验（服务端 MCP_AUTH_TOKEN 同值才放行）。
+    """
+    headers: dict[str, str] = {}
+    if user_id:
+        headers["x-user-id"] = str(user_id)
+    if auth_token:
+        headers["x-mcp-token"] = auth_token
+    return headers
+
+
 def build_streamable_http_factory(
-    url: str, *, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
+    url: str,
+    *,
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    headers: dict[str, str] | None = None,
 ) -> Callable[[], Any]:
     """组装真实 streamable-http 工厂，形状满足 client_factory 约定：
     ``factory() -> async CM(yield ClientSession)``。
 
-    连接（``streamable_http_client(url)``）→ ``ClientSession`` 进入 →
-    ``initialize()`` 全部在 ``asyncio.wait_for(timeout_seconds)`` 预算内完成
-    （``call_tool_with_fallback`` 只包 call_tool 调用本身，不包连接握手）；
+    连接（``streamable_http_client(url, http_client=...)``）→ ``ClientSession``
+    进入 → ``initialize()`` 全部在 ``asyncio.wait_for(timeout_seconds)`` 预算内
+    完成（``call_tool_with_fallback`` 只包 call_tool 调用本身，不包连接握手）；
     超时/连接失败抛出的异常由 ``call_tool_with_fallback`` 捕获并回退
     in-process。SDK 2.2.0 客户端入口是
     ``mcp.client.streamable_http.streamable_http_client``（惰性导入，便于
     测试替身按源模块打桩）。
+
+    headers（x-user-id / x-mcp-token）经预配置的 ``httpx.AsyncClient`` 注入：
+    SDK 2.2.0 的 streamable_http_client 不直接收 headers 参数，官方约定是传
+    http_client 自带默认头。
     """
 
     async def _open() -> tuple[AsyncExitStack, Any]:
+        import httpx
         from mcp import ClientSession
         from mcp.client.streamable_http import streamable_http_client
 
         stack = AsyncExitStack()
         try:
-            streams = await stack.enter_async_context(streamable_http_client(url))
+            # http_client 进栈自管生命周期：SDK 2.2.0 对外部传入的 client
+            # 不承诺关闭，异常/正常退出都由 AsyncExitStack 兜底 aclose。
+            http_client = await stack.enter_async_context(httpx.AsyncClient(headers=dict(headers or {})))
+            streams = await stack.enter_async_context(
+                streamable_http_client(url, http_client=http_client)
+            )
             session = await stack.enter_async_context(ClientSession(streams[0], streams[1]))
             await session.initialize()
         except BaseException:
@@ -163,12 +188,18 @@ def build_streamable_http_factory(
     return factory
 
 
-def build_mcp_tool_fns(client_factory: Callable[[], Any] | None) -> dict[str, Callable[..., list[dict[str, Any]]]]:
+def build_mcp_tool_fns(
+    client_factory: Callable[[], Any] | None, *, user_id: int | None = None
+) -> dict[str, Callable[..., list[dict[str, Any]]]]:
     """把三个 MCP 检索工具包装成 graph_v3 的 tool_fns（键与 agent_runtime 一致）。
 
     键 → MCP 工具名映射：retrieve_candidate_memory 键对应服务端的
     retrieve_candidate_profile 工具（服务端以 KB 实名命名，graph 侧沿用
     agent_runtime 的记忆检索键名）。payload 固定 ``{"query": ..., "limit": 3}``。
+
+    user_id 双重作用：MCP 链路经 client_factory 的请求头（x-user-id）传递给
+    服务端做租户隔离；in-process 回退链路直接作为检索的 user_id（None = 服务端
+    默认作用域，与旧行为一致）。
     """
 
     def _query(next_stage: str, tool_query: str) -> str:
@@ -223,7 +254,7 @@ def build_mcp_tool_fns(client_factory: Callable[[], Any] | None) -> dict[str, Ca
         def _run() -> list[dict[str, Any]]:
             from .rag import retrieve_role_context
 
-            return retrieve_role_context(profile, query, limit=3, db=None, user_id=None)
+            return retrieve_role_context(profile, query, limit=3, db=None, user_id=user_id)
 
         return _run
 
@@ -231,7 +262,7 @@ def build_mcp_tool_fns(client_factory: Callable[[], Any] | None) -> dict[str, Ca
         def _run() -> list[dict[str, Any]]:
             from .question_rag import retrieve_questions
 
-            return retrieve_questions(profile, query, limit=3, db=None, user_id=None)
+            return retrieve_questions(profile, query, limit=3, db=None, user_id=user_id)
 
         return _run
 
@@ -243,7 +274,7 @@ def build_mcp_tool_fns(client_factory: Callable[[], Any] | None) -> dict[str, Ca
             session = SessionLocal()
             try:
                 return retrieve_memory(
-                    session, profile, limit=3, user_id=None, application_profile_id=None
+                    session, profile, limit=3, user_id=user_id, application_profile_id=None
                 )
             finally:
                 session.close()

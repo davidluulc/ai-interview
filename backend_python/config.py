@@ -63,3 +63,6 @@ def mcp_tools_enabled() -> bool:
 # langgraph_agent_v3 启用 MCP 检索工具时连接的 streamable-http 端点；
 # compose 部署经 app 服务环境覆盖为 http://mcp:8000/mcp。
 MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://127.0.0.1:8000/mcp").strip()
+
+# app→MCP 共享密钥（与 mcp 服务 MCP_AUTH_TOKEN 同值才放行）；空 = 不校验（本地开发）。
+MCP_AUTH_TOKEN = (os.getenv("MCP_AUTH_TOKEN") or "").strip()

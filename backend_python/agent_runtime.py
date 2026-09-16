@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from typing import Any, Awaitable, Callable
 
-from .config import MCP_SERVER_URL, mcp_tools_enabled
+from .config import MCP_AUTH_TOKEN, MCP_SERVER_URL, mcp_tools_enabled
 from .langgraph_agent import graph_v3
-from .mcp_tools_client import build_mcp_tool_fns, build_streamable_http_factory
+from .mcp_tools_client import (
+    build_mcp_headers,
+    build_mcp_tool_fns,
+    build_streamable_http_factory,
+)
 from .runtime_audit import build_runtime_audit
 from .runtime_compare import compare_runtime_outputs
 from .runtime_quality_gate import evaluate_runtime_quality
@@ -15,9 +19,9 @@ RuntimeRunner = Callable[..., Awaitable[dict[str, Any]]]
 
 
 def normalize_agent_runtime(value: str | None) -> str:
-    runtime = str(value or "langgraph_mainline").strip().lower()
+    runtime = str(value or "langgraph_agent_v3").strip().lower()
     allowed = {"classic", "langgraph", "shadow", "langgraph_canary", "langgraph_mainline", "langgraph_agent_v3"}
-    return runtime if runtime in allowed else "langgraph_mainline"
+    return runtime if runtime in allowed else "langgraph_agent_v3"
 
 
 def _extract_question(result: dict[str, Any]) -> dict[str, Any]:
@@ -79,6 +83,42 @@ def _failed_quality_gate(reason: str) -> dict[str, Any]:
             "validDifficulty": False,
             "checkpointAvailable": False,
         },
+    }
+
+
+# 结束面试的合法动作：此时空问题/无 checkpoint 是 v3 的正常收尾形态，
+# 不应触发质量门回退（质量门本意是拦"该出题却没出"的坏结果）。
+_V3_END_ACTIONS = {"end_interview", "finish_interview"}
+_V3_END_EXEMPT_CHECKS = {"nonEmptyQuestion", "notRepeated", "checkpointAvailable"}
+
+
+def _relax_v3_end_of_interview(
+    quality_gate: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    decision = result.get("decision") if isinstance(result.get("decision"), dict) else {}
+    if str(decision.get("nextAction") or "") not in _V3_END_ACTIONS:
+        return quality_gate
+    if quality_gate.get("passed"):
+        return quality_gate
+
+    checks = dict(quality_gate.get("checks") or {})
+    # humanReviewBlocked 语义相反（False=好），其余检查 True=好；统一折算成"真实失败集"。
+    failing = {name for name, ok in checks.items() if name != "humanReviewBlocked" and not ok}
+    if checks.get("humanReviewBlocked"):
+        failing.add("humanReviewBlocked")
+    if not failing <= _V3_END_EXEMPT_CHECKS:
+        return quality_gate
+
+    for name in _V3_END_EXEMPT_CHECKS:
+        checks[name] = True
+    return {
+        **quality_gate,
+        "passed": True,
+        "fallbackToClassic": False,
+        "riskLevel": "low",
+        "reasons": ["v3 结束面试：空问题与无 checkpoint 为正常收尾，不回退"],
+        "checks": checks,
+        "endOfInterviewExempt": True,
     }
 
 
@@ -239,6 +279,7 @@ async def run_agent_runtime(
         v3_next_stage = str(payload.get("next_stage") or payload.get("nextStage") or "")
         v3_agent_mode = str(payload.get("agent_mode") or payload.get("agentMode") or "interview")
         v3_application_profile_id = payload.get("application_profile_id") or payload.get("applicationProfileId")
+        v3_user_id = payload.get("user_id") or payload.get("userId")
         try:
             langgraph_result = await graph_v3.run_interview_graph_v3(
                 thread_id=thread_id,
@@ -249,14 +290,28 @@ async def run_agent_runtime(
                 application_profile_id=v3_application_profile_id,
                 structured_call_fn=call_model_structured,
                 # MCP 开关（MCP_TOOLS_ENABLED，默认关）：开 → 检索经 MCP server
-                # （失败自动回退应用内检索）；关 → mainline 同源的应用内闭包。
+                # （失败自动回退应用内检索；x-user-id/x-mcp-token 头随连接注入，
+                # 服务端按调用者隔离检索并校验共享密钥）；关 → mainline 同源的
+                # 应用内闭包（同样按 user_id 隔离）。
                 tool_fns=(
-                    build_mcp_tool_fns(build_streamable_http_factory(MCP_SERVER_URL))
+                    build_mcp_tool_fns(
+                        build_streamable_http_factory(
+                            MCP_SERVER_URL,
+                            headers=build_mcp_headers(v3_user_id, auth_token=MCP_AUTH_TOKEN),
+                        ),
+                        user_id=v3_user_id,
+                    )
                     if mcp_tools_enabled()
-                    else _build_langgraph_v3_tool_fns(application_profile_id=v3_application_profile_id)
+                    else _build_langgraph_v3_tool_fns(
+                        application_profile_id=v3_application_profile_id,
+                        user_id=v3_user_id,
+                    )
                 ),
             )
-            quality_gate = evaluate_runtime_quality(langgraph_result, recent_questions=recent_questions)
+            quality_gate = _relax_v3_end_of_interview(
+                evaluate_runtime_quality(langgraph_result, recent_questions=recent_questions),
+                langgraph_result,
+            )
         except Exception as exc:
             langgraph_result = _failed_langgraph_result(thread_id, exc)
             quality_gate = _failed_quality_gate("LangGraph runtime 执行失败")
@@ -273,6 +328,10 @@ async def run_agent_runtime(
             response["visibleRuntime"] = "langgraph_agent_v3"
             response["qualityGate"] = quality_gate
             response["comparisonSummary"] = None
+            # v3 图输出 nodeTrace（信封默认读 runtimeTrace），透传给后台诊断台。
+            node_trace = langgraph_result.get("nodeTrace") if isinstance(langgraph_result.get("nodeTrace"), list) else []
+            if node_trace:
+                response["runtimeTrace"] = node_trace
             response["runtimeAudit"] = build_runtime_audit(
                 policy=policy,
                 quality_gate=quality_gate,
@@ -289,7 +348,11 @@ async def run_agent_runtime(
         response["qualityGate"] = quality_gate
         response["comparisonSummary"] = None
         response["runtimeTrace"] = (
-            langgraph_result.get("runtimeTrace") if isinstance(langgraph_result.get("runtimeTrace"), list) else []
+            langgraph_result.get("runtimeTrace")
+            if isinstance(langgraph_result.get("runtimeTrace"), list)
+            else langgraph_result.get("nodeTrace")
+            if isinstance(langgraph_result.get("nodeTrace"), list)
+            else []
         )
         response["runtimeAudit"] = build_runtime_audit(
             policy=policy,

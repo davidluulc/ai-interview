@@ -8,14 +8,15 @@
 
 项目已经完成第一版公网部署，并完成了公网演示稳定化、Production UX & Auth Hardening V1、Admin & Report Productization V2 收口。
 
+2026-09-16（晚）后端运行时切换 + MCP 生产启用（main）：`langgraph_agent_v3` 切为生产默认（路由层派发/payload 五键接线/user_id 检索隔离/nodeTrace→runtimeTrace 透传/结束面试空问题质量门豁免/weaknessStrategy 并入 v3 响应）；MCP 工具按 `x-user-id` 租户隔离 + `MCP_AUTH_TOKEN` transport 共享密钥（compose 内网不发布端口，双重边界），`MCP_TOOLS_ENABLED=true` 生产启用，失败自动回退进程内检索（回退同按用户隔离）。测试 530 通过（后端）/ 268（前端）。管理员面板新增 v3 主线与 v1 回退按钮。监控告警与定时备份按用户决策延后。
 2026-09-16 前端全量重设计上线（`frontend-neobrutalism-redesign`，main @ `efc34ff`）：12 页新粗野主义 + ISO 3864 语义安全色，令牌与 16 个 Brut* 组件全部落在 `frontend/src/styles/tokens.css` 与 `frontend/src/components/brut/`，零行为变更（testid/路由/store/接口不变），前端 Vitest 167→268 全绿；经 10 页真实截图走查 + 全分支终审（AA 对比度、防伪造评分门控、语义色跨页一致性已修）。发布方式：本地构建 + `rsync` dist 到 VPS（服务器无 node），发布前 dist 备份于 VPS `~/dist-backup-0916`；`frontend/dist` 属主已从 root 修正为 ubuntu。健康门禁：公网 `/api/health` 200，`/vue/` 页面引用新构建 `index-Dg3ykN-P.js`。遗留 backlog：4 个未接线 Brut 组件（ModeSeg/ProgressBlocks/BrutEmpty/BrutSkeleton）、焦点环样式统一、行级主按钮约定统一、PrimaryButton/TextField 死代码删除。pytest 测试库隔离已于 2026-09-16 修复（`cd63b5c`，conftest 在导入后端前把 DATABASE_URL 指向会话级临时库，开发库不再进夹具）。
 
 - GitHub 仓库：`https://github.com/davidluulc/ai-interview`
 - 公网入口：`http://124.221.230.218:8080/vue/auth/login`
 - 健康检查：`http://124.221.230.218:8080/api/health`
 - 部署形态：Docker Compose + Nginx + FastAPI + PostgreSQL + Redis + Celery worker
-- 默认 Agent runtime：`langgraph_mainline`
-- 兼容 fallback runtime：`classic`
+- 默认 Agent runtime：`langgraph_agent_v3`（2026-09-16 切换；`langgraph_mainline`/`classic` 保留为回退）
+- 兼容 fallback runtime：`classic`（质量门失败自动回退 + 管理员面板一键切换）
 - 生产 embedding：`zhipu / embedding-3`
 
 当前不再处于“继续无限加功能”的阶段，而是进入“公网演示安全收口、项目讲解和简历包装”阶段。

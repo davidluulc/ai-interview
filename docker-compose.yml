@@ -35,6 +35,8 @@ services:
       # langgraph_agent_v3 检索工具经 MCP server（默认关闭；开启前需确认 mcp 服务可达）
       MCP_TOOLS_ENABLED: ${MCP_TOOLS_ENABLED:-false}
       MCP_SERVER_URL: ${MCP_SERVER_URL:-http://mcp:8000/mcp}
+      # app→MCP 共享密钥（与 mcp 服务同值才放行；空 = 不校验，仅本地开发）
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy
@@ -71,6 +73,8 @@ services:
       CELERY_TASK_ALWAYS_EAGER: ${CELERY_TASK_ALWAYS_EAGER:-false}
       MCP_HOST: 0.0.0.0
       MCP_PORT: "8000"
+      # transport 共享密钥：app 请求需带同值 x-mcp-token 头，否则 401
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy
