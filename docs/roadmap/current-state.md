@@ -8,7 +8,7 @@
 
 项目已经完成第一版公网部署，并完成了公网演示稳定化、Production UX & Auth Hardening V1、Admin & Report Productization V2 收口。
 
-2026-09-16 前端全量重设计上线（`frontend-neobrutalism-redesign`，main @ `efc34ff`）：12 页新粗野主义 + ISO 3864 语义安全色，令牌与 16 个 Brut* 组件全部落在 `frontend/src/styles/tokens.css` 与 `frontend/src/components/brut/`，零行为变更（testid/路由/store/接口不变），前端 Vitest 167→268 全绿；经 10 页真实截图走查 + 全分支终审（AA 对比度、防伪造评分门控、语义色跨页一致性已修）。发布方式：本地构建 + `rsync` dist 到 VPS（服务器无 node），发布前 dist 备份于 VPS `~/dist-backup-0916`；`frontend/dist` 属主已从 root 修正为 ubuntu。健康门禁：公网 `/api/health` 200，`/vue/` 页面引用新构建 `index-Dg3ykN-P.js`。遗留 backlog：4 个未接线 Brut 组件（ModeSeg/ProgressBlocks/BrutEmpty/BrutSkeleton）、焦点环样式统一、行级主按钮约定统一、PrimaryButton/TextField 死代码删除、pytest 测试库与开发库隔离（本地 `data/app.db` 曾积累 1 万+ 夹具用户，已清理并备份 `data/app.db.bak-0916`）。
+2026-09-16 前端全量重设计上线（`frontend-neobrutalism-redesign`，main @ `efc34ff`）：12 页新粗野主义 + ISO 3864 语义安全色，令牌与 16 个 Brut* 组件全部落在 `frontend/src/styles/tokens.css` 与 `frontend/src/components/brut/`，零行为变更（testid/路由/store/接口不变），前端 Vitest 167→268 全绿；经 10 页真实截图走查 + 全分支终审（AA 对比度、防伪造评分门控、语义色跨页一致性已修）。发布方式：本地构建 + `rsync` dist 到 VPS（服务器无 node），发布前 dist 备份于 VPS `~/dist-backup-0916`；`frontend/dist` 属主已从 root 修正为 ubuntu。健康门禁：公网 `/api/health` 200，`/vue/` 页面引用新构建 `index-Dg3ykN-P.js`。遗留 backlog：4 个未接线 Brut 组件（ModeSeg/ProgressBlocks/BrutEmpty/BrutSkeleton）、焦点环样式统一、行级主按钮约定统一、PrimaryButton/TextField 死代码删除。pytest 测试库隔离已于 2026-09-16 修复（`cd63b5c`，conftest 在导入后端前把 DATABASE_URL 指向会话级临时库，开发库不再进夹具）。
 
 - GitHub 仓库：`https://github.com/davidluulc/ai-interview`
 - 公网入口：`http://124.221.230.218:8080/vue/auth/login`
